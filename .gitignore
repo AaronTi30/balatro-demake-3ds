@@ -1,0 +1,8 @@
+build/
+build-3ds/
+*.o
+*.d
+*.3dsx
+*.smdh
+.DS_Store
+.vscode/
