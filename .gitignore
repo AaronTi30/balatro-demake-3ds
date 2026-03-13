@@ -6,3 +6,5 @@ build-3ds/
 *.smdh
 .DS_Store
 .vscode/
+.agent/
+artifacts/
