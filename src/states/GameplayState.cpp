@@ -5,6 +5,7 @@
 #include "../game/CardRenderer.h"
 #include "../game/HandEvaluator.h"
 #include "../states/TitleState.h"
+#include "../states/ShopState.h"
 
 #ifdef N3DS
 #include <3ds.h>
@@ -15,18 +16,19 @@
 
 #include <string>
 
-GameplayState::GameplayState(StateMachine* machine)
+GameplayState::GameplayState(StateMachine* machine, int ante, int money, std::vector<Joker> jokers)
     : m_cursorIndex(0), m_handsRemaining(4), m_discardsRemaining(3),
-      m_score(0), m_roundTarget(300), m_ante(1), m_round(1),
+      m_score(0), m_roundTarget(300), m_ante(ante), m_round(1),
       m_phase(RoundPhase::Playing), m_phaseTimer(0.0f),
       m_lastHandType(HandType::HighCard), m_lastChips(0), m_lastMult(0),
       m_lastScore(0), m_showResult(false), m_resultTimer(0.0f)
 {
     m_stateMachine = machine;
+    m_money = money;
+    m_jokers = jokers;
 }
 
 void GameplayState::enter() {
-    m_ante = 1;
     m_round = 1;
     m_phase = RoundPhase::Playing;
     m_phaseTimer = 0.0f;
@@ -63,6 +65,10 @@ void GameplayState::checkRoundEnd() {
             m_phase = RoundPhase::GameWon;
         } else {
             m_phase = RoundPhase::RoundWon;
+            
+            // Calculate money earned
+            int earned = 3 + m_handsRemaining + m_discardsRemaining;
+            m_money += earned;
         }
         m_phaseTimer = 0.0f;
         return;
@@ -82,7 +88,7 @@ void GameplayState::playHand() {
     if (selected.empty() || selected.size() > 5) return;
     if (m_handsRemaining <= 0) return;
 
-    HandResult result = HandEvaluator::evaluate(selected);
+    HandResult result = HandEvaluator::evaluate(selected, m_jokers);
     m_lastHandType = result.type;
     m_lastChips = result.baseChips;
     m_lastMult = result.baseMult;
@@ -132,12 +138,27 @@ void GameplayState::handleInput() {
         if (kDown & KEY_Y) {
             discardSelected();
         }
+        
+        // Touch Input for Bottom Screen
+        if (kDown & KEY_TOUCH) {
+            touchPosition touch;
+            hidTouchRead(&touch);
+            
+            // Play Button: x: 20 -> 140, y: 160 -> 210
+            if (touch.px >= 20 && touch.px <= 140 && touch.py >= 160 && touch.py <= 210) {
+                playHand();
+            }
+            // Discard Button: x: 160 -> 280, y: 160 -> 210
+            else if (touch.px >= 160 && touch.px <= 280 && touch.py >= 160 && touch.py <= 210) {
+                discardSelected();
+            }
+        }
     }
     else if (m_phase == RoundPhase::RoundWon) {
         if (kDown & KEY_A) {
             m_ante++;
             m_round++;
-            startNewRound();
+            m_stateMachine->changeState(std::make_shared<ShopState>(m_stateMachine, m_ante, m_money, m_jokers));
         }
     }
     else if (m_phase == RoundPhase::GameOver || m_phase == RoundPhase::GameWon) {
@@ -178,12 +199,49 @@ void GameplayState::handleInput() {
             discardSelected();
             discardCD = 20;
         }
+        
+        // Mouse Input for Bottom Screen
+        int mx, my;
+        uint32_t mouseState = SDL_GetMouseState(&mx, &my);
+        static bool mousePressed = false;
+        if (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+            if (!mousePressed) {
+                mousePressed = true;
+                
+                // Top Screen offset is baseX = 0 (x < 400). Cards start at x=200, stride=35, y=85, height=100
+                if (mx < 400) {
+                    int numCards = static_cast<int>(m_hand.size());
+                    int startX = 200 - (numCards * 35) / 2;
+                    if (mx >= startX && mx <= startX + numCards * 35 + 35 && my >= 80 && my <= 190) {
+                        // Clicked inside the card area
+                        int cardIndex = (mx - startX) / 35;
+                        if (cardIndex >= numCards) cardIndex = numCards - 1; // Last card is fully visible
+                        if (cardIndex >= 0 && cardIndex < numCards) {
+                            m_cursorIndex = cardIndex;
+                            m_hand.toggleSelect(m_cursorIndex);
+                        }
+                    }
+                }
+                
+                // Bottom screen offset is baseX = 400
+                // Play Button: x: 420 -> 540, y: 160 -> 210
+                if (mx >= 420 && mx <= 540 && my >= 160 && my <= 210) {
+                    playHand();
+                }
+                // Discard Button: x: 560 -> 680, y: 160 -> 210
+                else if (mx >= 560 && mx <= 680 && my >= 160 && my <= 210) {
+                    discardSelected();
+                }
+            }
+        } else {
+            mousePressed = false;
+        }
     }
     else if (m_phase == RoundPhase::RoundWon) {
         if (keys[SDL_SCANCODE_RETURN] && confirmCD == 0) {
             m_ante++;
             m_round++;
-            startNewRound();
+            m_stateMachine->changeState(std::make_shared<ShopState>(m_stateMachine, m_ante, m_money, m_jokers));
             confirmCD = 20;
         }
     }
@@ -236,6 +294,12 @@ void GameplayState::renderTopScreen(Application* app) {
         TextRenderer::drawText(renderer, "Discards: " + std::to_string(m_discardsRemaining), 170, 6, 0, 240, 170, 60);
         TextRenderer::drawText(renderer, "Deck: " + std::to_string(m_deck.remaining()), 340, 6, 0, 180, 180, 200);
 #endif
+        // ── Money display ──
+#ifdef N3DS
+        TextRenderer::drawText("$" + std::to_string(m_money), 350, 42, 0.5f, 0.5f, C2D_Color32(255, 215, 0, 255));
+#else
+        TextRenderer::drawText(renderer, "$" + std::to_string(m_money), 360, 42, 1, 255, 215, 0);
+#endif
 
         // ── Hand result banner ──
         if (m_showResult) {
@@ -259,6 +323,51 @@ void GameplayState::renderTopScreen(Application* app) {
 
         // ── Cards ──
         CardRenderer::drawHand(app, m_hand, 200, 85, m_cursorIndex);
+
+        // ── Jokers ──
+        int numJokers = static_cast<int>(m_jokers.size());
+        if (numJokers > 0) {
+            // Draw Jokers at the top of the screen
+            int startX = 200 - (numJokers * 30) / 2; // Assuming ~30px per joker box
+            
+#ifdef N3DS
+            for (int i = 0; i < numJokers; ++i) {
+                int jx = startX + i * 32;
+                int jy = 25;
+                u32 color = C2D_Color32(100, 100, 100, 255);
+                if (m_jokers[i].effectType == JokerEffectType::AddChips) color = C2D_Color32(80, 120, 220, 255);
+                else if (m_jokers[i].effectType == JokerEffectType::AddMult) color = C2D_Color32(220, 60, 60, 255);
+                else if (m_jokers[i].effectType == JokerEffectType::MulMult) color = C2D_Color32(180, 60, 220, 255);
+
+                C2D_DrawRectSolid(jx, jy, 0.5f, 30, 45, color);
+                C2D_DrawRectSolid(jx, jy, 0.5f, 30, 1, C2D_Color32(255, 255, 255, 255));
+                C2D_DrawRectSolid(jx, jy + 44, 0.5f, 30, 1, C2D_Color32(255, 255, 255, 255));
+                C2D_DrawRectSolid(jx, jy, 0.5f, 1, 45, C2D_Color32(255, 255, 255, 255));
+                C2D_DrawRectSolid(jx + 29, jy, 0.5f, 1, 45, C2D_Color32(255, 255, 255, 255));
+                
+                TextRenderer::drawText(m_jokers[i].description, jx + 2, jy + 18, 0.3f, 0.3f, C2D_Color32(255, 255, 255, 255));
+            }
+#else
+            for (int i = 0; i < numJokers; ++i) {
+                int jx = startX + i * 35;
+                int jy = 25;
+                
+                int r = 100, g = 100, b = 100;
+                if (m_jokers[i].effectType == JokerEffectType::AddChips) { r = 80; g = 120; b = 220; }
+                else if (m_jokers[i].effectType == JokerEffectType::AddMult) { r = 220; g = 60; b = 60; }
+                else if (m_jokers[i].effectType == JokerEffectType::MulMult) { r = 180; g = 60; b = 220; }
+
+                SDL_SetRenderDrawColor(renderer, r, g, b, 255);
+                SDL_Rect jbox = { jx, jy, 30, 45 };
+                SDL_RenderFillRect(renderer, &jbox);
+
+                SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+                SDL_RenderDrawRect(renderer, &jbox);
+
+                TextRenderer::drawText(renderer, m_jokers[i].description, jx + 2, jy + 18, 0, 255, 255, 255);
+            }
+#endif
+        }
     }
     else if (m_phase == RoundPhase::RoundWon) {
         // ── ROUND WON ──
@@ -268,7 +377,9 @@ void GameplayState::renderTopScreen(Application* app) {
                                C2D_Color32(255, 255, 255, 255));
         TextRenderer::drawText("Score: " + std::to_string(m_score) + " / " + std::to_string(m_roundTarget),
                                110, 110, 0.45f, 0.45f, C2D_Color32(255, 220, 80, 255));
-        TextRenderer::drawText("Press A for next round", 100, 170, 0.4f, 0.4f,
+        TextRenderer::drawText("Earned: $3 + $" + std::to_string(m_handsRemaining + m_discardsRemaining) + " (hands/discards)",
+                               80, 140, 0.4f, 0.4f, C2D_Color32(255, 215, 0, 255));
+        TextRenderer::drawText("Press A to enter Shop", 100, 170, 0.4f, 0.4f,
                                C2D_Color32(200, 200, 220, 255));
 #else
         TextRenderer::drawText(renderer, "ROUND CLEAR!", 110, 40, 2, 80, 255, 120);
@@ -277,7 +388,9 @@ void GameplayState::renderTopScreen(Application* app) {
                                130, 110, 1, 255, 220, 80);
         std::string nextStr = "Next target: " + std::to_string(ANTE_TARGETS[m_ante]);
         TextRenderer::drawText(renderer, nextStr, 130, 140, 0, 180, 180, 200);
-        TextRenderer::drawText(renderer, "Press Enter for next round", 120, 190, 0, 200, 200, 220);
+        TextRenderer::drawText(renderer, "Earned: $3 + $" + std::to_string(m_handsRemaining + m_discardsRemaining) + " (hands/discards)",
+                               100, 160, 0, 255, 215, 0);
+        TextRenderer::drawText(renderer, "Press Enter to enter Shop", 110, 190, 0, 200, 200, 220);
 #endif
     }
     else if (m_phase == RoundPhase::GameOver) {
@@ -388,15 +501,35 @@ void GameplayState::renderBottomScreen(Application* app) {
 
         // ── Controls ──
 #ifdef N3DS
-        TextRenderer::drawText("[X] Play Hand", baseX + 20, 180, 0.4f, 0.4f, C2D_Color32(100, 220, 100, 255));
-        TextRenderer::drawText("[Y] Discard", baseX + 20, 196, 0.4f, 0.4f, C2D_Color32(240, 170, 60, 255));
-        TextRenderer::drawText("[A] Select", baseX + 160, 180, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
-        TextRenderer::drawText("[D-Pad] Move", baseX + 160, 196, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
+        // Play Button (Green)
+        C2D_DrawRectSolid(baseX + 20, 160, 0.5f, 120, 50, C2D_Color32(80, 200, 80, 255));
+        C2D_DrawRectSolid(baseX + 20, 160, 0.5f, 120, 2, C2D_Color32(120, 240, 120, 255)); // highlight
+        TextRenderer::drawText("Play Hand", baseX + 35, 175, 0.5f, 0.5f, C2D_Color32(0, 0, 0, 255));
+        
+        // Discard Button (Orange)
+        C2D_DrawRectSolid(baseX + 160, 160, 0.5f, 120, 50, C2D_Color32(200, 100, 40, 255));
+        C2D_DrawRectSolid(baseX + 160, 160, 0.5f, 120, 2, C2D_Color32(240, 140, 80, 255)); // highlight
+        TextRenderer::drawText("Discard", baseX + 185, 175, 0.5f, 0.5f, C2D_Color32(0, 0, 0, 255));
+        
+        // Hints
+        TextRenderer::drawText("[X]", baseX + 75, 215, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
+        TextRenderer::drawText("[Y]", baseX + 215, 215, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
 #else
-        TextRenderer::drawText(renderer, "[Enter] Play Hand", baseX + 20, 180, 0, 100, 220, 100);
-        TextRenderer::drawText(renderer, "[D] Discard", baseX + 20, 196, 0, 240, 170, 60);
-        TextRenderer::drawText(renderer, "[Space] Select", baseX + 160, 180, 0, 200, 200, 220);
-        TextRenderer::drawText(renderer, "[Arrows] Move", baseX + 160, 196, 0, 200, 200, 220);
+        // Play Button (Green)
+        SDL_SetRenderDrawColor(renderer, 80, 200, 80, 255);
+        SDL_Rect playRect = { baseX + 20, 160, 120, 50 };
+        SDL_RenderFillRect(renderer, &playRect);
+        TextRenderer::drawText(renderer, "Play Hand", baseX + 35, 175, 1, 0, 0, 0);
+
+        // Discard Button (Orange)
+        SDL_SetRenderDrawColor(renderer, 200, 100, 40, 255);
+        SDL_Rect discRect = { baseX + 160, 160, 120, 50 };
+        SDL_RenderFillRect(renderer, &discRect);
+        TextRenderer::drawText(renderer, "Discard", baseX + 185, 175, 1, 0, 0, 0);
+        
+        // Hints
+        TextRenderer::drawText(renderer, "[Enter]", baseX + 65, 215, 0, 200, 200, 220);
+        TextRenderer::drawText(renderer, "[D]", baseX + 210, 215, 0, 200, 200, 220);
 #endif
     }
     else {

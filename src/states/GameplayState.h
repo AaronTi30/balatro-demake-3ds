@@ -4,6 +4,7 @@
 #include "../game/Deck.h"
 #include "../game/Hand.h"
 #include "../game/HandEvaluator.h"
+#include "../game/Joker.h"
 
 // ── Ante targets (Balatro-style escalation) ──
 // Ante 1=300, 2=450, 3=600, 4=800, 5=1100, 6=1500, 7=2000, 8=2800
@@ -19,7 +20,7 @@ enum class RoundPhase {
 
 class GameplayState : public State {
 public:
-    GameplayState(StateMachine* machine);
+    GameplayState(StateMachine* machine, int ante = 1, int money = 4, std::vector<Joker> jokers = {});
     ~GameplayState() override = default;
 
     void enter() override;
@@ -38,6 +39,9 @@ private:
 
     Deck m_deck;
     Hand m_hand;
+    std::vector<Joker> m_jokers;
+    int m_money;
+    
     int m_cursorIndex;
     int m_handsRemaining;
     int m_discardsRemaining;

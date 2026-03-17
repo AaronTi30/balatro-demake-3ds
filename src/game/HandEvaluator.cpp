@@ -74,7 +74,7 @@ bool HandEvaluator::isFlush(const std::vector<Card>& cards) {
     return true;
 }
 
-HandResult HandEvaluator::evaluate(std::vector<Card> cards) {
+HandResult HandEvaluator::evaluate(std::vector<Card> cards, const std::vector<Joker>& jokers) {
     if (cards.empty()) {
         return { HandType::HighCard, 5, 1, {} };
     }
@@ -153,13 +153,31 @@ HandResult HandEvaluator::evaluate(std::vector<Card> cards) {
         }
     }
     
-    auto [chips, mult] = baseValues(type);
+    std::pair<int, int> baseVal = baseValues(type);
+    int chips = baseVal.first;
+    int mult = baseVal.second;
     
     // Add chip values from scoring cards
     int totalChips = chips;
+    int totalMult = mult;
     for (const auto& c : scoringCards) {
         totalChips += rankChipValue(c.rank);
     }
     
-    return { type, totalChips, mult, scoringCards };
+    // Apply Joker effects
+    for (const auto& joker : jokers) {
+        switch (joker.effectType) {
+            case JokerEffectType::AddChips:
+                totalChips += joker.effectValue;
+                break;
+            case JokerEffectType::AddMult:
+                totalMult += joker.effectValue;
+                break;
+            case JokerEffectType::MulMult:
+                totalMult *= joker.effectValue;
+                break;
+        }
+    }
+    
+    return { type, totalChips, totalMult, scoringCards };
 }

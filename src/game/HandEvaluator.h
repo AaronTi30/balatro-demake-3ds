@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Card.h"
+#include "Joker.h"
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -46,7 +47,7 @@ inline const char* handTypeName(HandType t) {
 class HandEvaluator {
 public:
     // Evaluate a set of played cards (up to 5) and return the best hand
-    static HandResult evaluate(std::vector<Card> cards);
+    static HandResult evaluate(std::vector<Card> cards, const std::vector<Joker>& jokers = {});
 
 private:
     // Helper: count how many of each rank appear

@@ -15,10 +15,12 @@ add_executable(balatro_demake
     src/core/StateMachine.cpp
     src/states/TitleState.cpp
     src/states/GameplayState.cpp
+    src/states/ShopState.cpp
     src/game/Deck.cpp
     src/game/Hand.cpp
     src/game/CardRenderer.cpp
     src/game/HandEvaluator.cpp
+    src/game/Joker.cpp
     src/core/TextRenderer.cpp
 )
 
