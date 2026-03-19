@@ -29,4 +29,5 @@ private:
     
     std::vector<ShopItem> m_items;
     int m_cursorIndex;
+    float m_inputDelay;
 };

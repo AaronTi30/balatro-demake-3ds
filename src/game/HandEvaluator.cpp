@@ -164,18 +164,12 @@ HandResult HandEvaluator::evaluate(std::vector<Card> cards, const std::vector<Jo
         totalChips += rankChipValue(c.rank);
     }
     
-    // Apply Joker effects
+    // Apply Joker effects via the new Event System
+    HandEvalContext ctx{ type, scoringCards, totalChips, totalMult };
+    
     for (const auto& joker : jokers) {
-        switch (joker.effectType) {
-            case JokerEffectType::AddChips:
-                totalChips += joker.effectValue;
-                break;
-            case JokerEffectType::AddMult:
-                totalMult += joker.effectValue;
-                break;
-            case JokerEffectType::MulMult:
-                totalMult *= joker.effectValue;
-                break;
+        if (joker.evaluate) {
+            joker.evaluate(ctx);
         }
     }
     

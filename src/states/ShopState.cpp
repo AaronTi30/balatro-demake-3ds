@@ -14,7 +14,7 @@
 #endif
 
 ShopState::ShopState(StateMachine* machine, int nextAnte, int currentMoney, const std::vector<Joker>& currentJokers)
-    : m_nextAnte(nextAnte), m_money(currentMoney), m_jokers(currentJokers), m_cursorIndex(0) {
+    : m_nextAnte(nextAnte), m_money(currentMoney), m_jokers(currentJokers), m_cursorIndex(0), m_inputDelay(0.3f) {
     m_stateMachine = machine;
 }
 
@@ -24,7 +24,11 @@ void ShopState::enter() {
 
 void ShopState::exit() {}
 
-void ShopState::update(float dt) {}
+void ShopState::update(float dt) {
+    if (m_inputDelay > 0.0f) {
+        m_inputDelay -= dt;
+    }
+}
 
 void ShopState::generateItems() {
     m_items.clear();
@@ -32,10 +36,9 @@ void ShopState::generateItems() {
     for (int i = 0; i < 2; ++i) {
         ShopItem item;
         item.joker = Joker::getRandom();
-        // Base price calculation (very rough for now)
+        // Base price calculation
         int basePrice = 4;
         if (item.joker.effectType == JokerEffectType::MulMult) basePrice += 2;
-        if (item.joker.effectValue > 10) basePrice += 1;
         
         static std::random_device rd;
         static std::mt19937 gen(rd());
@@ -47,6 +50,8 @@ void ShopState::generateItems() {
 }
 
 void ShopState::handleInput() {
+    if (m_inputDelay > 0.0f) return;
+
 #ifdef N3DS
     hidScanInput();
     u32 kDown = hidKeysDown();
@@ -76,6 +81,29 @@ void ShopState::handleInput() {
     if (kDown & KEY_START || kDown & KEY_X) {
         // Next Round
         m_stateMachine->changeState(std::make_shared<GameplayState>(m_stateMachine, m_nextAnte, m_money, m_jokers));
+    }
+    
+    // Bottom Screen Touch
+    if (kDown & KEY_TOUCH) {
+        touchPosition touch;
+        hidTouchRead(&touch);
+        
+        // Buy Button: x: 20 -> 140, y: 160 -> 210
+        if (touch.px >= 20 && touch.px <= 140 && touch.py >= 160 && touch.py <= 210) {
+            // Trigger buy
+            if (m_cursorIndex >= 0 && m_cursorIndex < m_items.size()) {
+                if (m_money >= m_items[m_cursorIndex].price && m_jokers.size() < 5) {
+                    m_money -= m_items[m_cursorIndex].price;
+                    m_jokers.push_back(m_items[m_cursorIndex].joker);
+                    m_items.erase(m_items.begin() + m_cursorIndex);
+                    if (m_cursorIndex >= m_items.size() && m_cursorIndex > 0) m_cursorIndex--;
+                }
+            }
+        }
+        // Next Ante Button: x: 160 -> 280, y: 160 -> 210
+        else if (touch.px >= 160 && touch.px <= 280 && touch.py >= 160 && touch.py <= 210) {
+            m_stateMachine->changeState(std::make_shared<GameplayState>(m_stateMachine, m_nextAnte, m_money, m_jokers));
+        }
     }
     
 #else
@@ -112,6 +140,47 @@ void ShopState::handleInput() {
             m_stateMachine->changeState(std::make_shared<GameplayState>(m_stateMachine, m_nextAnte, m_money, m_jokers));
         }
     } else { enterPressed = false; }
+    
+    // Mouse Input
+    int mx, my;
+    uint32_t mouseState = SDL_GetMouseState(&mx, &my);
+    static bool mousePressed = false;
+    if (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+        if (!mousePressed) {
+            mousePressed = true;
+            
+            // Top Screen (Card selection)
+            if (mx < 400 && m_items.size() > 0) {
+                int startX = (400 - (m_items.size() * 140)) / 2 + 20; // Replicate rendering logic
+                for (size_t i = 0; i < m_items.size(); ++i) {
+                    int bx = startX + i * 140;
+                    if (mx >= bx && mx <= bx + 100 && my >= 70 && my <= 190) {
+                        m_cursorIndex = i;
+                    }
+                }
+            }
+            // Bottom screen
+            else if (mx >= 400) {
+                // Buy Button: x: 420 -> 540, y: 160 -> 210
+                if (mx >= 420 && mx <= 540 && my >= 160 && my <= 210) {
+                    if (m_cursorIndex >= 0 && m_cursorIndex < m_items.size()) {
+                        if (m_money >= m_items[m_cursorIndex].price && m_jokers.size() < 5) {
+                            m_money -= m_items[m_cursorIndex].price;
+                            m_jokers.push_back(m_items[m_cursorIndex].joker);
+                            m_items.erase(m_items.begin() + m_cursorIndex);
+                            if (m_cursorIndex >= m_items.size() && m_cursorIndex > 0) m_cursorIndex--;
+                        }
+                    }
+                }
+                // Next Ante Button: x: 560 -> 680, y: 160 -> 210
+                else if (mx >= 560 && mx <= 680 && my >= 160 && my <= 210) {
+                    m_stateMachine->changeState(std::make_shared<GameplayState>(m_stateMachine, m_nextAnte, m_money, m_jokers));
+                }
+            }
+        }
+    } else {
+        mousePressed = false;
+    }
 #endif
 }
 
@@ -122,19 +191,28 @@ void ShopState::renderTopScreen(Application* app) {
 
     // ── HUD ──
 #ifdef N3DS
-    TextRenderer::drawText("SHOP", 160, 20, 0.7f, 0.7f, C2D_Color32(255, 180, 80, 255));
-    TextRenderer::drawText("Money: $" + std::to_string(m_money), 150, 60, 0.5f, 0.5f, C2D_Color32(255, 215, 0, 255));
+    C2D_DrawRectSolid(0, 0, 0.5f, 400, 240, C2D_Color32(20, 30, 40, 255)); // Background
+    TextRenderer::drawText("SHOP", 140, 15, 0.7f, 0.7f, C2D_Color32(255, 180, 80, 255));
+    TextRenderer::drawText("Money: $" + std::to_string(m_money), 130, 45, 0.6f, 0.6f, C2D_Color32(255, 215, 0, 255));
 #else
-    TextRenderer::drawText(renderer, "SHOP", 180, 20, 2, 255, 180, 80);
-    TextRenderer::drawText(renderer, "Money: $" + std::to_string(m_money), 180, 60, 1, 255, 215, 0);
+    SDL_SetRenderDrawColor(renderer, 20, 30, 40, 255);
+    SDL_Rect bgTop = { 0, 0, 400, 240 };
+    SDL_RenderFillRect(renderer, &bgTop);
+    
+    TextRenderer::drawText(renderer, "SHOP", 160, 15, 2, 255, 180, 80);
+    TextRenderer::drawText(renderer, "Money: $" + std::to_string(m_money), 140, 45, 1, 255, 215, 0);
 #endif
 
     // ── Items for Sale ──
-    int startX = 60;
+#ifdef N3DS
+    int startX = (320 - (m_items.size() * 140)) / 2 + 20;
+#else
+    int startX = (400 - (m_items.size() * 140)) / 2 + 20;
+#endif
     
     for (size_t i = 0; i < m_items.size(); ++i) {
         int x = startX + i * 140;
-        int y = 100;
+        int y = 70; // Moved up slightly to center vertically
         
 #ifdef N3DS
         u32 color = C2D_Color32(100, 100, 100, 255);
@@ -186,15 +264,62 @@ void ShopState::renderTopScreen(Application* app) {
 
 void ShopState::renderBottomScreen(Application* app) {
 #ifdef N3DS
+    int baseX = 0;
+    C2D_DrawRectSolid(0, 0, 0.5f, 320, 240, C2D_Color32(15, 20, 30, 255)); // Darker background
+    
     TextRenderer::drawText("SHOP CONTROLS", 100, 30, 0.5f, 0.5f, C2D_Color32(200, 200, 220, 255));
-    TextRenderer::drawText("[D-Pad] Select Item", 20, 80, 0.45f, 0.45f, C2D_Color32(255, 255, 255, 255));
-    TextRenderer::drawText("[A] Buy selected", 20, 110, 0.45f, 0.45f, C2D_Color32(100, 220, 100, 255));
-    TextRenderer::drawText("[Start] Next Ante", 20, 140, 0.45f, 0.45f, C2D_Color32(255, 180, 80, 255));
+    
+    // Jokers slots text
+    TextRenderer::drawText("Jokers: " + std::to_string(m_jokers.size()) + "/5", 115, 50, 0.5f, 0.5f, C2D_Color32(200, 200, 200, 255));
+    
+    // Buy Button (Green)
+    C2D_DrawRectSolid(baseX + 20, 160, 0.5f, 120, 50, C2D_Color32(80, 200, 80, 255));
+    C2D_DrawRectSolid(baseX + 20, 160, 0.5f, 120, 2, C2D_Color32(120, 240, 120, 255)); // highlight
+    
+    std::string buyText = "Buy Item";
+    if (m_cursorIndex >= 0 && m_cursorIndex < m_items.size()) {
+        buyText = "Buy ($" + std::to_string(m_items[m_cursorIndex].price) + ")";
+    }
+    TextRenderer::drawText(buyText, baseX + 35, 175, 0.5f, 0.5f, C2D_Color32(0, 0, 0, 255));
+    
+    // Next Ante Button (Blue)
+    C2D_DrawRectSolid(baseX + 160, 160, 0.5f, 120, 50, C2D_Color32(80, 140, 255, 255));
+    C2D_DrawRectSolid(baseX + 160, 160, 0.5f, 120, 2, C2D_Color32(120, 180, 255, 255)); // highlight
+    TextRenderer::drawText("Next Ante", baseX + 175, 175, 0.5f, 0.5f, C2D_Color32(0, 0, 0, 255));
+    
+    // Hints
+    TextRenderer::drawText("[A]", baseX + 70, 215, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
+    TextRenderer::drawText("[Start]", baseX + 200, 215, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
 #else
     SDL_Renderer* renderer = app->getRenderer();
-    TextRenderer::drawText(renderer, "SHOP CONTROLS", 480, 30, 1, 200, 200, 220);
-    TextRenderer::drawText(renderer, "[Arrows] Select Item", 420, 80, 0, 255, 255, 255);
-    TextRenderer::drawText(renderer, "[Space] Buy selected", 420, 110, 0, 100, 220, 100);
-    TextRenderer::drawText(renderer, "[Enter] Next Ante", 420, 140, 0, 255, 180, 80);
+    int baseX = 400;
+    
+    SDL_SetRenderDrawColor(renderer, 15, 20, 30, 255);
+    SDL_Rect bgBot = { 400, 0, 400, 240 };
+    SDL_RenderFillRect(renderer, &bgBot);
+
+    TextRenderer::drawText(renderer, "SHOP CONTROLS", baseX + 120, 30, 1, 200, 200, 220);
+    TextRenderer::drawText(renderer, "Jokers: " + std::to_string(m_jokers.size()) + "/5", baseX + 130, 60, 1, 200, 200, 200);
+    
+    // Buy Button (Green)
+    SDL_SetRenderDrawColor(renderer, 80, 200, 80, 255);
+    SDL_Rect buyRect = { baseX + 20, 160, 120, 50 };
+    SDL_RenderFillRect(renderer, &buyRect);
+    
+    std::string buyText = "Buy Item";
+    if (m_cursorIndex >= 0 && m_cursorIndex < m_items.size()) {
+        buyText = "Buy ($" + std::to_string(m_items[m_cursorIndex].price) + ")";
+    }
+    TextRenderer::drawText(renderer, buyText, baseX + 35, 175, 1, 0, 0, 0);
+
+    // Next Ante Button (Blue)
+    SDL_SetRenderDrawColor(renderer, 80, 140, 255, 255);
+    SDL_Rect nextRect = { baseX + 160, 160, 120, 50 };
+    SDL_RenderFillRect(renderer, &nextRect);
+    TextRenderer::drawText(renderer, "Next Ante", baseX + 175, 175, 1, 0, 0, 0);
+    
+    // Hints
+    TextRenderer::drawText(renderer, "[Space]", baseX + 60, 215, 0, 200, 200, 220);
+    TextRenderer::drawText(renderer, "[Enter]", baseX + 200, 215, 0, 200, 200, 220);
 #endif
 }

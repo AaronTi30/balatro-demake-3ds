@@ -61,4 +61,5 @@ private:
     int m_lastScore;
     bool m_showResult;
     float m_resultTimer;
+    float m_inputDelay;
 };

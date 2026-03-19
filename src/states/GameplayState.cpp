@@ -21,7 +21,7 @@ GameplayState::GameplayState(StateMachine* machine, int ante, int money, std::ve
       m_score(0), m_roundTarget(300), m_ante(ante), m_round(1),
       m_phase(RoundPhase::Playing), m_phaseTimer(0.0f),
       m_lastHandType(HandType::HighCard), m_lastChips(0), m_lastMult(0),
-      m_lastScore(0), m_showResult(false), m_resultTimer(0.0f)
+      m_lastScore(0), m_showResult(false), m_resultTimer(0.0f), m_inputDelay(0.3f)
 {
     m_stateMachine = machine;
     m_money = money;
@@ -29,6 +29,8 @@ GameplayState::GameplayState(StateMachine* machine, int ante, int money, std::ve
 }
 
 void GameplayState::enter() {
+    // We already have m_stateMachine. Let's retrieve app if it's there. Usually StateMachine has getApp or TitleState passes app on render.
+    // Wait, CardRenderer needs Application*. Let's leave it in renderTopScreen where we already have Application* if not already initialized.
     m_round = 1;
     m_phase = RoundPhase::Playing;
     m_phaseTimer = 0.0f;
@@ -118,6 +120,8 @@ void GameplayState::discardSelected() {
 }
 
 void GameplayState::handleInput() {
+    if (m_inputDelay > 0.0f) return;
+
 #ifdef N3DS
     hidScanInput();
     u32 kDown = hidKeysDown();
@@ -256,6 +260,10 @@ void GameplayState::handleInput() {
 }
 
 void GameplayState::update(float dt) {
+    if (m_inputDelay > 0.0f) {
+        m_inputDelay -= dt;
+    }
+    
     if (m_hand.size() > 0 && m_cursorIndex >= m_hand.size()) {
         m_cursorIndex = m_hand.size() - 1;
     }
