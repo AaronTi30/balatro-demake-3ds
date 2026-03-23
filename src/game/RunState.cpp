@@ -26,7 +26,6 @@ void RunState::startNewRun() {
     money = kStartingMoney;
     jokerLimit = kStartingJokerLimit;
     jokers.clear();
-    startRound();
 }
 
 void RunState::startRound() {
@@ -47,7 +46,6 @@ void RunState::awardRoundWin() {
 
 void RunState::advanceAnte() {
     ++ante;
-    startRound();
 }
 
 bool RunState::isRoundWon() const {

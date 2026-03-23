@@ -35,6 +35,7 @@ void GameplayState::enter() {
 void GameplayState::exit() {}
 
 void GameplayState::startNewRound() {
+    m_runState->startRound();
     m_hand = Hand();
     m_cursorIndex = 0;
     m_showResult = false;
