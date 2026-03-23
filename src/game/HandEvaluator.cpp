@@ -195,25 +195,30 @@ HandResult HandEvaluator::evaluate(std::vector<Card> cards, const std::vector<Jo
     bool flush = isFlush(cards);
     bool straight = isStraight(cards);
 
-    HandType type = cards.empty()
+    HandType detectedHand = cards.empty()
         ? HandType::HighCard
         : classifyHand(cards, counts, flush, straight);
-    std::vector<Card> scoringCards = selectScoringCards(cards, counts, type);
+    std::vector<Card> scoringCards = selectScoringCards(cards, counts, detectedHand);
 
-    std::pair<int, int> baseValues = lookupBaseValues(type);
-    ScoreTotals totals = calculateFinalTotals(type, scoringCards, baseValues.first, baseValues.second, jokers);
+    std::pair<int, int> handBaseValues = lookupBaseValues(detectedHand);
+    ScoreTotals finalTotals = calculateFinalTotals(
+        detectedHand,
+        scoringCards,
+        handBaseValues.first,
+        handBaseValues.second,
+        jokers);
 
     HandResult result{};
-    result.type = type;
-    result.baseChips = totals.chips;
-    result.baseMult = totals.mult;
+    result.type = detectedHand;
+    result.baseChips = finalTotals.chips;
+    result.baseMult = finalTotals.mult;
     result.scoringCards = scoringCards;
-    result.detectedHand = type;
-    result.baseHandChips = baseValues.first;
-    result.baseHandMult = baseValues.second;
-    result.finalChips = totals.chips;
-    result.finalMult = totals.mult;
-    result.finalScore = totals.score;
+    result.detectedHand = detectedHand;
+    result.baseHandChips = handBaseValues.first;
+    result.baseHandMult = handBaseValues.second;
+    result.finalChips = finalTotals.chips;
+    result.finalMult = finalTotals.mult;
+    result.finalScore = finalTotals.score;
 
     return result;
 }

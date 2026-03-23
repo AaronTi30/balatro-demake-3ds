@@ -23,12 +23,17 @@ enum class HandType {
 // ── Result of evaluating a hand ──
 struct HandResult {
     HandType type;
-    int baseChips; // Compatibility: currently used by gameplay as final chips
-    int baseMult;  // Compatibility: currently used by gameplay as final mult
+    // Compatibility aliases for current gameplay/UI callers.
+    // These currently store the final post-card/post-joker totals, not raw hand base values.
+    int baseChips;
+    int baseMult;
     std::vector<Card> scoringCards; // Cards that contribute to the hand
+    // Explicit hand classification metadata.
     HandType detectedHand;
+    // Raw chips/mult for the detected hand before scoring-card chips and jokers.
     int baseHandChips;
     int baseHandMult;
+    // Final post-card/post-joker totals.
     int finalChips;
     int finalMult;
     int finalScore;
