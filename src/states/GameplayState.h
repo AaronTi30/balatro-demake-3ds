@@ -6,11 +6,6 @@
 #include "../game/RunState.h"
 #include <memory>
 
-// ── Ante targets (Balatro-style escalation) ──
-// Ante 1=300, 2=450, 3=600, 4=800, 5=1100, 6=1500, 7=2000, 8=2800
-static const int ANTE_TARGETS[] = { 300, 450, 600, 800, 1100, 1500, 2000, 2800 };
-static const int MAX_ANTE = 8;
-
 enum class RoundPhase {
     Playing,       // Normal card play
     RoundWon,      // Beat the target — show summary

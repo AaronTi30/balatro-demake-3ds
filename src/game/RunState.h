@@ -6,6 +6,8 @@
 
 class RunState {
 public:
+    static constexpr int kMaxAnte = 8;
+
     int ante = 1;
     int roundTarget = 300;
     int roundScore = 0;
@@ -23,4 +25,5 @@ public:
     void advanceAnte();
     bool isRoundWon() const;
     bool isRunComplete() const;
+    static int targetForAnte(int ante);
 };

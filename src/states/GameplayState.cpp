@@ -35,7 +35,6 @@ void GameplayState::enter() {
 void GameplayState::exit() {}
 
 void GameplayState::startNewRound() {
-    m_runState->startRound();
     m_hand = Hand();
     m_cursorIndex = 0;
     m_showResult = false;
@@ -53,7 +52,7 @@ void GameplayState::drawToFull() {
 
 void GameplayState::checkRoundEnd() {
     if (m_runState->isRoundWon()) {
-        if (m_runState->ante >= MAX_ANTE) {
+        if (m_runState->ante >= RunState::kMaxAnte) {
             m_phase = RoundPhase::GameWon;
         } else {
             m_phase = RoundPhase::RoundWon;
@@ -377,7 +376,7 @@ void GameplayState::renderTopScreen(Application* app) {
         TextRenderer::drawText(renderer, "Ante " + std::to_string(m_runState->ante) + " complete", 130, 80, 1, 255, 255, 255);
         TextRenderer::drawText(renderer, "Score: " + std::to_string(m_runState->roundScore) + " / " + std::to_string(m_runState->roundTarget),
                                130, 110, 1, 255, 220, 80);
-        std::string nextStr = "Next target: " + std::to_string(ANTE_TARGETS[m_runState->ante]);
+        std::string nextStr = "Next target: " + std::to_string(RunState::targetForAnte(m_runState->ante + 1));
         TextRenderer::drawText(renderer, nextStr, 130, 140, 0, 180, 180, 200);
         TextRenderer::drawText(renderer, "Earned: $3 + $" + std::to_string(m_runState->handsRemaining + m_runState->discardsRemaining) + " (hands/discards)",
                                100, 160, 0, 255, 215, 0);
@@ -526,12 +525,12 @@ void GameplayState::renderBottomScreen(Application* app) {
     else {
         // Non-playing phases: show ante info on bottom screen
 #ifdef N3DS
-        TextRenderer::drawText("Ante " + std::to_string(m_runState->ante) + " / " + std::to_string(MAX_ANTE),
+        TextRenderer::drawText("Ante " + std::to_string(m_runState->ante) + " / " + std::to_string(RunState::kMaxAnte),
                                baseX + 80, 80, 0.5f, 0.5f, C2D_Color32(255, 200, 80, 255));
         TextRenderer::drawText("Target " + std::to_string(m_runState->roundTarget), baseX + 90, 110, 0.45f, 0.45f,
                                C2D_Color32(200, 200, 220, 255));
 #else
-        TextRenderer::drawText(renderer, "Ante " + std::to_string(m_runState->ante) + " / " + std::to_string(MAX_ANTE),
+        TextRenderer::drawText(renderer, "Ante " + std::to_string(m_runState->ante) + " / " + std::to_string(RunState::kMaxAnte),
                                baseX + 80, 80, 1, 255, 200, 80);
         TextRenderer::drawText(renderer, "Target " + std::to_string(m_runState->roundTarget), baseX + 90, 110, 1, 200, 200, 220);
 #endif

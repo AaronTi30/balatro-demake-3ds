@@ -6,10 +6,10 @@ constexpr int kStartingMoney = 4;
 constexpr int kStartingHands = 4;
 constexpr int kStartingDiscards = 3;
 constexpr int kStartingJokerLimit = 5;
-constexpr int kMaxAnte = 8;
 constexpr int kAnteTargets[] = { 300, 450, 600, 800, 1100, 1500, 2000, 2800 };
+} // namespace
 
-int targetForAnte(int ante) {
+int RunState::targetForAnte(int ante) {
     if (ante < 1) {
         return kAnteTargets[0];
     }
@@ -20,7 +20,6 @@ int targetForAnte(int ante) {
 
     return kAnteTargets[ante - 1];
 }
-} // namespace
 
 void RunState::startNewRun() {
     ante = kStartingAnte;
