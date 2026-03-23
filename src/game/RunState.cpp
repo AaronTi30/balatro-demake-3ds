@@ -33,8 +33,13 @@ void RunState::startNewRun() {
 void RunState::startRound() {
     handsRemaining = kStartingHands;
     discardsRemaining = kStartingDiscards;
+    roundScore = 0;
     roundTarget = targetForAnte(ante);
     deck.reset();
+}
+
+void RunState::addRoundScore(int points) {
+    roundScore += points;
 }
 
 void RunState::awardRoundWin() {
@@ -43,10 +48,11 @@ void RunState::awardRoundWin() {
 
 void RunState::advanceAnte() {
     ++ante;
+    startRound();
 }
 
 bool RunState::isRoundWon() const {
-    return roundTarget <= 0;
+    return roundScore >= roundTarget;
 }
 
 bool RunState::isRunComplete() const {

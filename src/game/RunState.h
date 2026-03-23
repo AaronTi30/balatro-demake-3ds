@@ -8,6 +8,7 @@ class RunState {
 public:
     int ante = 1;
     int roundTarget = 300;
+    int roundScore = 0;
     int money = 4;
     int handsRemaining = 4;
     int discardsRemaining = 3;
@@ -17,6 +18,7 @@ public:
 
     void startNewRun();
     void startRound();
+    void addRoundScore(int points);
     void awardRoundWin();
     void advanceAnte();
     bool isRoundWon() const;
