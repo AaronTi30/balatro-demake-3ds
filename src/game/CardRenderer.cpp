@@ -114,7 +114,8 @@ void CardRenderer::drawCard(Application* app, const Card& card, int x, int y) {
     }
 
     if (t_suit) {
-        int suitW = 20, suitH = 20;
+        int suitW = (card.suit == Suit::Diamonds) ? 21 : 20;
+        int suitH = (card.suit == Suit::Diamonds) ? 21 : 20;
         SDL_Rect suitRect = { x + CARD_W/2 - suitW/2, drawY + CARD_H/2 - suitH/2, suitW, suitH };
         SDL_RenderCopyEx(renderer, t_suit, NULL, &suitRect, angle, NULL, SDL_FLIP_NONE);
         
