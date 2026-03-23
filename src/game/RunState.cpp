@@ -53,5 +53,5 @@ bool RunState::isRoundWon() const {
 }
 
 bool RunState::isRunComplete() const {
-    return ante > kMaxAnte;
+    return ante >= kMaxAnte && isRoundWon();
 }

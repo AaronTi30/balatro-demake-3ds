@@ -53,7 +53,7 @@ void GameplayState::drawToFull() {
 
 void GameplayState::checkRoundEnd() {
     if (m_runState->isRoundWon()) {
-        if (m_runState->ante >= RunState::kMaxAnte) {
+        if (m_runState->isRunComplete()) {
             m_phase = RoundPhase::GameWon;
         } else {
             m_phase = RoundPhase::RoundWon;
