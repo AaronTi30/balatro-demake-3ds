@@ -17,6 +17,7 @@ add_executable(balatro_demake
     src/states/GameplayState.cpp
     src/states/ShopState.cpp
     src/game/Deck.cpp
+    src/game/RunState.cpp
     src/game/Hand.cpp
     src/game/CardRenderer.cpp
     src/game/HandEvaluator.cpp
