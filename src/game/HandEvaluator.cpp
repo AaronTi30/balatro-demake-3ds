@@ -3,7 +3,7 @@
 #include <set>
 
 // ── Balatro base values (chips, mult) by hand type ──
-static std::pair<int, int> baseValues(HandType t) {
+std::pair<int, int> HandEvaluator::lookupBaseValues(HandType t) {
     switch (t) {
         case HandType::HighCard:       return {  5, 1 };
         case HandType::Pair:           return { 10, 2 };
@@ -74,104 +74,146 @@ bool HandEvaluator::isFlush(const std::vector<Card>& cards) {
     return true;
 }
 
-HandResult HandEvaluator::evaluate(std::vector<Card> cards, const std::vector<Joker>& jokers) {
-    if (cards.empty()) {
-        return { HandType::HighCard, 5, 1, {} };
-    }
-    
-    auto counts = rankCounts(cards);
-    bool flush = isFlush(cards);
-    bool straight = isStraight(cards);
-    
-    HandType type = HandType::HighCard;
-    std::vector<Card> scoringCards;
-    
-    // ── Check from best to worst ──
-    
+HandType HandEvaluator::classifyHand(const std::vector<Card>& cards,
+                                     const std::vector<std::pair<Rank, int>>& counts,
+                                     bool flush,
+                                     bool straight) {
     if (flush && straight) {
-        // Check if it's a royal flush (10, J, Q, K, A)
         std::set<Rank> ranks;
         for (const auto& c : cards) ranks.insert(c.rank);
         if (ranks.count(Rank::Ten) && ranks.count(Rank::Jack) && 
             ranks.count(Rank::Queen) && ranks.count(Rank::King) && 
             ranks.count(Rank::Ace)) {
-            type = HandType::RoyalFlush;
-        } else {
-            type = HandType::StraightFlush;
+            return HandType::RoyalFlush;
         }
-        scoringCards = cards;
+        return HandType::StraightFlush;
     }
-    else if (counts.size() >= 1 && counts[0].second == 4) {
-        type = HandType::FourOfAKind;
-        Rank fourRank = counts[0].first;
-        for (const auto& c : cards) {
-            if (c.rank == fourRank) scoringCards.push_back(c);
+    if (counts.size() >= 1 && counts[0].second == 4) {
+        return HandType::FourOfAKind;
+    }
+    if (counts.size() >= 2 && counts[0].second == 3 && counts[1].second == 2) {
+        return HandType::FullHouse;
+    }
+    if (flush) {
+        return HandType::Flush;
+    }
+    if (straight) {
+        return HandType::Straight;
+    }
+    if (counts.size() >= 1 && counts[0].second == 3) {
+        return HandType::ThreeOfAKind;
+    }
+    if (counts.size() >= 2 && counts[0].second == 2 && counts[1].second == 2) {
+        return HandType::TwoPair;
+    }
+    if (counts.size() >= 1 && counts[0].second == 2) {
+        return HandType::Pair;
+    }
+    return HandType::HighCard;
+}
+
+std::vector<Card> HandEvaluator::selectScoringCards(const std::vector<Card>& cards,
+                                                    const std::vector<std::pair<Rank, int>>& counts,
+                                                    HandType type) {
+    std::vector<Card> scoringCards;
+
+    switch (type) {
+        case HandType::RoyalFlush:
+        case HandType::StraightFlush:
+        case HandType::FullHouse:
+        case HandType::Flush:
+        case HandType::Straight:
+            scoringCards = cards;
+            break;
+        case HandType::FourOfAKind: {
+            Rank fourRank = counts[0].first;
+            for (const auto& c : cards) {
+                if (c.rank == fourRank) scoringCards.push_back(c);
+            }
+            break;
+        }
+        case HandType::ThreeOfAKind: {
+            Rank tripleRank = counts[0].first;
+            for (const auto& c : cards) {
+                if (c.rank == tripleRank) scoringCards.push_back(c);
+            }
+            break;
+        }
+        case HandType::TwoPair: {
+            Rank pair1 = counts[0].first;
+            Rank pair2 = counts[1].first;
+            for (const auto& c : cards) {
+                if (c.rank == pair1 || c.rank == pair2) scoringCards.push_back(c);
+            }
+            break;
+        }
+        case HandType::Pair: {
+            Rank pairRank = counts[0].first;
+            for (const auto& c : cards) {
+                if (c.rank == pairRank) scoringCards.push_back(c);
+            }
+            break;
+        }
+        case HandType::HighCard: {
+            auto best = std::max_element(cards.begin(), cards.end(), [](const Card& a, const Card& b) {
+                return static_cast<int>(a.rank) < static_cast<int>(b.rank);
+            });
+            if (best != cards.end()) {
+                scoringCards.push_back(*best);
+            }
+            break;
         }
     }
-    else if (counts.size() >= 2 && counts[0].second == 3 && counts[1].second == 2) {
-        type = HandType::FullHouse;
-        scoringCards = cards;
-    }
-    else if (flush) {
-        type = HandType::Flush;
-        scoringCards = cards;
-    }
-    else if (straight) {
-        type = HandType::Straight;
-        scoringCards = cards;
-    }
-    else if (counts.size() >= 1 && counts[0].second == 3) {
-        type = HandType::ThreeOfAKind;
-        Rank tripleRank = counts[0].first;
-        for (const auto& c : cards) {
-            if (c.rank == tripleRank) scoringCards.push_back(c);
-        }
-    }
-    else if (counts.size() >= 2 && counts[0].second == 2 && counts[1].second == 2) {
-        type = HandType::TwoPair;
-        Rank pair1 = counts[0].first;
-        Rank pair2 = counts[1].first;
-        for (const auto& c : cards) {
-            if (c.rank == pair1 || c.rank == pair2) scoringCards.push_back(c);
-        }
-    }
-    else if (counts.size() >= 1 && counts[0].second == 2) {
-        type = HandType::Pair;
-        Rank pairRank = counts[0].first;
-        for (const auto& c : cards) {
-            if (c.rank == pairRank) scoringCards.push_back(c);
-        }
-    }
-    else {
-        type = HandType::HighCard;
-        // Highest card
-        auto best = std::max_element(cards.begin(), cards.end(), [](const Card& a, const Card& b) {
-            return static_cast<int>(a.rank) < static_cast<int>(b.rank);
-        });
-        if (best != cards.end()) {
-            scoringCards.push_back(*best);
-        }
-    }
-    
-    std::pair<int, int> baseVal = baseValues(type);
-    int chips = baseVal.first;
-    int mult = baseVal.second;
-    
-    // Add chip values from scoring cards
-    int totalChips = chips;
-    int totalMult = mult;
+
+    return scoringCards;
+}
+
+HandEvaluator::ScoreTotals HandEvaluator::calculateFinalTotals(HandType type,
+                                                               const std::vector<Card>& scoringCards,
+                                                               int baseChips,
+                                                               int baseMult,
+                                                               const std::vector<Joker>& jokers) {
+    int finalChips = baseChips;
+    int finalMult = baseMult;
+
     for (const auto& c : scoringCards) {
-        totalChips += rankChipValue(c.rank);
+        finalChips += rankChipValue(c.rank);
     }
-    
-    // Apply Joker effects via the new Event System
-    HandEvalContext ctx{ type, scoringCards, totalChips, totalMult };
-    
+
+    HandEvalContext ctx{ type, scoringCards, finalChips, finalMult };
     for (const auto& joker : jokers) {
         if (joker.evaluate) {
             joker.evaluate(ctx);
         }
     }
-    
-    return { type, totalChips, totalMult, scoringCards };
+
+    return { finalChips, finalMult, finalChips * finalMult };
+}
+
+HandResult HandEvaluator::evaluate(std::vector<Card> cards, const std::vector<Joker>& jokers) {
+    auto counts = rankCounts(cards);
+    bool flush = isFlush(cards);
+    bool straight = isStraight(cards);
+
+    HandType type = cards.empty()
+        ? HandType::HighCard
+        : classifyHand(cards, counts, flush, straight);
+    std::vector<Card> scoringCards = selectScoringCards(cards, counts, type);
+
+    std::pair<int, int> baseValues = lookupBaseValues(type);
+    ScoreTotals totals = calculateFinalTotals(type, scoringCards, baseValues.first, baseValues.second, jokers);
+
+    HandResult result{};
+    result.type = type;
+    result.baseChips = totals.chips;
+    result.baseMult = totals.mult;
+    result.scoringCards = scoringCards;
+    result.detectedHand = type;
+    result.baseHandChips = baseValues.first;
+    result.baseHandMult = baseValues.second;
+    result.finalChips = totals.chips;
+    result.finalMult = totals.mult;
+    result.finalScore = totals.score;
+
+    return result;
 }

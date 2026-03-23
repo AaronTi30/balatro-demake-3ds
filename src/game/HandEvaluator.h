@@ -23,9 +23,15 @@ enum class HandType {
 // ── Result of evaluating a hand ──
 struct HandResult {
     HandType type;
-    int baseChips;
-    int baseMult;
+    int baseChips; // Compatibility: currently used by gameplay as final chips
+    int baseMult;  // Compatibility: currently used by gameplay as final mult
     std::vector<Card> scoringCards; // Cards that contribute to the hand
+    HandType detectedHand;
+    int baseHandChips;
+    int baseHandMult;
+    int finalChips;
+    int finalMult;
+    int finalScore;
 };
 
 inline const char* handTypeName(HandType t) {
@@ -50,12 +56,39 @@ public:
     static HandResult evaluate(std::vector<Card> cards, const std::vector<Joker>& jokers = {});
 
 private:
+    struct ScoreTotals {
+        int chips;
+        int mult;
+        int score;
+    };
+
     // Helper: count how many of each rank appear
     static std::vector<std::pair<Rank, int>> rankCounts(const std::vector<Card>& cards);
-    
+
     // Helper: check if the cards form a straight (assumes sorted)
     static bool isStraight(std::vector<Card> cards);
-    
+
     // Helper: check if all cards share the same suit
     static bool isFlush(const std::vector<Card>& cards);
+
+    // Helper: determine the best hand type for the played cards
+    static HandType classifyHand(const std::vector<Card>& cards,
+                                 const std::vector<std::pair<Rank, int>>& counts,
+                                 bool flush,
+                                 bool straight);
+
+    // Helper: gather the cards that score for the evaluated hand
+    static std::vector<Card> selectScoringCards(const std::vector<Card>& cards,
+                                                const std::vector<std::pair<Rank, int>>& counts,
+                                                HandType type);
+
+    // Helper: look up the base chips and mult for a hand type
+    static std::pair<int, int> lookupBaseValues(HandType type);
+
+    // Helper: apply scoring card chips and joker callbacks in explicit order
+    static ScoreTotals calculateFinalTotals(HandType type,
+                                            const std::vector<Card>& scoringCards,
+                                            int baseChips,
+                                            int baseMult,
+                                            const std::vector<Joker>& jokers);
 };
