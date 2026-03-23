@@ -15,23 +15,18 @@
 #endif
 
 #include <string>
+#include <utility>
 
-GameplayState::GameplayState(StateMachine* machine, int ante, int money, std::vector<Joker> jokers)
-    : m_cursorIndex(0), m_handsRemaining(4), m_discardsRemaining(3),
-      m_score(0), m_roundTarget(300), m_ante(ante), m_round(1),
+GameplayState::GameplayState(StateMachine* machine, std::shared_ptr<RunState> runState)
+    : m_runState(std::move(runState)), m_cursorIndex(0),
       m_phase(RoundPhase::Playing), m_phaseTimer(0.0f),
       m_lastHandType(HandType::HighCard), m_lastChips(0), m_lastMult(0),
       m_lastScore(0), m_showResult(false), m_resultTimer(0.0f), m_inputDelay(0.3f)
 {
     m_stateMachine = machine;
-    m_money = money;
-    m_jokers = jokers;
 }
 
 void GameplayState::enter() {
-    // We already have m_stateMachine. Let's retrieve app if it's there. Usually StateMachine has getApp or TitleState passes app on render.
-    // Wait, CardRenderer needs Application*. Let's leave it in renderTopScreen where we already have Application* if not already initialized.
-    m_round = 1;
     m_phase = RoundPhase::Playing;
     m_phaseTimer = 0.0f;
     startNewRound();
@@ -40,13 +35,9 @@ void GameplayState::enter() {
 void GameplayState::exit() {}
 
 void GameplayState::startNewRound() {
-    m_deck.reset();
+    m_runState->startRound();
     m_hand = Hand();
     m_cursorIndex = 0;
-    m_score = 0;
-    m_handsRemaining = 4;
-    m_discardsRemaining = 3;
-    m_roundTarget = (m_ante >= 1 && m_ante <= MAX_ANTE) ? ANTE_TARGETS[m_ante - 1] : 9999;
     m_showResult = false;
     m_resultTimer = 0.0f;
     m_phase = RoundPhase::Playing;
@@ -55,29 +46,24 @@ void GameplayState::startNewRound() {
 }
 
 void GameplayState::drawToFull() {
-    while (!m_hand.full() && !m_deck.empty()) {
-        m_hand.addCard(m_deck.draw());
+    while (!m_hand.full() && !m_runState->deck.empty()) {
+        m_hand.addCard(m_runState->deck.draw());
     }
 }
 
 void GameplayState::checkRoundEnd() {
-    // Already won?
-    if (m_score >= m_roundTarget) {
-        if (m_ante >= MAX_ANTE) {
+    if (m_runState->isRoundWon()) {
+        if (m_runState->ante >= MAX_ANTE) {
             m_phase = RoundPhase::GameWon;
         } else {
             m_phase = RoundPhase::RoundWon;
-            
-            // Calculate money earned
-            int earned = 3 + m_handsRemaining + m_discardsRemaining;
-            m_money += earned;
+            m_runState->awardRoundWin();
         }
         m_phaseTimer = 0.0f;
         return;
     }
-    
-    // Out of hands?
-    if (m_handsRemaining <= 0) {
+
+    if (m_runState->handsRemaining <= 0) {
         m_phase = RoundPhase::GameOver;
         m_phaseTimer = 0.0f;
     }
@@ -88,22 +74,21 @@ void GameplayState::playHand() {
     
     auto selected = m_hand.getSelected();
     if (selected.empty() || selected.size() > 5) return;
-    if (m_handsRemaining <= 0) return;
+    if (m_runState->handsRemaining <= 0) return;
 
-    HandResult result = HandEvaluator::evaluate(selected, m_jokers);
+    HandResult result = HandEvaluator::evaluate(selected, m_runState->jokers);
     m_lastHandType = result.type;
     m_lastChips = result.baseChips;
     m_lastMult = result.baseMult;
     m_lastScore = result.baseChips * result.baseMult;
-    m_score += m_lastScore;
+    m_runState->addRoundScore(m_lastScore);
     m_showResult = true;
     m_resultTimer = 2.0f;
 
     m_hand.removeSelected();
-    m_handsRemaining--;
+    m_runState->handsRemaining--;
     drawToFull();
 
-    // Check if round ended
     checkRoundEnd();
 }
 
@@ -112,10 +97,10 @@ void GameplayState::discardSelected() {
     
     auto selected = m_hand.getSelected();
     if (selected.empty() || selected.size() > 5) return;
-    if (m_discardsRemaining <= 0) return;
+    if (m_runState->discardsRemaining <= 0) return;
 
     m_hand.removeSelected();
-    m_discardsRemaining--;
+    m_runState->discardsRemaining--;
     drawToFull();
 }
 
@@ -160,9 +145,8 @@ void GameplayState::handleInput() {
     }
     else if (m_phase == RoundPhase::RoundWon) {
         if (kDown & KEY_A) {
-            m_ante++;
-            m_round++;
-            m_stateMachine->changeState(std::make_shared<ShopState>(m_stateMachine, m_ante, m_money, m_jokers));
+            m_runState->advanceAnte();
+            m_stateMachine->changeState(std::make_shared<ShopState>(m_stateMachine, m_runState));
         }
     }
     else if (m_phase == RoundPhase::GameOver || m_phase == RoundPhase::GameWon) {
@@ -243,9 +227,8 @@ void GameplayState::handleInput() {
     }
     else if (m_phase == RoundPhase::RoundWon) {
         if (keys[SDL_SCANCODE_RETURN] && confirmCD == 0) {
-            m_ante++;
-            m_round++;
-            m_stateMachine->changeState(std::make_shared<ShopState>(m_stateMachine, m_ante, m_money, m_jokers));
+            m_runState->advanceAnte();
+            m_stateMachine->changeState(std::make_shared<ShopState>(m_stateMachine, m_runState));
             confirmCD = 20;
         }
     }
@@ -288,25 +271,25 @@ void GameplayState::renderTopScreen(Application* app) {
     if (m_phase == RoundPhase::Playing) {
         // ── HUD ──
 #ifdef N3DS
-        TextRenderer::drawText("Ante " + std::to_string(m_ante), 10, 6, 0.4f, 0.4f,
+        TextRenderer::drawText("Ante " + std::to_string(m_runState->ante), 10, 6, 0.4f, 0.4f,
                                C2D_Color32(255, 200, 80, 255));
-        TextRenderer::drawText("Hands: " + std::to_string(m_handsRemaining), 80, 6, 0.4f, 0.4f,
+        TextRenderer::drawText("Hands: " + std::to_string(m_runState->handsRemaining), 80, 6, 0.4f, 0.4f,
                                C2D_Color32(100, 220, 100, 255));
-        TextRenderer::drawText("Discards: " + std::to_string(m_discardsRemaining), 160, 6, 0.4f, 0.4f,
+        TextRenderer::drawText("Discards: " + std::to_string(m_runState->discardsRemaining), 160, 6, 0.4f, 0.4f,
                                C2D_Color32(240, 170, 60, 255));
-        TextRenderer::drawText("Deck: " + std::to_string(m_deck.remaining()), 340, 6, 0.35f, 0.35f,
+        TextRenderer::drawText("Deck: " + std::to_string(m_runState->deck.remaining()), 340, 6, 0.35f, 0.35f,
                                C2D_Color32(180, 180, 200, 255));
 #else
-        TextRenderer::drawText(renderer, "Ante " + std::to_string(m_ante), 10, 6, 0, 255, 200, 80);
-        TextRenderer::drawText(renderer, "Hands: " + std::to_string(m_handsRemaining), 80, 6, 0, 100, 220, 100);
-        TextRenderer::drawText(renderer, "Discards: " + std::to_string(m_discardsRemaining), 170, 6, 0, 240, 170, 60);
-        TextRenderer::drawText(renderer, "Deck: " + std::to_string(m_deck.remaining()), 340, 6, 0, 180, 180, 200);
+        TextRenderer::drawText(renderer, "Ante " + std::to_string(m_runState->ante), 10, 6, 0, 255, 200, 80);
+        TextRenderer::drawText(renderer, "Hands: " + std::to_string(m_runState->handsRemaining), 80, 6, 0, 100, 220, 100);
+        TextRenderer::drawText(renderer, "Discards: " + std::to_string(m_runState->discardsRemaining), 170, 6, 0, 240, 170, 60);
+        TextRenderer::drawText(renderer, "Deck: " + std::to_string(m_runState->deck.remaining()), 340, 6, 0, 180, 180, 200);
 #endif
         // ── Money display ──
 #ifdef N3DS
-        TextRenderer::drawText("$" + std::to_string(m_money), 350, 42, 0.5f, 0.5f, C2D_Color32(255, 215, 0, 255));
+        TextRenderer::drawText("$" + std::to_string(m_runState->money), 350, 42, 0.5f, 0.5f, C2D_Color32(255, 215, 0, 255));
 #else
-        TextRenderer::drawText(renderer, "$" + std::to_string(m_money), 360, 42, 1, 255, 215, 0);
+        TextRenderer::drawText(renderer, "$" + std::to_string(m_runState->money), 360, 42, 1, 255, 215, 0);
 #endif
 
         // ── Hand result banner ──
@@ -333,7 +316,7 @@ void GameplayState::renderTopScreen(Application* app) {
         CardRenderer::drawHand(app, m_hand, 200, 85, m_cursorIndex);
 
         // ── Jokers ──
-        int numJokers = static_cast<int>(m_jokers.size());
+        int numJokers = static_cast<int>(m_runState->jokers.size());
         if (numJokers > 0) {
             // Draw Jokers at the top of the screen
             int startX = 200 - (numJokers * 30) / 2; // Assuming ~30px per joker box
@@ -343,9 +326,9 @@ void GameplayState::renderTopScreen(Application* app) {
                 int jx = startX + i * 32;
                 int jy = 25;
                 u32 color = C2D_Color32(100, 100, 100, 255);
-                if (m_jokers[i].effectType == JokerEffectType::AddChips) color = C2D_Color32(80, 120, 220, 255);
-                else if (m_jokers[i].effectType == JokerEffectType::AddMult) color = C2D_Color32(220, 60, 60, 255);
-                else if (m_jokers[i].effectType == JokerEffectType::MulMult) color = C2D_Color32(180, 60, 220, 255);
+                if (m_runState->jokers[i].effectType == JokerEffectType::AddChips) color = C2D_Color32(80, 120, 220, 255);
+                else if (m_runState->jokers[i].effectType == JokerEffectType::AddMult) color = C2D_Color32(220, 60, 60, 255);
+                else if (m_runState->jokers[i].effectType == JokerEffectType::MulMult) color = C2D_Color32(180, 60, 220, 255);
 
                 C2D_DrawRectSolid(jx, jy, 0.5f, 30, 45, color);
                 C2D_DrawRectSolid(jx, jy, 0.5f, 30, 1, C2D_Color32(255, 255, 255, 255));
@@ -353,7 +336,7 @@ void GameplayState::renderTopScreen(Application* app) {
                 C2D_DrawRectSolid(jx, jy, 0.5f, 1, 45, C2D_Color32(255, 255, 255, 255));
                 C2D_DrawRectSolid(jx + 29, jy, 0.5f, 1, 45, C2D_Color32(255, 255, 255, 255));
                 
-                TextRenderer::drawText(m_jokers[i].description, jx + 2, jy + 18, 0.3f, 0.3f, C2D_Color32(255, 255, 255, 255));
+                TextRenderer::drawText(m_runState->jokers[i].description, jx + 2, jy + 18, 0.3f, 0.3f, C2D_Color32(255, 255, 255, 255));
             }
 #else
             for (int i = 0; i < numJokers; ++i) {
@@ -361,9 +344,9 @@ void GameplayState::renderTopScreen(Application* app) {
                 int jy = 25;
                 
                 int r = 100, g = 100, b = 100;
-                if (m_jokers[i].effectType == JokerEffectType::AddChips) { r = 80; g = 120; b = 220; }
-                else if (m_jokers[i].effectType == JokerEffectType::AddMult) { r = 220; g = 60; b = 60; }
-                else if (m_jokers[i].effectType == JokerEffectType::MulMult) { r = 180; g = 60; b = 220; }
+                if (m_runState->jokers[i].effectType == JokerEffectType::AddChips) { r = 80; g = 120; b = 220; }
+                else if (m_runState->jokers[i].effectType == JokerEffectType::AddMult) { r = 220; g = 60; b = 60; }
+                else if (m_runState->jokers[i].effectType == JokerEffectType::MulMult) { r = 180; g = 60; b = 220; }
 
                 SDL_SetRenderDrawColor(renderer, r, g, b, 255);
                 SDL_Rect jbox = { jx, jy, 30, 45 };
@@ -372,7 +355,7 @@ void GameplayState::renderTopScreen(Application* app) {
                 SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
                 SDL_RenderDrawRect(renderer, &jbox);
 
-                TextRenderer::drawText(renderer, m_jokers[i].description, jx + 2, jy + 18, 0, 255, 255, 255);
+                TextRenderer::drawText(renderer, m_runState->jokers[i].description, jx + 2, jy + 18, 0, 255, 255, 255);
             }
 #endif
         }
@@ -381,22 +364,22 @@ void GameplayState::renderTopScreen(Application* app) {
         // ── ROUND WON ──
 #ifdef N3DS
         TextRenderer::drawText("ROUND CLEAR!", 100, 40, 0.7f, 0.7f, C2D_Color32(80, 255, 120, 255));
-        TextRenderer::drawText("Ante " + std::to_string(m_ante) + " complete", 110, 80, 0.5f, 0.5f,
+        TextRenderer::drawText("Ante " + std::to_string(m_runState->ante) + " complete", 110, 80, 0.5f, 0.5f,
                                C2D_Color32(255, 255, 255, 255));
-        TextRenderer::drawText("Score: " + std::to_string(m_score) + " / " + std::to_string(m_roundTarget),
+        TextRenderer::drawText("Score: " + std::to_string(m_runState->roundScore) + " / " + std::to_string(m_runState->roundTarget),
                                110, 110, 0.45f, 0.45f, C2D_Color32(255, 220, 80, 255));
-        TextRenderer::drawText("Earned: $3 + $" + std::to_string(m_handsRemaining + m_discardsRemaining) + " (hands/discards)",
+        TextRenderer::drawText("Earned: $3 + $" + std::to_string(m_runState->handsRemaining + m_runState->discardsRemaining) + " (hands/discards)",
                                80, 140, 0.4f, 0.4f, C2D_Color32(255, 215, 0, 255));
         TextRenderer::drawText("Press A to enter Shop", 100, 170, 0.4f, 0.4f,
                                C2D_Color32(200, 200, 220, 255));
 #else
         TextRenderer::drawText(renderer, "ROUND CLEAR!", 110, 40, 2, 80, 255, 120);
-        TextRenderer::drawText(renderer, "Ante " + std::to_string(m_ante) + " complete", 130, 80, 1, 255, 255, 255);
-        TextRenderer::drawText(renderer, "Score: " + std::to_string(m_score) + " / " + std::to_string(m_roundTarget),
+        TextRenderer::drawText(renderer, "Ante " + std::to_string(m_runState->ante) + " complete", 130, 80, 1, 255, 255, 255);
+        TextRenderer::drawText(renderer, "Score: " + std::to_string(m_runState->roundScore) + " / " + std::to_string(m_runState->roundTarget),
                                130, 110, 1, 255, 220, 80);
-        std::string nextStr = "Next target: " + std::to_string(ANTE_TARGETS[m_ante]);
+        std::string nextStr = "Next target: " + std::to_string(ANTE_TARGETS[m_runState->ante]);
         TextRenderer::drawText(renderer, nextStr, 130, 140, 0, 180, 180, 200);
-        TextRenderer::drawText(renderer, "Earned: $3 + $" + std::to_string(m_handsRemaining + m_discardsRemaining) + " (hands/discards)",
+        TextRenderer::drawText(renderer, "Earned: $3 + $" + std::to_string(m_runState->handsRemaining + m_runState->discardsRemaining) + " (hands/discards)",
                                100, 160, 0, 255, 215, 0);
         TextRenderer::drawText(renderer, "Press Enter to enter Shop", 110, 190, 0, 200, 200, 220);
 #endif
@@ -405,16 +388,16 @@ void GameplayState::renderTopScreen(Application* app) {
         // ── GAME OVER ──
 #ifdef N3DS
         TextRenderer::drawText("GAME OVER", 110, 50, 0.7f, 0.7f, C2D_Color32(255, 80, 80, 255));
-        TextRenderer::drawText("Reached Ante " + std::to_string(m_ante), 110, 100, 0.5f, 0.5f,
+        TextRenderer::drawText("Reached Ante " + std::to_string(m_runState->ante), 110, 100, 0.5f, 0.5f,
                                C2D_Color32(255, 255, 255, 255));
-        TextRenderer::drawText("Score: " + std::to_string(m_score) + " / " + std::to_string(m_roundTarget),
+        TextRenderer::drawText("Score: " + std::to_string(m_runState->roundScore) + " / " + std::to_string(m_runState->roundTarget),
                                110, 130, 0.45f, 0.45f, C2D_Color32(255, 180, 80, 255));
         TextRenderer::drawText("Press A to return", 110, 180, 0.4f, 0.4f,
                                C2D_Color32(200, 200, 220, 255));
 #else
         TextRenderer::drawText(renderer, "GAME OVER", 130, 50, 2, 255, 80, 80);
-        TextRenderer::drawText(renderer, "Reached Ante " + std::to_string(m_ante), 140, 100, 1, 255, 255, 255);
-        TextRenderer::drawText(renderer, "Score: " + std::to_string(m_score) + " / " + std::to_string(m_roundTarget),
+        TextRenderer::drawText(renderer, "Reached Ante " + std::to_string(m_runState->ante), 140, 100, 1, 255, 255, 255);
+        TextRenderer::drawText(renderer, "Score: " + std::to_string(m_runState->roundScore) + " / " + std::to_string(m_runState->roundTarget),
                                140, 130, 1, 255, 180, 80);
         TextRenderer::drawText(renderer, "Press Enter to return", 140, 180, 0, 200, 200, 220);
 #endif
@@ -447,22 +430,22 @@ void GameplayState::renderBottomScreen(Application* app) {
         // ── Score section ──
 #ifdef N3DS
         TextRenderer::drawText("SCORE", baseX + 20, 10, 0.45f, 0.45f, C2D_Color32(200, 200, 220, 255));
-        TextRenderer::drawText(std::to_string(m_score), baseX + 80, 8, 0.55f, 0.55f,
+        TextRenderer::drawText(std::to_string(m_runState->roundScore), baseX + 80, 8, 0.55f, 0.55f,
                                C2D_Color32(255, 255, 255, 255));
-        TextRenderer::drawText("/ " + std::to_string(m_roundTarget), baseX + 140, 10, 0.4f, 0.4f,
+        TextRenderer::drawText("/ " + std::to_string(m_runState->roundTarget), baseX + 140, 10, 0.4f, 0.4f,
                                C2D_Color32(180, 180, 200, 255));
 #else
         TextRenderer::drawText(renderer, "SCORE", baseX + 20, 10, 1, 200, 200, 220);
-        TextRenderer::drawText(renderer, std::to_string(m_score), baseX + 80, 8, 2, 255, 255, 255);
-        TextRenderer::drawText(renderer, "/ " + std::to_string(m_roundTarget), baseX + 140, 12, 1, 180, 180, 200);
+        TextRenderer::drawText(renderer, std::to_string(m_runState->roundScore), baseX + 80, 8, 2, 255, 255, 255);
+        TextRenderer::drawText(renderer, "/ " + std::to_string(m_runState->roundTarget), baseX + 140, 12, 1, 180, 180, 200);
 #endif
 
         // ── Score progress bar ──
 #ifdef N3DS
         C2D_DrawRectSolid(baseX + 20, 35, 0.5f, 280, 20, C2D_Color32(40, 40, 60, 255));
-        int fillW = m_roundTarget > 0 ? (m_score * 260) / m_roundTarget : 0;
+        int fillW = m_runState->roundTarget > 0 ? (m_runState->roundScore * 260) / m_runState->roundTarget : 0;
         if (fillW > 260) fillW = 260;
-        u32 fillColor = (m_score >= m_roundTarget)
+        u32 fillColor = m_runState->isRoundWon()
             ? C2D_Color32(80, 220, 80, 255)
             : C2D_Color32(80, 140, 255, 255);
         if (fillW > 0) C2D_DrawRectSolid(baseX + 30, 38, 0.5f, fillW, 14, fillColor);
@@ -471,9 +454,9 @@ void GameplayState::renderBottomScreen(Application* app) {
         SDL_Rect bgBar = { baseX + 20, 35, 280, 20 };
         SDL_RenderFillRect(renderer, &bgBar);
 
-        int fillW = m_roundTarget > 0 ? (m_score * 260) / m_roundTarget : 0;
+        int fillW = m_runState->roundTarget > 0 ? (m_runState->roundScore * 260) / m_runState->roundTarget : 0;
         if (fillW > 260) fillW = 260;
-        if (m_score >= m_roundTarget)
+        if (m_runState->isRoundWon())
             SDL_SetRenderDrawColor(renderer, 80, 220, 80, 255);
         else
             SDL_SetRenderDrawColor(renderer, 80, 140, 255, 255);
@@ -543,14 +526,14 @@ void GameplayState::renderBottomScreen(Application* app) {
     else {
         // Non-playing phases: show ante info on bottom screen
 #ifdef N3DS
-        TextRenderer::drawText("Ante " + std::to_string(m_ante) + " / " + std::to_string(MAX_ANTE),
+        TextRenderer::drawText("Ante " + std::to_string(m_runState->ante) + " / " + std::to_string(MAX_ANTE),
                                baseX + 80, 80, 0.5f, 0.5f, C2D_Color32(255, 200, 80, 255));
-        TextRenderer::drawText("Round " + std::to_string(m_round), baseX + 100, 110, 0.45f, 0.45f,
+        TextRenderer::drawText("Target " + std::to_string(m_runState->roundTarget), baseX + 90, 110, 0.45f, 0.45f,
                                C2D_Color32(200, 200, 220, 255));
 #else
-        TextRenderer::drawText(renderer, "Ante " + std::to_string(m_ante) + " / " + std::to_string(MAX_ANTE),
+        TextRenderer::drawText(renderer, "Ante " + std::to_string(m_runState->ante) + " / " + std::to_string(MAX_ANTE),
                                baseX + 80, 80, 1, 255, 200, 80);
-        TextRenderer::drawText(renderer, "Round " + std::to_string(m_round), baseX + 100, 110, 1, 200, 200, 220);
+        TextRenderer::drawText(renderer, "Target " + std::to_string(m_runState->roundTarget), baseX + 90, 110, 1, 200, 200, 220);
 #endif
     }
 }

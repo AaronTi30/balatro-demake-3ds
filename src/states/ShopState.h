@@ -2,6 +2,8 @@
 
 #include "../core/State.h"
 #include "../game/Joker.h"
+#include "../game/RunState.h"
+#include <memory>
 #include <vector>
 
 struct ShopItem {
@@ -11,7 +13,7 @@ struct ShopItem {
 
 class ShopState : public State {
 public:
-    ShopState(StateMachine* machine, int nextAnte, int currentMoney, const std::vector<Joker>& currentJokers);
+    ShopState(StateMachine* machine, std::shared_ptr<RunState> runState);
 
     void enter() override;
     void exit() override;
@@ -23,10 +25,7 @@ public:
 private:
     void generateItems();
 
-    int m_nextAnte;
-    int m_money;
-    std::vector<Joker> m_jokers;
-    
+    std::shared_ptr<RunState> m_runState;
     std::vector<ShopItem> m_items;
     int m_cursorIndex;
     float m_inputDelay;

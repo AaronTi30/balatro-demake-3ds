@@ -6,6 +6,8 @@
 #include "../game/CardRenderer.h"
 #include "../game/Hand.h"
 #include "../game/Card.h"
+#include "../game/RunState.h"
+#include <memory>
 
 #ifdef N3DS
 #include <citro2d.h>
@@ -32,8 +34,10 @@ void TitleState::handleInput() {
     hidScanInput();
     u32 kDown = hidKeysDown();
     if (kDown & KEY_A) {
+        auto runState = std::make_shared<RunState>();
+        runState->startNewRun();
         m_stateMachine->changeState(
-            std::make_shared<GameplayState>(m_stateMachine));
+            std::make_shared<GameplayState>(m_stateMachine, runState));
     }
 #else
     // Mouse click on PLAY button only (no Enter key — prevents carry-over from gameplay)
@@ -45,8 +49,10 @@ void TitleState::handleInput() {
     // Only trigger on click down (not hold)
     if (isPressed && !wasPressed) {
         if (mx >= 165 && mx <= 235 && my >= 185 && my <= 215) {
+            auto runState = std::make_shared<RunState>();
+            runState->startNewRun();
             m_stateMachine->changeState(
-                std::make_shared<GameplayState>(m_stateMachine));
+                std::make_shared<GameplayState>(m_stateMachine, runState));
         }
     }
     wasPressed = isPressed;
