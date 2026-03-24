@@ -6,36 +6,49 @@ constexpr int kStartingMoney = 4;
 constexpr int kStartingHands = 4;
 constexpr int kStartingDiscards = 3;
 constexpr int kStartingJokerLimit = 5;
-constexpr int kSmallBlindReward = 3;
-constexpr int kBigBlindReward = 4;
-constexpr int kBossBlindReward = 5;
-constexpr int kAnteTargets[] = { 300, 800, 2000, 5000, 11000, 20000, 35000, 50000 };
+
+int blindStageIndex(BlindStage stage) {
+    switch (stage) {
+        case BlindStage::Small:
+            return 0;
+        case BlindStage::Big:
+            return 1;
+        case BlindStage::Boss:
+            return 2;
+        default:
+            return 0;
+    }
+}
+
+int clampAnteIndex(int ante) {
+    if (ante < 1) {
+        return 0;
+    }
+
+    if (ante > RunState::kMaxAnte) {
+        return RunState::kMaxAnte - 1;
+    }
+
+    return ante - 1;
+}
 } // namespace
 
 int RunState::targetForAnte(int ante) {
-    if (ante < 1) {
-        return kAnteTargets[0];
-    }
-
-    if (ante > kMaxAnte) {
-        return kAnteTargets[kMaxAnte - 1];
-    }
-
-    return kAnteTargets[ante - 1];
+    return RunState::kBlindTargets[clampAnteIndex(ante)].small;
 }
 
 int RunState::targetForBlind(int ante, BlindStage stage) {
-    const int baseTarget = targetForAnte(ante);
+    const BlindTargets& targets = RunState::kBlindTargets[clampAnteIndex(ante)];
 
     switch (stage) {
         case BlindStage::Small:
-            return baseTarget;
+            return targets.small;
         case BlindStage::Big:
-            return (baseTarget * 3) / 2;
+            return targets.big;
         case BlindStage::Boss:
-            return baseTarget * 2;
+            return targets.boss;
         default:
-            return baseTarget;
+            return targets.small;
     }
 }
 
@@ -112,16 +125,7 @@ bool RunState::shouldVisitShopAfterBlindWin() const {
 }
 
 int RunState::currentBlindReward() const {
-    switch (blindStage) {
-        case BlindStage::Small:
-            return kSmallBlindReward;
-        case BlindStage::Big:
-            return kBigBlindReward;
-        case BlindStage::Boss:
-            return kBossBlindReward;
-        default:
-            return kSmallBlindReward;
-    }
+    return RunState::kBlindRewards[blindStageIndex(blindStage)];
 }
 
 const char* RunState::currentBlindName() const {

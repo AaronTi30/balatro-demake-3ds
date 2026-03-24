@@ -33,15 +33,22 @@ void testNewRunStartsAtSmallBlind() {
     run.startRound();
 
     expectEqual(run.ante, 1, "new run ante");
+    expectEqual(run.money, 4, "new run starts with four dollars");
     expect(run.blindStage == BlindStage::Small, "new run should begin at the small blind");
     expectEqual(run.roundTarget, 300, "small blind ante 1 target");
-    expectEqual(run.currentBlindReward(), 3, "small blind reward");
+    expectEqual(run.currentBlindReward(), 2, "small blind reward");
 }
 
 void testTargetsScaleByBlindStage() {
-    expectEqual(RunState::targetForBlind(2, BlindStage::Small), 800, "ante 2 small blind target");
-    expectEqual(RunState::targetForBlind(2, BlindStage::Big), 1200, "ante 2 big blind target");
-    expectEqual(RunState::targetForBlind(2, BlindStage::Boss), 1600, "ante 2 boss blind target");
+    expectEqual(RunState::kBlindTargets[0].small, 300, "ante 1 small blind table target");
+    expectEqual(RunState::kBlindTargets[0].big, 450, "ante 1 big blind table target");
+    expectEqual(RunState::kBlindTargets[2].boss, 4800, "ante 3 boss blind table target");
+    expectEqual(RunState::kBlindRewards[0], 2, "small blind table reward");
+    expectEqual(RunState::kBlindRewards[1], 3, "big blind table reward");
+    expectEqual(RunState::kBlindRewards[2], 4, "boss blind table reward");
+    expectEqual(RunState::targetForBlind(1, BlindStage::Big), 450, "ante 1 big blind target");
+    expectEqual(RunState::targetForBlind(3, BlindStage::Boss), 4800, "ante 3 boss blind target");
+    expectEqual(RunState::targetForBlind(8, BlindStage::Boss), 100000, "ante 8 boss blind target");
 }
 
 void testAdvancingBlindRequiresThreeClearsPerAnte() {
@@ -69,15 +76,15 @@ void testBlindRewardIsFixedByBlindType() {
     run.discardsRemaining = 0;
 
     run.awardRoundWin();
-    expectEqual(run.money, 7, "small blind fixed payout");
+    expectEqual(run.money, 6, "small blind fixed payout");
 
     run.advanceBlind();
     run.awardRoundWin();
-    expectEqual(run.money, 11, "big blind fixed payout");
+    expectEqual(run.money, 9, "big blind fixed payout");
 
     run.advanceBlind();
     run.awardRoundWin();
-    expectEqual(run.money, 16, "boss blind fixed payout");
+    expectEqual(run.money, 13, "boss blind fixed payout");
 }
 
 void testRunCompletesOnAnteEightBossClear() {
