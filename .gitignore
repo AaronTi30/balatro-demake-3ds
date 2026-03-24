@@ -9,3 +9,4 @@ build-3ds/
 .agent/
 artifacts/
 .superpowers/
+.worktrees/
