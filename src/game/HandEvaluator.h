@@ -88,9 +88,12 @@ private:
     static std::pair<int, int> lookupBaseValues(HandType type);
 
     // Helper: sum the rank chip value of the scoring cards
-    static int calculateScoringCardChipBonus(const std::vector<Card>& scoringCards,
-                                             BossBlindModifier bossModifier,
-                                             Suit blockedSuit);
+    static int calculateScoringCardChipBonus(const std::vector<Card>& scoringCards);
+
+    // Helper: calculate the chip amount a boss modifier removes after joker callbacks
+    static int calculateBossChipPenalty(const std::vector<Card>& scoringCards,
+                                        BossBlindModifier bossModifier,
+                                        Suit blockedSuit);
 
     // Helper: apply scoring card chips and joker callbacks in explicit order
     static ScoreTotals calculateFinalTotals(HandType type,
@@ -100,5 +103,6 @@ private:
                                             int chipsAfterScoringCards,
                                             int baseMult,
                                             const std::vector<Joker>& jokers,
+                                            int bossChipPenalty,
                                             BossBlindModifier bossModifier);
 };

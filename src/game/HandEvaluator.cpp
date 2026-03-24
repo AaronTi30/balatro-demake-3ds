@@ -31,23 +31,31 @@ std::pair<int, int> HandEvaluator::lookupBaseValues(HandType t) {
     }
 }
 
-int HandEvaluator::calculateScoringCardChipBonus(const std::vector<Card>& scoringCards,
-                                                 BossBlindModifier bossModifier,
-                                                 Suit blockedSuit) {
+int HandEvaluator::calculateScoringCardChipBonus(const std::vector<Card>& scoringCards) {
     int chipBonus = 0;
     for (const auto& card : scoringCards) {
-        int cardChipValue = rankChipValue(card.rank);
-
-        if (bossModifier == BossBlindModifier::SuitLock && card.suit == blockedSuit) {
-            cardChipValue = 0;
-        } else if (bossModifier == BossBlindModifier::FaceTax && isFaceRank(card.rank)) {
-            cardChipValue /= 2;
-        }
-
-        chipBonus += cardChipValue;
+        chipBonus += rankChipValue(card.rank);
     }
 
     return chipBonus;
+}
+
+int HandEvaluator::calculateBossChipPenalty(const std::vector<Card>& scoringCards,
+                                            BossBlindModifier bossModifier,
+                                            Suit blockedSuit) {
+    int penalty = 0;
+    for (const auto& card : scoringCards) {
+        if (bossModifier == BossBlindModifier::SuitLock && card.suit == blockedSuit) {
+            penalty += rankChipValue(card.rank);
+            continue;
+        }
+
+        if (bossModifier == BossBlindModifier::FaceTax && isFaceRank(card.rank)) {
+            penalty += rankChipValue(card.rank) / 2;
+        }
+    }
+
+    return penalty;
 }
 
 std::vector<std::pair<Rank, int>> HandEvaluator::rankCounts(const std::vector<Card>& cards) {
@@ -206,6 +214,7 @@ HandEvaluator::ScoreTotals HandEvaluator::calculateFinalTotals(HandType type,
                                                                int chipsAfterScoringCards,
                                                                int baseMult,
                                                                const std::vector<Joker>& jokers,
+                                                               int bossChipPenalty,
                                                                BossBlindModifier bossModifier) {
     int finalChips = chipsAfterScoringCards;
     int finalMult = baseMult;
@@ -223,6 +232,10 @@ HandEvaluator::ScoreTotals HandEvaluator::calculateFinalTotals(HandType type,
         if (joker.evaluate) {
             joker.evaluate(ctx);
         }
+    }
+
+    if (bossModifier == BossBlindModifier::SuitLock || bossModifier == BossBlindModifier::FaceTax) {
+        finalChips -= bossChipPenalty;
     }
 
     int finalScore = finalChips * finalMult;
@@ -270,15 +283,18 @@ HandResult HandEvaluator::evaluate(std::vector<Card> cards,
     std::vector<Card> scoringCards = selectScoringCards(cards, counts, detectedHand);
 
     std::pair<int, int> handBaseValues = lookupBaseValues(detectedHand);
-    const int scoringCardChipBonus = calculateScoringCardChipBonus(scoringCards, bossModifier, blockedSuit);
+    const int rawScoringCardChipBonus = calculateScoringCardChipBonus(scoringCards);
+    const int bossChipPenalty = calculateBossChipPenalty(scoringCards, bossModifier, blockedSuit);
+    const int scoringCardChipBonus = rawScoringCardChipBonus - bossChipPenalty;
     ScoreTotals finalTotals = calculateFinalTotals(
         detectedHand,
         cards,
         scoringCards,
         containsPair,
-        handBaseValues.first + scoringCardChipBonus,
+        handBaseValues.first + rawScoringCardChipBonus,
         handBaseValues.second,
         jokers,
+        bossChipPenalty,
         bossModifier);
 
     HandResult result{};

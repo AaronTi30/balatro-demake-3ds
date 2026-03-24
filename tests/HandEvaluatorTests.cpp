@@ -307,6 +307,29 @@ void testSuitLockRemovesBlockedSuitChipBonus() {
     expectEqual(locked.finalScore, 28, "suit lock should reduce final score");
 }
 
+void testSuitLockAppliesAfterJokerChipChanges() {
+    Joker chipDoubler{
+        "Chip Doubler",
+        "Double chips",
+        JokerEffectType::AddChips,
+        [](HandEvalContext& ctx) {
+            ctx.chips *= 2;
+        }
+    };
+
+    const std::vector<Card> pairCards{
+        makeCard(Suit::Hearts, Rank::Four),
+        makeCard(Suit::Spades, Rank::Four),
+        makeCard(Suit::Diamonds, Rank::Nine)
+    };
+
+    HandResult locked = HandEvaluator::evaluate(pairCards, { chipDoubler }, BossBlindModifier::SuitLock, Suit::Hearts);
+
+    expectEqual(locked.scoringCardChipBonus, 4, "suit lock should still report the effective chip bonus");
+    expectEqual(locked.finalChips, 32, "suit lock should subtract blocked chips after joker chip changes");
+    expectEqual(locked.finalScore, 64, "suit lock late application should preserve post-joker chip math");
+}
+
 void testFaceTaxHalvesFaceCardChipContribution() {
     const std::vector<Card> pairCards{
         makeCard(Suit::Hearts, Rank::Queen),
@@ -321,6 +344,29 @@ void testFaceTaxHalvesFaceCardChipContribution() {
     expectEqual(taxed.scoringCardChipBonus, 10, "face tax should halve face-card chips");
     expectEqual(taxed.finalChips, 20, "face tax should keep half the face-card chips");
     expectEqual(taxed.finalScore, 40, "face tax should reduce final score");
+}
+
+void testFaceTaxAppliesAfterJokerChipChanges() {
+    Joker chipDoubler{
+        "Chip Doubler",
+        "Double chips",
+        JokerEffectType::AddChips,
+        [](HandEvalContext& ctx) {
+            ctx.chips *= 2;
+        }
+    };
+
+    const std::vector<Card> pairCards{
+        makeCard(Suit::Hearts, Rank::Queen),
+        makeCard(Suit::Spades, Rank::Queen),
+        makeCard(Suit::Diamonds, Rank::Four)
+    };
+
+    HandResult taxed = HandEvaluator::evaluate(pairCards, { chipDoubler }, BossBlindModifier::FaceTax);
+
+    expectEqual(taxed.scoringCardChipBonus, 10, "face tax should still report the effective chip bonus");
+    expectEqual(taxed.finalChips, 50, "face tax should halve face chips after joker chip changes");
+    expectEqual(taxed.finalScore, 100, "face tax late application should preserve post-joker chip math");
 }
 
 void testHighCardWallLowersHighCardAndPairScores() {
@@ -358,7 +404,9 @@ int main() {
         testPairTaxLowersPairAndTwoPairScores();
         testSmallHandPunishLowersThreeCardHands();
         testSuitLockRemovesBlockedSuitChipBonus();
+        testSuitLockAppliesAfterJokerChipChanges();
         testFaceTaxHalvesFaceCardChipContribution();
+        testFaceTaxAppliesAfterJokerChipChanges();
         testHighCardWallLowersHighCardAndPairScores();
     } catch (const std::exception& ex) {
         std::cerr << ex.what() << '\n';
