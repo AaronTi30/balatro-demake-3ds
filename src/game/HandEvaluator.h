@@ -22,18 +22,11 @@ enum class HandType {
 
 // ── Result of evaluating a hand ──
 struct HandResult {
-    HandType type;
-    // Compatibility aliases for current gameplay/UI callers.
-    // These currently store the final post-card/post-joker totals, not raw hand base values.
-    int baseChips;
-    int baseMult;
-    std::vector<Card> scoringCards; // Cards that contribute to the hand
-    // Explicit hand classification metadata.
     HandType detectedHand;
-    // Raw chips/mult for the detected hand before scoring-card chips and jokers.
+    std::vector<Card> scoringCards;
     int baseHandChips;
     int baseHandMult;
-    // Final post-card/post-joker totals.
+    int scoringCardChipBonus;
     int finalChips;
     int finalMult;
     int finalScore;
@@ -90,10 +83,15 @@ private:
     // Helper: look up the base chips and mult for a hand type
     static std::pair<int, int> lookupBaseValues(HandType type);
 
+    // Helper: sum the rank chip value of the scoring cards
+    static int calculateScoringCardChipBonus(const std::vector<Card>& scoringCards);
+
     // Helper: apply scoring card chips and joker callbacks in explicit order
     static ScoreTotals calculateFinalTotals(HandType type,
+                                            const std::vector<Card>& playedCards,
                                             const std::vector<Card>& scoringCards,
-                                            int baseChips,
+                                            bool containsPair,
+                                            int chipsAfterScoringCards,
                                             int baseMult,
                                             const std::vector<Joker>& jokers);
 };

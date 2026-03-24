@@ -15,7 +15,19 @@ void Hand::removeCard(int index) {
 
 void Hand::toggleSelect(int index) {
     if (index >= 0 && index < static_cast<int>(m_cards.size())) {
-        m_cards[index].selected = !m_cards[index].selected;
+        if (m_cards[index].selected) {
+            m_cards[index].selected = false;
+            return;
+        }
+
+        const int selectedCount = static_cast<int>(std::count_if(
+            m_cards.begin(),
+            m_cards.end(),
+            [](const Card& card) { return card.selected; }));
+
+        if (selectedCount < 5) {
+            m_cards[index].selected = true;
+        }
     }
 }
 

@@ -8,7 +8,11 @@ enum class HandType;
 
 struct HandEvalContext {
     HandType playedHand;
+    const std::vector<Card>& playedCards;
+    int playedCardCount;
     const std::vector<Card>& scoringCards;
+    int scoringCardCount;
+    bool containsPair;
     int& chips;
     int& mult;
 };

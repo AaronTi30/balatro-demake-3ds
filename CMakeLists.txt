@@ -5,6 +5,8 @@ project(BalatroDemake VERSION 1.0.0 LANGUAGES CXX C)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+enable_testing()
+
 # Add our custom cmake module path so it can find FindSDL2.cmake if needed
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
@@ -49,3 +51,27 @@ endif()
 
 # Also include src dir
 target_include_directories(balatro_demake PRIVATE src)
+
+if(NOT N3DS)
+    add_executable(run_state_tests
+        tests/RunStateTests.cpp
+        src/game/Deck.cpp
+        src/game/RunState.cpp
+    )
+    target_include_directories(run_state_tests PRIVATE src)
+    add_test(NAME run_state_tests COMMAND run_state_tests)
+
+    add_executable(hand_tests
+        tests/HandTests.cpp
+        src/game/Hand.cpp
+    )
+    target_include_directories(hand_tests PRIVATE src)
+    add_test(NAME hand_tests COMMAND hand_tests)
+
+    add_executable(hand_evaluator_tests
+        tests/HandEvaluatorTests.cpp
+        src/game/HandEvaluator.cpp
+    )
+    target_include_directories(hand_evaluator_tests PRIVATE src)
+    add_test(NAME hand_evaluator_tests COMMAND hand_evaluator_tests)
+endif()

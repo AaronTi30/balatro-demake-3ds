@@ -13,10 +13,7 @@ Joker Joker::getRandom() {
         // 2. Sly Joker (+50 Chips if played hand contains a Pair)
         {"Sly Joker", "+50 Chips if Pair", JokerEffectType::AddChips,
             [](HandEvalContext& ctx) {
-                // HandEvaluator already determined if there is at least a pair
-                // Actually, ctx.playedHand is the *best* hand, but the hand itself was evaluated.
-                // For simplicity, we trigger if the evaluated best hand is Pair or better (which is everything except HighCard).
-                if (static_cast<int>(ctx.playedHand) >= 1) { // 1 is Pair
+                if (ctx.containsPair) {
                     ctx.chips += 50;
                 }
             }},
@@ -34,7 +31,7 @@ Joker Joker::getRandom() {
         // 4. Half Joker (+20 Mult if played hand contains 3 or fewer cards)
         {"Half Joker", "+20 Mult if <= 3 cards", JokerEffectType::AddMult,
             [](HandEvalContext& ctx) {
-                if (ctx.scoringCards.size() <= 3) {
+                if (ctx.playedCardCount <= 3) {
                     ctx.mult += 20;
                 }
             }}

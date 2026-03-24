@@ -19,6 +19,15 @@ ShopState::ShopState(StateMachine* machine, std::shared_ptr<RunState> runState)
     m_stateMachine = machine;
 }
 
+namespace {
+
+void advanceToNextBlindAndResume(StateMachine* machine, const std::shared_ptr<RunState>& runState) {
+    runState->advanceBlind();
+    machine->changeState(std::make_shared<GameplayState>(machine, runState));
+}
+
+} // namespace
+
 void ShopState::enter() {
     generateItems();
 }
@@ -82,7 +91,7 @@ void ShopState::handleInput() {
     
     if (kDown & KEY_START || kDown & KEY_X) {
         // Next Round
-        m_stateMachine->changeState(std::make_shared<GameplayState>(m_stateMachine, m_runState));
+        advanceToNextBlindAndResume(m_stateMachine, m_runState);
     }
     
     // Bottom Screen Touch
@@ -105,7 +114,7 @@ void ShopState::handleInput() {
         }
         // Next Ante Button: x: 160 -> 280, y: 160 -> 210
         else if (touch.px >= 160 && touch.px <= 280 && touch.py >= 160 && touch.py <= 210) {
-            m_stateMachine->changeState(std::make_shared<GameplayState>(m_stateMachine, m_runState));
+            advanceToNextBlindAndResume(m_stateMachine, m_runState);
         }
     }
     
@@ -141,7 +150,7 @@ void ShopState::handleInput() {
     if (keys[SDL_SCANCODE_RETURN]) {
         if (!enterPressed) {
             enterPressed = true;
-            m_stateMachine->changeState(std::make_shared<GameplayState>(m_stateMachine, m_runState));
+            advanceToNextBlindAndResume(m_stateMachine, m_runState);
         }
     } else { enterPressed = false; }
     
@@ -179,7 +188,7 @@ void ShopState::handleInput() {
                 }
                 // Next Ante Button: x: 560 -> 680, y: 160 -> 210
                 else if (mx >= 560 && mx <= 680 && my >= 160 && my <= 210) {
-                    m_stateMachine->changeState(std::make_shared<GameplayState>(m_stateMachine, m_runState));
+                    advanceToNextBlindAndResume(m_stateMachine, m_runState);
                 }
             }
         }
@@ -199,6 +208,8 @@ void ShopState::renderTopScreen(Application* app) {
     C2D_DrawRectSolid(0, 0, 0.5f, 400, 240, C2D_Color32(20, 30, 40, 255)); // Background
     TextRenderer::drawText("SHOP", 140, 15, 0.7f, 0.7f, C2D_Color32(255, 180, 80, 255));
     TextRenderer::drawText("Money: $" + std::to_string(m_runState->money), 130, 45, 0.6f, 0.6f, C2D_Color32(255, 215, 0, 255));
+    TextRenderer::drawText("Next: Ante " + std::to_string(m_runState->nextBlindAnte()) + " " + RunState::blindStageName(m_runState->nextBlindStage()),
+                           70, 65, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
 #else
     SDL_SetRenderDrawColor(renderer, 20, 30, 40, 255);
     SDL_Rect bgTop = { 0, 0, 400, 240 };
@@ -206,6 +217,8 @@ void ShopState::renderTopScreen(Application* app) {
     
     TextRenderer::drawText(renderer, "SHOP", 160, 15, 2, 255, 180, 80);
     TextRenderer::drawText(renderer, "Money: $" + std::to_string(m_runState->money), 140, 45, 1, 255, 215, 0);
+    TextRenderer::drawText(renderer, "Next: Ante " + std::to_string(m_runState->nextBlindAnte()) + " " + RunState::blindStageName(m_runState->nextBlindStage()),
+                           90, 70, 0, 200, 200, 220);
 #endif
 
     // ── Items for Sale ──
@@ -288,10 +301,10 @@ void ShopState::renderBottomScreen(Application* app) {
     }
     TextRenderer::drawText(buyText, baseX + 35, 175, 0.5f, 0.5f, C2D_Color32(0, 0, 0, 255));
     
-    // Next Ante Button (Blue)
+    // Next Blind Button (Blue)
     C2D_DrawRectSolid(baseX + 160, 160, 0.5f, 120, 50, C2D_Color32(80, 140, 255, 255));
     C2D_DrawRectSolid(baseX + 160, 160, 0.5f, 120, 2, C2D_Color32(120, 180, 255, 255)); // highlight
-    TextRenderer::drawText("Next Ante", baseX + 175, 175, 0.5f, 0.5f, C2D_Color32(0, 0, 0, 255));
+    TextRenderer::drawText("Next Blind", baseX + 170, 175, 0.5f, 0.5f, C2D_Color32(0, 0, 0, 255));
     
     // Hints
     TextRenderer::drawText("[A]", baseX + 70, 215, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
@@ -320,11 +333,11 @@ void ShopState::renderBottomScreen(Application* app) {
     }
     TextRenderer::drawText(renderer, buyText, baseX + 35, 175, 1, 0, 0, 0);
 
-    // Next Ante Button (Blue)
+    // Next Blind Button (Blue)
     SDL_SetRenderDrawColor(renderer, 80, 140, 255, 255);
     SDL_Rect nextRect = { baseX + 160, 160, 120, 50 };
     SDL_RenderFillRect(renderer, &nextRect);
-    TextRenderer::drawText(renderer, "Next Ante", baseX + 175, 175, 1, 0, 0, 0);
+    TextRenderer::drawText(renderer, "Next Blind", baseX + 170, 175, 1, 0, 0, 0);
     
     // Hints
     TextRenderer::drawText(renderer, "[Space]", baseX + 60, 215, 0, 200, 200, 220);

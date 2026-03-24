@@ -2,6 +2,14 @@
 #include <map>
 #include <set>
 
+namespace {
+
+int rankSortValue(Rank rank) {
+    return rank == Rank::Ace ? 14 : static_cast<int>(rank);
+}
+
+} // namespace
+
 // ── Balatro base values (chips, mult) by hand type ──
 std::pair<int, int> HandEvaluator::lookupBaseValues(HandType t) {
     switch (t) {
@@ -19,6 +27,15 @@ std::pair<int, int> HandEvaluator::lookupBaseValues(HandType t) {
     }
 }
 
+int HandEvaluator::calculateScoringCardChipBonus(const std::vector<Card>& scoringCards) {
+    int chipBonus = 0;
+    for (const auto& card : scoringCards) {
+        chipBonus += rankChipValue(card.rank);
+    }
+
+    return chipBonus;
+}
+
 std::vector<std::pair<Rank, int>> HandEvaluator::rankCounts(const std::vector<Card>& cards) {
     std::map<Rank, int> counts;
     for (const auto& c : cards) {
@@ -29,7 +46,7 @@ std::vector<std::pair<Rank, int>> HandEvaluator::rankCounts(const std::vector<Ca
     std::vector<std::pair<Rank, int>> result(counts.begin(), counts.end());
     std::sort(result.begin(), result.end(), [](const auto& a, const auto& b) {
         if (a.second != b.second) return a.second > b.second;
-        return static_cast<int>(a.first) > static_cast<int>(b.first);
+        return rankSortValue(a.first) > rankSortValue(b.first);
     });
     return result;
 }
@@ -156,7 +173,7 @@ std::vector<Card> HandEvaluator::selectScoringCards(const std::vector<Card>& car
         }
         case HandType::HighCard: {
             auto best = std::max_element(cards.begin(), cards.end(), [](const Card& a, const Card& b) {
-                return static_cast<int>(a.rank) < static_cast<int>(b.rank);
+                return rankSortValue(a.rank) < rankSortValue(b.rank);
             });
             if (best != cards.end()) {
                 scoringCards.push_back(*best);
@@ -169,18 +186,24 @@ std::vector<Card> HandEvaluator::selectScoringCards(const std::vector<Card>& car
 }
 
 HandEvaluator::ScoreTotals HandEvaluator::calculateFinalTotals(HandType type,
+                                                               const std::vector<Card>& playedCards,
                                                                const std::vector<Card>& scoringCards,
-                                                               int baseChips,
+                                                               bool containsPair,
+                                                               int chipsAfterScoringCards,
                                                                int baseMult,
                                                                const std::vector<Joker>& jokers) {
-    int finalChips = baseChips;
+    int finalChips = chipsAfterScoringCards;
     int finalMult = baseMult;
-
-    for (const auto& c : scoringCards) {
-        finalChips += rankChipValue(c.rank);
-    }
-
-    HandEvalContext ctx{ type, scoringCards, finalChips, finalMult };
+    HandEvalContext ctx{
+        type,
+        playedCards,
+        static_cast<int>(playedCards.size()),
+        scoringCards,
+        static_cast<int>(scoringCards.size()),
+        containsPair,
+        finalChips,
+        finalMult
+    };
     for (const auto& joker : jokers) {
         if (joker.evaluate) {
             joker.evaluate(ctx);
@@ -194,6 +217,10 @@ HandResult HandEvaluator::evaluate(std::vector<Card> cards, const std::vector<Jo
     auto counts = rankCounts(cards);
     bool flush = isFlush(cards);
     bool straight = isStraight(cards);
+    const bool containsPair = std::any_of(
+        counts.begin(),
+        counts.end(),
+        [](const auto& count) { return count.second >= 2; });
 
     HandType detectedHand = cards.empty()
         ? HandType::HighCard
@@ -201,21 +228,22 @@ HandResult HandEvaluator::evaluate(std::vector<Card> cards, const std::vector<Jo
     std::vector<Card> scoringCards = selectScoringCards(cards, counts, detectedHand);
 
     std::pair<int, int> handBaseValues = lookupBaseValues(detectedHand);
+    const int scoringCardChipBonus = calculateScoringCardChipBonus(scoringCards);
     ScoreTotals finalTotals = calculateFinalTotals(
         detectedHand,
+        cards,
         scoringCards,
-        handBaseValues.first,
+        containsPair,
+        handBaseValues.first + scoringCardChipBonus,
         handBaseValues.second,
         jokers);
 
     HandResult result{};
-    result.type = detectedHand;
-    result.baseChips = finalTotals.chips;
-    result.baseMult = finalTotals.mult;
-    result.scoringCards = scoringCards;
     result.detectedHand = detectedHand;
+    result.scoringCards = scoringCards;
     result.baseHandChips = handBaseValues.first;
     result.baseHandMult = handBaseValues.second;
+    result.scoringCardChipBonus = scoringCardChipBonus;
     result.finalChips = finalTotals.chips;
     result.finalMult = finalTotals.mult;
     result.finalScore = finalTotals.score;

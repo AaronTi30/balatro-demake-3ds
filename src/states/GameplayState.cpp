@@ -77,10 +77,10 @@ void GameplayState::playHand() {
     if (m_runState->handsRemaining <= 0) return;
 
     HandResult result = HandEvaluator::evaluate(selected, m_runState->jokers);
-    m_lastHandType = result.type;
-    m_lastChips = result.baseChips;
-    m_lastMult = result.baseMult;
-    m_lastScore = result.baseChips * result.baseMult;
+    m_lastHandType = result.detectedHand;
+    m_lastChips = result.finalChips;
+    m_lastMult = result.finalMult;
+    m_lastScore = result.finalScore;
     m_runState->addRoundScore(m_lastScore);
     m_showResult = true;
     m_resultTimer = 2.0f;
@@ -145,8 +145,9 @@ void GameplayState::handleInput() {
     }
     else if (m_phase == RoundPhase::RoundWon) {
         if (kDown & KEY_A) {
-            m_runState->advanceAnte();
-            m_stateMachine->changeState(std::make_shared<ShopState>(m_stateMachine, m_runState));
+            if (m_runState->shouldVisitShopAfterBlindWin()) {
+                m_stateMachine->changeState(std::make_shared<ShopState>(m_stateMachine, m_runState));
+            }
         }
     }
     else if (m_phase == RoundPhase::GameOver || m_phase == RoundPhase::GameWon) {
@@ -227,8 +228,9 @@ void GameplayState::handleInput() {
     }
     else if (m_phase == RoundPhase::RoundWon) {
         if (keys[SDL_SCANCODE_RETURN] && confirmCD == 0) {
-            m_runState->advanceAnte();
-            m_stateMachine->changeState(std::make_shared<ShopState>(m_stateMachine, m_runState));
+            if (m_runState->shouldVisitShopAfterBlindWin()) {
+                m_stateMachine->changeState(std::make_shared<ShopState>(m_stateMachine, m_runState));
+            }
             confirmCD = 20;
         }
     }
@@ -273,6 +275,8 @@ void GameplayState::renderTopScreen(Application* app) {
 #ifdef N3DS
         TextRenderer::drawText("Ante " + std::to_string(m_runState->ante), 10, 6, 0.4f, 0.4f,
                                C2D_Color32(255, 200, 80, 255));
+        TextRenderer::drawText(m_runState->currentBlindName(), 10, 24, 0.35f, 0.35f,
+                               C2D_Color32(180, 180, 200, 255));
         TextRenderer::drawText("Hands: " + std::to_string(m_runState->handsRemaining), 80, 6, 0.4f, 0.4f,
                                C2D_Color32(100, 220, 100, 255));
         TextRenderer::drawText("Discards: " + std::to_string(m_runState->discardsRemaining), 160, 6, 0.4f, 0.4f,
@@ -281,6 +285,7 @@ void GameplayState::renderTopScreen(Application* app) {
                                C2D_Color32(180, 180, 200, 255));
 #else
         TextRenderer::drawText(renderer, "Ante " + std::to_string(m_runState->ante), 10, 6, 0, 255, 200, 80);
+        TextRenderer::drawText(renderer, m_runState->currentBlindName(), 10, 24, 0, 180, 180, 200);
         TextRenderer::drawText(renderer, "Hands: " + std::to_string(m_runState->handsRemaining), 80, 6, 0, 100, 220, 100);
         TextRenderer::drawText(renderer, "Discards: " + std::to_string(m_runState->discardsRemaining), 170, 6, 0, 240, 170, 60);
         TextRenderer::drawText(renderer, "Deck: " + std::to_string(m_runState->deck.remaining()), 340, 6, 0, 180, 180, 200);
@@ -362,33 +367,38 @@ void GameplayState::renderTopScreen(Application* app) {
     }
     else if (m_phase == RoundPhase::RoundWon) {
         // ── ROUND WON ──
+        const BlindStage upcomingBlind = m_runState->nextBlindStage();
+        const int upcomingAnte = m_runState->nextBlindAnte();
+        const std::string nextBlindLabel = std::string(RunState::blindStageName(upcomingBlind));
+        const std::string nextTargetLabel = "Next: Ante " + std::to_string(upcomingAnte) + " " + nextBlindLabel +
+            " (" + std::to_string(RunState::targetForBlind(upcomingAnte, upcomingBlind)) + ")";
 #ifdef N3DS
-        TextRenderer::drawText("ROUND CLEAR!", 100, 40, 0.7f, 0.7f, C2D_Color32(80, 255, 120, 255));
-        TextRenderer::drawText("Ante " + std::to_string(m_runState->ante) + " complete", 110, 80, 0.5f, 0.5f,
+        TextRenderer::drawText("BLIND CLEAR!", 100, 40, 0.7f, 0.7f, C2D_Color32(80, 255, 120, 255));
+        TextRenderer::drawText(std::string(m_runState->currentBlindName()) + " cleared", 100, 80, 0.5f, 0.5f,
                                C2D_Color32(255, 255, 255, 255));
         TextRenderer::drawText("Score: " + std::to_string(m_runState->roundScore) + " / " + std::to_string(m_runState->roundTarget),
                                110, 110, 0.45f, 0.45f, C2D_Color32(255, 220, 80, 255));
-        TextRenderer::drawText("Earned: $3 + $" + std::to_string(m_runState->handsRemaining + m_runState->discardsRemaining) + " (hands/discards)",
+        TextRenderer::drawText("Reward: $" + std::to_string(m_runState->currentBlindReward()),
                                80, 140, 0.4f, 0.4f, C2D_Color32(255, 215, 0, 255));
-        TextRenderer::drawText("Press A to enter Shop", 100, 170, 0.4f, 0.4f,
+        TextRenderer::drawText(nextTargetLabel, 60, 160, 0.35f, 0.35f, C2D_Color32(180, 180, 200, 255));
+        TextRenderer::drawText("Press A to enter Shop", 100, 185, 0.4f, 0.4f,
                                C2D_Color32(200, 200, 220, 255));
 #else
-        TextRenderer::drawText(renderer, "ROUND CLEAR!", 110, 40, 2, 80, 255, 120);
-        TextRenderer::drawText(renderer, "Ante " + std::to_string(m_runState->ante) + " complete", 130, 80, 1, 255, 255, 255);
+        TextRenderer::drawText(renderer, "BLIND CLEAR!", 110, 40, 2, 80, 255, 120);
+        TextRenderer::drawText(renderer, std::string(m_runState->currentBlindName()) + " cleared", 120, 80, 1, 255, 255, 255);
         TextRenderer::drawText(renderer, "Score: " + std::to_string(m_runState->roundScore) + " / " + std::to_string(m_runState->roundTarget),
                                130, 110, 1, 255, 220, 80);
-        std::string nextStr = "Next target: " + std::to_string(RunState::targetForAnte(m_runState->ante + 1));
-        TextRenderer::drawText(renderer, nextStr, 130, 140, 0, 180, 180, 200);
-        TextRenderer::drawText(renderer, "Earned: $3 + $" + std::to_string(m_runState->handsRemaining + m_runState->discardsRemaining) + " (hands/discards)",
-                               100, 160, 0, 255, 215, 0);
-        TextRenderer::drawText(renderer, "Press Enter to enter Shop", 110, 190, 0, 200, 200, 220);
+        TextRenderer::drawText(renderer, nextTargetLabel, 100, 140, 0, 180, 180, 200);
+        TextRenderer::drawText(renderer, "Reward: $" + std::to_string(m_runState->currentBlindReward()),
+                               130, 160, 0, 255, 215, 0);
+        TextRenderer::drawText(renderer, "Press Enter to enter Shop", 105, 190, 0, 200, 200, 220);
 #endif
     }
     else if (m_phase == RoundPhase::GameOver) {
         // ── GAME OVER ──
 #ifdef N3DS
         TextRenderer::drawText("GAME OVER", 110, 50, 0.7f, 0.7f, C2D_Color32(255, 80, 80, 255));
-        TextRenderer::drawText("Reached Ante " + std::to_string(m_runState->ante), 110, 100, 0.5f, 0.5f,
+        TextRenderer::drawText("Reached Ante " + std::to_string(m_runState->ante) + " " + m_runState->currentBlindName(), 70, 100, 0.45f, 0.45f,
                                C2D_Color32(255, 255, 255, 255));
         TextRenderer::drawText("Score: " + std::to_string(m_runState->roundScore) + " / " + std::to_string(m_runState->roundTarget),
                                110, 130, 0.45f, 0.45f, C2D_Color32(255, 180, 80, 255));
@@ -396,7 +406,7 @@ void GameplayState::renderTopScreen(Application* app) {
                                C2D_Color32(200, 200, 220, 255));
 #else
         TextRenderer::drawText(renderer, "GAME OVER", 130, 50, 2, 255, 80, 80);
-        TextRenderer::drawText(renderer, "Reached Ante " + std::to_string(m_runState->ante), 140, 100, 1, 255, 255, 255);
+        TextRenderer::drawText(renderer, "Reached Ante " + std::to_string(m_runState->ante) + " " + m_runState->currentBlindName(), 95, 100, 1, 255, 255, 255);
         TextRenderer::drawText(renderer, "Score: " + std::to_string(m_runState->roundScore) + " / " + std::to_string(m_runState->roundTarget),
                                140, 130, 1, 255, 180, 80);
         TextRenderer::drawText(renderer, "Press Enter to return", 140, 180, 0, 200, 200, 220);
@@ -474,18 +484,18 @@ void GameplayState::renderBottomScreen(Application* app) {
 #ifdef N3DS
         TextRenderer::drawText(selStr, baseX + 20, 70, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
         if (numSelected >= 1 && numSelected <= 5) {
-            HandResult preview = HandEvaluator::evaluate(selected);
-            TextRenderer::drawText(handTypeName(preview.type), baseX + 20, 86, 0.45f, 0.45f,
+            HandResult preview = HandEvaluator::evaluate(selected, m_runState->jokers);
+            TextRenderer::drawText(handTypeName(preview.detectedHand), baseX + 20, 86, 0.45f, 0.45f,
                                    C2D_Color32(255, 255, 180, 255));
-            std::string ps = std::to_string(preview.baseChips) + " x " + std::to_string(preview.baseMult);
+            std::string ps = std::to_string(preview.finalChips) + " x " + std::to_string(preview.finalMult);
             TextRenderer::drawText(ps, baseX + 20, 102, 0.4f, 0.4f, C2D_Color32(200, 200, 255, 255));
         }
 #else
         TextRenderer::drawText(renderer, selStr, baseX + 20, 70, 0, 200, 200, 220);
         if (numSelected >= 1 && numSelected <= 5) {
-            HandResult preview = HandEvaluator::evaluate(selected);
-            TextRenderer::drawText(renderer, handTypeName(preview.type), baseX + 20, 86, 1, 255, 255, 180);
-            std::string ps = std::to_string(preview.baseChips) + " x " + std::to_string(preview.baseMult);
+            HandResult preview = HandEvaluator::evaluate(selected, m_runState->jokers);
+            TextRenderer::drawText(renderer, handTypeName(preview.detectedHand), baseX + 20, 86, 1, 255, 255, 180);
+            std::string ps = std::to_string(preview.finalChips) + " x " + std::to_string(preview.finalMult);
             TextRenderer::drawText(renderer, ps, baseX + 20, 106, 0, 200, 200, 255);
         }
 #endif
@@ -527,13 +537,16 @@ void GameplayState::renderBottomScreen(Application* app) {
         // Non-playing phases: show ante info on bottom screen
 #ifdef N3DS
         TextRenderer::drawText("Ante " + std::to_string(m_runState->ante) + " / " + std::to_string(RunState::kMaxAnte),
-                               baseX + 80, 80, 0.5f, 0.5f, C2D_Color32(255, 200, 80, 255));
+                               baseX + 80, 70, 0.5f, 0.5f, C2D_Color32(255, 200, 80, 255));
+        TextRenderer::drawText(m_runState->currentBlindName(), baseX + 100, 95, 0.45f, 0.45f,
+                               C2D_Color32(200, 200, 220, 255));
         TextRenderer::drawText("Target " + std::to_string(m_runState->roundTarget), baseX + 90, 110, 0.45f, 0.45f,
                                C2D_Color32(200, 200, 220, 255));
 #else
         TextRenderer::drawText(renderer, "Ante " + std::to_string(m_runState->ante) + " / " + std::to_string(RunState::kMaxAnte),
-                               baseX + 80, 80, 1, 255, 200, 80);
-        TextRenderer::drawText(renderer, "Target " + std::to_string(m_runState->roundTarget), baseX + 90, 110, 1, 200, 200, 220);
+                               baseX + 80, 70, 1, 255, 200, 80);
+        TextRenderer::drawText(renderer, m_runState->currentBlindName(), baseX + 105, 95, 1, 200, 200, 220);
+        TextRenderer::drawText(renderer, "Target " + std::to_string(m_runState->roundTarget), baseX + 90, 120, 1, 200, 200, 220);
 #endif
     }
 }
