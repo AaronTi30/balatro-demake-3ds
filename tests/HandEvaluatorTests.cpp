@@ -256,6 +256,93 @@ void testHalfJokerUsesPlayedCardCount() {
     expectEqual(fiveCardPair.finalMult, 2, "half joker should not trigger on five played cards");
 }
 
+void testPairTaxLowersPairAndTwoPairScores() {
+    const std::vector<Card> pairCards{
+        makeCard(Suit::Hearts, Rank::Four),
+        makeCard(Suit::Spades, Rank::Four),
+        makeCard(Suit::Diamonds, Rank::Nine)
+    };
+    HandResult baselinePair = HandEvaluator::evaluate(pairCards, {});
+    HandResult taxedPair = HandEvaluator::evaluate(pairCards, {}, BossBlindModifier::PairTax);
+    expectEqual(taxedPair.finalScore, baselinePair.finalScore * 75 / 100, "pair tax lowers pair score");
+
+    const std::vector<Card> twoPairCards{
+        makeCard(Suit::Hearts, Rank::Three),
+        makeCard(Suit::Spades, Rank::Three),
+        makeCard(Suit::Diamonds, Rank::Nine),
+        makeCard(Suit::Clubs, Rank::Nine),
+        makeCard(Suit::Hearts, Rank::King)
+    };
+    HandResult baselineTwoPair = HandEvaluator::evaluate(twoPairCards, {});
+    HandResult taxedTwoPair = HandEvaluator::evaluate(twoPairCards, {}, BossBlindModifier::PairTax);
+    expectEqual(taxedTwoPair.finalScore, baselineTwoPair.finalScore * 75 / 100, "pair tax lowers two pair score");
+}
+
+void testSmallHandPunishLowersThreeCardHands() {
+    const std::vector<Card> threeCardHand{
+        makeCard(Suit::Hearts, Rank::Four),
+        makeCard(Suit::Spades, Rank::Four),
+        makeCard(Suit::Diamonds, Rank::King)
+    };
+
+    HandResult baseline = HandEvaluator::evaluate(threeCardHand, {});
+    HandResult punished = HandEvaluator::evaluate(threeCardHand, {}, BossBlindModifier::SmallHandPunish);
+
+    expectEqual(punished.finalScore, baseline.finalScore * 70 / 100, "small hand punish lowers short hands");
+}
+
+void testSuitLockRemovesBlockedSuitChipBonus() {
+    const std::vector<Card> pairCards{
+        makeCard(Suit::Hearts, Rank::Four),
+        makeCard(Suit::Spades, Rank::Four),
+        makeCard(Suit::Diamonds, Rank::Nine)
+    };
+
+    HandResult baseline = HandEvaluator::evaluate(pairCards, {});
+    HandResult locked = HandEvaluator::evaluate(pairCards, {}, BossBlindModifier::SuitLock, Suit::Hearts);
+
+    expectEqual(baseline.scoringCardChipBonus, 8, "baseline pair chip bonus");
+    expectEqual(locked.scoringCardChipBonus, 4, "suit lock should remove blocked suit chips");
+    expectEqual(locked.finalChips, 14, "suit lock should reduce final chips");
+    expectEqual(locked.finalScore, 28, "suit lock should reduce final score");
+}
+
+void testFaceTaxHalvesFaceCardChipContribution() {
+    const std::vector<Card> pairCards{
+        makeCard(Suit::Hearts, Rank::Queen),
+        makeCard(Suit::Spades, Rank::Queen),
+        makeCard(Suit::Diamonds, Rank::Four)
+    };
+
+    HandResult baseline = HandEvaluator::evaluate(pairCards, {});
+    HandResult taxed = HandEvaluator::evaluate(pairCards, {}, BossBlindModifier::FaceTax);
+
+    expectEqual(baseline.scoringCardChipBonus, 20, "baseline face-card chip bonus");
+    expectEqual(taxed.scoringCardChipBonus, 10, "face tax should halve face-card chips");
+    expectEqual(taxed.finalChips, 20, "face tax should keep half the face-card chips");
+    expectEqual(taxed.finalScore, 40, "face tax should reduce final score");
+}
+
+void testHighCardWallLowersHighCardAndPairScores() {
+    const std::vector<Card> highCardHand{
+        makeCard(Suit::Clubs, Rank::Three),
+        makeCard(Suit::Diamonds, Rank::Ace),
+        makeCard(Suit::Hearts, Rank::Seven)
+    };
+    HandResult baselineHighCard = HandEvaluator::evaluate(highCardHand, {});
+    HandResult walledHighCard = HandEvaluator::evaluate(highCardHand, {}, BossBlindModifier::HighCardWall);
+    expectEqual(walledHighCard.finalScore, baselineHighCard.finalScore * 70 / 100, "high card wall lowers high card score");
+
+    const std::vector<Card> pairCards{
+        makeCard(Suit::Hearts, Rank::Four),
+        makeCard(Suit::Spades, Rank::Four),
+        makeCard(Suit::Diamonds, Rank::Nine)
+    };
+    HandResult baselinePair = HandEvaluator::evaluate(pairCards, {});
+    HandResult walledPair = HandEvaluator::evaluate(pairCards, {}, BossBlindModifier::HighCardWall);
+    expectEqual(walledPair.finalScore, baselinePair.finalScore * 70 / 100, "high card wall lowers pair score");
+}
+
 } // namespace
 
 int main() {
@@ -268,6 +355,11 @@ int main() {
         testJokerContextExposesPlayedAndScoringCounts();
         testSlyJokerRequiresAnActualPair();
         testHalfJokerUsesPlayedCardCount();
+        testPairTaxLowersPairAndTwoPairScores();
+        testSmallHandPunishLowersThreeCardHands();
+        testSuitLockRemovesBlockedSuitChipBonus();
+        testFaceTaxHalvesFaceCardChipContribution();
+        testHighCardWallLowersHighCardAndPairScores();
     } catch (const std::exception& ex) {
         std::cerr << ex.what() << '\n';
         return 1;

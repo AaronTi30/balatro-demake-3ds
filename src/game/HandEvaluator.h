@@ -1,10 +1,11 @@
 #pragma once
 
+#include "RunState.h"
 #include "Card.h"
 #include "Joker.h"
-#include <vector>
-#include <string>
 #include <algorithm>
+#include <string>
+#include <vector>
 
 // ── Poker Hand Types (ordered by Balatro's ranking) ──
 enum class HandType {
@@ -51,7 +52,10 @@ inline const char* handTypeName(HandType t) {
 class HandEvaluator {
 public:
     // Evaluate a set of played cards (up to 5) and return the best hand
-    static HandResult evaluate(std::vector<Card> cards, const std::vector<Joker>& jokers = {});
+    static HandResult evaluate(std::vector<Card> cards,
+                               const std::vector<Joker>& jokers = {},
+                               BossBlindModifier bossModifier = BossBlindModifier::None,
+                               Suit blockedSuit = Suit::Clubs);
 
 private:
     struct ScoreTotals {
@@ -84,7 +88,9 @@ private:
     static std::pair<int, int> lookupBaseValues(HandType type);
 
     // Helper: sum the rank chip value of the scoring cards
-    static int calculateScoringCardChipBonus(const std::vector<Card>& scoringCards);
+    static int calculateScoringCardChipBonus(const std::vector<Card>& scoringCards,
+                                             BossBlindModifier bossModifier,
+                                             Suit blockedSuit);
 
     // Helper: apply scoring card chips and joker callbacks in explicit order
     static ScoreTotals calculateFinalTotals(HandType type,
@@ -93,5 +99,6 @@ private:
                                             bool containsPair,
                                             int chipsAfterScoringCards,
                                             int baseMult,
-                                            const std::vector<Joker>& jokers);
+                                            const std::vector<Joker>& jokers,
+                                            BossBlindModifier bossModifier);
 };

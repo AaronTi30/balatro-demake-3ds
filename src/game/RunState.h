@@ -2,6 +2,7 @@
 
 #include "Deck.h"
 #include "Joker.h"
+#include <random>
 #include <vector>
 
 struct BlindTargets {
@@ -14,6 +15,15 @@ enum class BlindStage {
     Small,
     Big,
     Boss
+};
+
+enum class BossBlindModifier {
+    None,
+    PairTax,
+    SmallHandPunish,
+    SuitLock,
+    FaceTax,
+    HighCardWall
 };
 
 class RunState {
@@ -39,6 +49,10 @@ public:
     int handsRemaining = 4;
     int discardsRemaining = 3;
     int jokerLimit = 5;
+    BossBlindModifier currentBossModifier = BossBlindModifier::None;
+    BossBlindModifier nextBossModifier = BossBlindModifier::None;
+    Suit currentBlockedSuit = Suit::Clubs;
+    Suit nextBlockedSuit = Suit::Clubs;
     std::vector<Joker> jokers;
     Deck deck;
 
@@ -47,12 +61,16 @@ public:
     void addRoundScore(int points);
     void awardRoundWin();
     void advanceBlind();
+    void rollNextBossModifier(std::mt19937& rng);
+    void enterCurrentBlind();
     bool isRoundWon() const;
     bool isRunComplete() const;
     bool isBossBlind() const;
     bool shouldVisitShopAfterBlindWin() const;
     int currentBlindReward() const;
     const char* currentBlindName() const;
+    static const char* bossModifierName(BossBlindModifier modifier);
+    static const char* bossModifierDescription(BossBlindModifier modifier, Suit blockedSuit);
     BlindStage nextBlindStage() const;
     int nextBlindAnte() const;
     static int targetForAnte(int ante);

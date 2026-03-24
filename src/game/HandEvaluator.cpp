@@ -8,6 +8,10 @@ int rankSortValue(Rank rank) {
     return rank == Rank::Ace ? 14 : static_cast<int>(rank);
 }
 
+bool isFaceRank(Rank rank) {
+    return rank == Rank::Jack || rank == Rank::Queen || rank == Rank::King || rank == Rank::Ace;
+}
+
 } // namespace
 
 // ── Balatro base values (chips, mult) by hand type ──
@@ -27,10 +31,20 @@ std::pair<int, int> HandEvaluator::lookupBaseValues(HandType t) {
     }
 }
 
-int HandEvaluator::calculateScoringCardChipBonus(const std::vector<Card>& scoringCards) {
+int HandEvaluator::calculateScoringCardChipBonus(const std::vector<Card>& scoringCards,
+                                                 BossBlindModifier bossModifier,
+                                                 Suit blockedSuit) {
     int chipBonus = 0;
     for (const auto& card : scoringCards) {
-        chipBonus += rankChipValue(card.rank);
+        int cardChipValue = rankChipValue(card.rank);
+
+        if (bossModifier == BossBlindModifier::SuitLock && card.suit == blockedSuit) {
+            cardChipValue = 0;
+        } else if (bossModifier == BossBlindModifier::FaceTax && isFaceRank(card.rank)) {
+            cardChipValue /= 2;
+        }
+
+        chipBonus += cardChipValue;
     }
 
     return chipBonus;
@@ -191,7 +205,8 @@ HandEvaluator::ScoreTotals HandEvaluator::calculateFinalTotals(HandType type,
                                                                bool containsPair,
                                                                int chipsAfterScoringCards,
                                                                int baseMult,
-                                                               const std::vector<Joker>& jokers) {
+                                                               const std::vector<Joker>& jokers,
+                                                               BossBlindModifier bossModifier) {
     int finalChips = chipsAfterScoringCards;
     int finalMult = baseMult;
     HandEvalContext ctx{
@@ -210,10 +225,37 @@ HandEvaluator::ScoreTotals HandEvaluator::calculateFinalTotals(HandType type,
         }
     }
 
-    return { finalChips, finalMult, finalChips * finalMult };
+    int finalScore = finalChips * finalMult;
+    switch (bossModifier) {
+        case BossBlindModifier::PairTax:
+            if (type == HandType::Pair || type == HandType::TwoPair) {
+                finalScore = finalScore * 75 / 100;
+            }
+            break;
+        case BossBlindModifier::SmallHandPunish:
+            if (playedCards.size() <= 3) {
+                finalScore = finalScore * 70 / 100;
+            }
+            break;
+        case BossBlindModifier::HighCardWall:
+            if (type == HandType::HighCard || type == HandType::Pair) {
+                finalScore = finalScore * 70 / 100;
+            }
+            break;
+        case BossBlindModifier::FaceTax:
+        case BossBlindModifier::SuitLock:
+        case BossBlindModifier::None:
+        default:
+            break;
+    }
+
+    return { finalChips, finalMult, finalScore };
 }
 
-HandResult HandEvaluator::evaluate(std::vector<Card> cards, const std::vector<Joker>& jokers) {
+HandResult HandEvaluator::evaluate(std::vector<Card> cards,
+                                   const std::vector<Joker>& jokers,
+                                   BossBlindModifier bossModifier,
+                                   Suit blockedSuit) {
     auto counts = rankCounts(cards);
     bool flush = isFlush(cards);
     bool straight = isStraight(cards);
@@ -228,7 +270,7 @@ HandResult HandEvaluator::evaluate(std::vector<Card> cards, const std::vector<Jo
     std::vector<Card> scoringCards = selectScoringCards(cards, counts, detectedHand);
 
     std::pair<int, int> handBaseValues = lookupBaseValues(detectedHand);
-    const int scoringCardChipBonus = calculateScoringCardChipBonus(scoringCards);
+    const int scoringCardChipBonus = calculateScoringCardChipBonus(scoringCards, bossModifier, blockedSuit);
     ScoreTotals finalTotals = calculateFinalTotals(
         detectedHand,
         cards,
@@ -236,7 +278,8 @@ HandResult HandEvaluator::evaluate(std::vector<Card> cards, const std::vector<Jo
         containsPair,
         handBaseValues.first + scoringCardChipBonus,
         handBaseValues.second,
-        jokers);
+        jokers,
+        bossModifier);
 
     HandResult result{};
     result.detectedHand = detectedHand;

@@ -76,7 +76,11 @@ void GameplayState::playHand() {
     if (selected.empty() || selected.size() > 5) return;
     if (m_runState->handsRemaining <= 0) return;
 
-    HandResult result = HandEvaluator::evaluate(selected, m_runState->jokers);
+    HandResult result = HandEvaluator::evaluate(
+        selected,
+        m_runState->jokers,
+        m_runState->currentBossModifier,
+        m_runState->currentBlockedSuit);
     m_lastHandType = result.detectedHand;
     m_lastChips = result.finalChips;
     m_lastMult = result.finalMult;
@@ -317,6 +321,20 @@ void GameplayState::renderTopScreen(Application* app) {
 #endif
         }
 
+        if (m_runState->isBossBlind() && m_runState->currentBossModifier != BossBlindModifier::None) {
+            const std::string bossLabel = "Boss: " + std::string(RunState::bossModifierName(m_runState->currentBossModifier));
+            const char* bossDescription = RunState::bossModifierDescription(
+                m_runState->currentBossModifier,
+                m_runState->currentBlockedSuit);
+#ifdef N3DS
+            TextRenderer::drawText(bossLabel, 10, 42, 0.32f, 0.32f, C2D_Color32(255, 170, 120, 255));
+            TextRenderer::drawText(bossDescription, 10, 56, 0.28f, 0.28f, C2D_Color32(220, 220, 220, 255));
+#else
+            TextRenderer::drawText(renderer, bossLabel, 10, 42, 0, 255, 170, 120);
+            TextRenderer::drawText(renderer, bossDescription, 10, 58, 0, 220, 220, 220);
+#endif
+        }
+
         // ── Cards ──
         CardRenderer::drawHand(app, m_hand, 200, 85, m_cursorIndex);
 
@@ -372,6 +390,12 @@ void GameplayState::renderTopScreen(Application* app) {
         const std::string nextBlindLabel = std::string(RunState::blindStageName(upcomingBlind));
         const std::string nextTargetLabel = "Next: Ante " + std::to_string(upcomingAnte) + " " + nextBlindLabel +
             " (" + std::to_string(RunState::targetForBlind(upcomingAnte, upcomingBlind)) + ")";
+        const bool previewBoss = upcomingBlind == BlindStage::Boss &&
+            m_runState->nextBossModifier != BossBlindModifier::None;
+        const std::string bossLabel = "Boss: " + std::string(RunState::bossModifierName(m_runState->nextBossModifier));
+        const char* bossDescription = RunState::bossModifierDescription(
+            m_runState->nextBossModifier,
+            m_runState->nextBlockedSuit);
 #ifdef N3DS
         TextRenderer::drawText("BLIND CLEAR!", 100, 40, 0.7f, 0.7f, C2D_Color32(80, 255, 120, 255));
         TextRenderer::drawText(std::string(m_runState->currentBlindName()) + " cleared", 100, 80, 0.5f, 0.5f,
@@ -379,19 +403,27 @@ void GameplayState::renderTopScreen(Application* app) {
         TextRenderer::drawText("Score: " + std::to_string(m_runState->roundScore) + " / " + std::to_string(m_runState->roundTarget),
                                110, 110, 0.45f, 0.45f, C2D_Color32(255, 220, 80, 255));
         TextRenderer::drawText("Reward: $" + std::to_string(m_runState->currentBlindReward()),
-                               80, 140, 0.4f, 0.4f, C2D_Color32(255, 215, 0, 255));
-        TextRenderer::drawText(nextTargetLabel, 60, 160, 0.35f, 0.35f, C2D_Color32(180, 180, 200, 255));
-        TextRenderer::drawText("Press A to enter Shop", 100, 185, 0.4f, 0.4f,
+                               80, 136, 0.4f, 0.4f, C2D_Color32(255, 215, 0, 255));
+        TextRenderer::drawText(nextTargetLabel, 60, 154, 0.35f, 0.35f, C2D_Color32(180, 180, 200, 255));
+        if (previewBoss) {
+            TextRenderer::drawText(bossLabel, 70, 174, 0.35f, 0.35f, C2D_Color32(255, 170, 120, 255));
+            TextRenderer::drawText(bossDescription, 46, 190, 0.3f, 0.3f, C2D_Color32(220, 220, 220, 255));
+        }
+        TextRenderer::drawText("Press A to enter Shop", 100, previewBoss ? 210 : 185, 0.4f, 0.4f,
                                C2D_Color32(200, 200, 220, 255));
 #else
         TextRenderer::drawText(renderer, "BLIND CLEAR!", 110, 40, 2, 80, 255, 120);
         TextRenderer::drawText(renderer, std::string(m_runState->currentBlindName()) + " cleared", 120, 80, 1, 255, 255, 255);
         TextRenderer::drawText(renderer, "Score: " + std::to_string(m_runState->roundScore) + " / " + std::to_string(m_runState->roundTarget),
                                130, 110, 1, 255, 220, 80);
-        TextRenderer::drawText(renderer, nextTargetLabel, 100, 140, 0, 180, 180, 200);
         TextRenderer::drawText(renderer, "Reward: $" + std::to_string(m_runState->currentBlindReward()),
-                               130, 160, 0, 255, 215, 0);
-        TextRenderer::drawText(renderer, "Press Enter to enter Shop", 105, 190, 0, 200, 200, 220);
+                               130, 136, 0, 255, 215, 0);
+        TextRenderer::drawText(renderer, nextTargetLabel, 100, 154, 0, 180, 180, 200);
+        if (previewBoss) {
+            TextRenderer::drawText(renderer, bossLabel, 110, 174, 0, 255, 170, 120);
+            TextRenderer::drawText(renderer, bossDescription, 80, 192, 0, 220, 220, 220);
+        }
+        TextRenderer::drawText(renderer, "Press Enter to enter Shop", 105, previewBoss ? 214 : 190, 0, 200, 200, 220);
 #endif
     }
     else if (m_phase == RoundPhase::GameOver) {
@@ -484,18 +516,28 @@ void GameplayState::renderBottomScreen(Application* app) {
 #ifdef N3DS
         TextRenderer::drawText(selStr, baseX + 20, 70, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
         if (numSelected >= 1 && numSelected <= 5) {
-            HandResult preview = HandEvaluator::evaluate(selected, m_runState->jokers);
+            HandResult preview = HandEvaluator::evaluate(
+                selected,
+                m_runState->jokers,
+                m_runState->currentBossModifier,
+                m_runState->currentBlockedSuit);
             TextRenderer::drawText(handTypeName(preview.detectedHand), baseX + 20, 86, 0.45f, 0.45f,
                                    C2D_Color32(255, 255, 180, 255));
-            std::string ps = std::to_string(preview.finalChips) + " x " + std::to_string(preview.finalMult);
+            std::string ps = std::to_string(preview.finalChips) + " x " + std::to_string(preview.finalMult) +
+                " = " + std::to_string(preview.finalScore);
             TextRenderer::drawText(ps, baseX + 20, 102, 0.4f, 0.4f, C2D_Color32(200, 200, 255, 255));
         }
 #else
         TextRenderer::drawText(renderer, selStr, baseX + 20, 70, 0, 200, 200, 220);
         if (numSelected >= 1 && numSelected <= 5) {
-            HandResult preview = HandEvaluator::evaluate(selected, m_runState->jokers);
+            HandResult preview = HandEvaluator::evaluate(
+                selected,
+                m_runState->jokers,
+                m_runState->currentBossModifier,
+                m_runState->currentBlockedSuit);
             TextRenderer::drawText(renderer, handTypeName(preview.detectedHand), baseX + 20, 86, 1, 255, 255, 180);
-            std::string ps = std::to_string(preview.finalChips) + " x " + std::to_string(preview.finalMult);
+            std::string ps = std::to_string(preview.finalChips) + " x " + std::to_string(preview.finalMult) +
+                " = " + std::to_string(preview.finalScore);
             TextRenderer::drawText(renderer, ps, baseX + 20, 106, 0, 200, 200, 255);
         }
 #endif

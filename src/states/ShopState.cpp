@@ -155,7 +155,7 @@ void ShopState::handleInput() {
                 int startX = (400 - (m_items.size() * 140)) / 2 + 20; // Replicate rendering logic
                 for (size_t i = 0; i < m_items.size(); ++i) {
                     int bx = startX + i * 140;
-                    if (mx >= bx && mx <= bx + 100 && my >= 70 && my <= 190) {
+                    if (mx >= bx && mx <= bx + 100 && my >= 105 && my <= 225) {
                         m_cursorIndex = i;
                     }
                 }
@@ -198,6 +198,10 @@ void ShopState::renderTopScreen(Application* app) {
     TextRenderer::drawText("Money: $" + std::to_string(m_runState->money), 130, 45, 0.6f, 0.6f, C2D_Color32(255, 215, 0, 255));
     TextRenderer::drawText("Next: Ante " + std::to_string(m_runState->nextBlindAnte()) + " " + RunState::blindStageName(m_runState->nextBlindStage()),
                            70, 65, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
+    TextRenderer::drawText("Boss: " + std::string(RunState::bossModifierName(m_runState->nextBossModifier)),
+                           85, 83, 0.35f, 0.35f, C2D_Color32(255, 170, 120, 255));
+    TextRenderer::drawText(RunState::bossModifierDescription(m_runState->nextBossModifier, m_runState->nextBlockedSuit),
+                           46, 99, 0.3f, 0.3f, C2D_Color32(220, 220, 220, 255));
 #else
     SDL_SetRenderDrawColor(renderer, 20, 30, 40, 255);
     SDL_Rect bgTop = { 0, 0, 400, 240 };
@@ -207,6 +211,11 @@ void ShopState::renderTopScreen(Application* app) {
     TextRenderer::drawText(renderer, "Money: $" + std::to_string(m_runState->money), 140, 45, 1, 255, 215, 0);
     TextRenderer::drawText(renderer, "Next: Ante " + std::to_string(m_runState->nextBlindAnte()) + " " + RunState::blindStageName(m_runState->nextBlindStage()),
                            90, 70, 0, 200, 200, 220);
+    TextRenderer::drawText(renderer, "Boss: " + std::string(RunState::bossModifierName(m_runState->nextBossModifier)),
+                           110, 88, 0, 255, 170, 120);
+    TextRenderer::drawText(renderer,
+                           RunState::bossModifierDescription(m_runState->nextBossModifier, m_runState->nextBlockedSuit),
+                           75, 106, 0, 220, 220, 220);
 #endif
 
     // ── Items for Sale ──
@@ -218,7 +227,7 @@ void ShopState::renderTopScreen(Application* app) {
     
     for (size_t i = 0; i < m_items.size(); ++i) {
         int x = startX + i * 140;
-        int y = 70; // Moved up slightly to center vertically
+        int y = 105;
         
 #ifdef N3DS
         u32 color = C2D_Color32(100, 100, 100, 255);

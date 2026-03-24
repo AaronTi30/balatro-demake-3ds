@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <exception>
 #include <iostream>
+#include <random>
 #include <sstream>
 #include <string>
 
@@ -35,6 +36,7 @@ void testNewRunStartsAtSmallBlind() {
     expectEqual(run.ante, 1, "new run ante");
     expectEqual(run.money, 4, "new run starts with four dollars");
     expect(run.blindStage == BlindStage::Small, "new run should begin at the small blind");
+    expect(run.nextBossModifier != BossBlindModifier::None, "new run should preview a boss modifier");
     expectEqual(run.roundTarget, 300, "small blind ante 1 target");
     expectEqual(run.currentBlindReward(), 2, "small blind reward");
 }
@@ -115,6 +117,64 @@ void testNextBlindPreviewUsesNextShopStep() {
     expectEqual(run.nextBlindAnte(), 2, "boss blind should preview next ante");
 }
 
+void testBossModifierRollCanUseSeededRng() {
+    std::mt19937 leftRng(17);
+    std::mt19937 rightRng(17);
+    RunState left;
+    RunState right;
+
+    left.rollNextBossModifier(leftRng);
+    right.rollNextBossModifier(rightRng);
+
+    expect(left.nextBossModifier != BossBlindModifier::None, "rolled preview should never be none");
+    expect(left.nextBossModifier == right.nextBossModifier, "seeded boss modifier rolls should match");
+    expect(left.nextBlockedSuit == right.nextBlockedSuit, "seeded blocked suit rolls should match");
+}
+
+void testEnterCurrentBlindPromotesPreviewedBossModifier() {
+    RunState run;
+    run.startNewRun();
+    run.blindStage = BlindStage::Boss;
+    run.nextBossModifier = BossBlindModifier::SuitLock;
+    run.nextBlockedSuit = Suit::Spades;
+
+    run.enterCurrentBlind();
+
+    expect(run.currentBossModifier == BossBlindModifier::SuitLock, "entering boss blind should promote stored modifier");
+    expect(run.currentBlockedSuit == Suit::Spades, "entering boss blind should promote stored blocked suit");
+}
+
+void testAdvanceBlindActivatesStoredBossModifierAndRollsPreview() {
+    RunState run;
+    run.startNewRun();
+    run.blindStage = BlindStage::Big;
+    run.nextBossModifier = BossBlindModifier::FaceTax;
+    run.nextBlockedSuit = Suit::Hearts;
+
+    run.advanceBlind();
+
+    expect(run.blindStage == BlindStage::Boss, "big blind should advance into boss blind");
+    expect(run.currentBossModifier == BossBlindModifier::FaceTax, "boss blind should activate stored modifier");
+    expect(run.currentBlockedSuit == Suit::Hearts, "boss blind should activate stored blocked suit");
+    expect(run.nextBossModifier != BossBlindModifier::None, "boss blind should roll the next preview");
+}
+
+void testLeavingBossBlindClearsCurrentModifier() {
+    RunState run;
+    run.startNewRun();
+    run.ante = 1;
+    run.blindStage = BlindStage::Boss;
+    run.currentBossModifier = BossBlindModifier::PairTax;
+    run.currentBlockedSuit = Suit::Diamonds;
+
+    run.advanceBlind();
+
+    expectEqual(run.ante, 2, "clearing boss blind should advance the ante");
+    expect(run.blindStage == BlindStage::Small, "clearing boss blind should return to small blind");
+    expect(run.currentBossModifier == BossBlindModifier::None, "leaving boss blind should clear current modifier");
+    expect(run.currentBlockedSuit == Suit::Clubs, "leaving boss blind should reset blocked suit");
+}
+
 } // namespace
 
 int main() {
@@ -125,6 +185,10 @@ int main() {
         testBlindRewardIsFixedByBlindType();
         testRunCompletesOnAnteEightBossClear();
         testNextBlindPreviewUsesNextShopStep();
+        testBossModifierRollCanUseSeededRng();
+        testEnterCurrentBlindPromotesPreviewedBossModifier();
+        testAdvanceBlindActivatesStoredBossModifierAndRollsPreview();
+        testLeavingBossBlindClearsCurrentModifier();
     } catch (const std::exception& ex) {
         std::cerr << ex.what() << '\n';
         return 1;

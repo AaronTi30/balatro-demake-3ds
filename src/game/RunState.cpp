@@ -1,11 +1,20 @@
 #include "RunState.h"
 
+#include <array>
+
 namespace {
 constexpr int kStartingAnte = 1;
 constexpr int kStartingMoney = 4;
 constexpr int kStartingHands = 4;
 constexpr int kStartingDiscards = 3;
 constexpr int kStartingJokerLimit = 5;
+constexpr std::array kBossBlindModifiers{
+    BossBlindModifier::PairTax,
+    BossBlindModifier::SmallHandPunish,
+    BossBlindModifier::SuitLock,
+    BossBlindModifier::FaceTax,
+    BossBlindModifier::HighCardWall
+};
 
 int blindStageIndex(BlindStage stage) {
     switch (stage) {
@@ -31,6 +40,27 @@ int clampAnteIndex(int ante) {
 
     return ante - 1;
 }
+
+std::mt19937 makeBossModifierRng() {
+    std::random_device device;
+    return std::mt19937(device());
+}
+
+Suit suitFromIndex(int index) {
+    switch (index) {
+        case 0:
+            return Suit::Hearts;
+        case 1:
+            return Suit::Diamonds;
+        case 2:
+            return Suit::Clubs;
+        case 3:
+            return Suit::Spades;
+        default:
+            return Suit::Clubs;
+    }
+}
+
 } // namespace
 
 int RunState::targetForAnte(int ante) {
@@ -65,12 +95,66 @@ const char* RunState::blindStageName(BlindStage stage) {
     }
 }
 
+const char* RunState::bossModifierName(BossBlindModifier modifier) {
+    switch (modifier) {
+        case BossBlindModifier::PairTax:
+            return "Pair Tax";
+        case BossBlindModifier::SmallHandPunish:
+            return "Small Hand Punish";
+        case BossBlindModifier::SuitLock:
+            return "Suit Lock";
+        case BossBlindModifier::FaceTax:
+            return "Face Tax";
+        case BossBlindModifier::HighCardWall:
+            return "High Card Wall";
+        case BossBlindModifier::None:
+        default:
+            return "None";
+    }
+}
+
+const char* RunState::bossModifierDescription(BossBlindModifier modifier, Suit blockedSuit) {
+    switch (modifier) {
+        case BossBlindModifier::PairTax:
+            return "Pair and Two Pair score 75%";
+        case BossBlindModifier::SmallHandPunish:
+            return "Hands of 3 cards or less score 70%";
+        case BossBlindModifier::SuitLock:
+            switch (blockedSuit) {
+                case Suit::Hearts:
+                    return "Hearts cards give no chip bonus";
+                case Suit::Diamonds:
+                    return "Diamonds cards give no chip bonus";
+                case Suit::Clubs:
+                    return "Clubs cards give no chip bonus";
+                case Suit::Spades:
+                    return "Spades cards give no chip bonus";
+                default:
+                    return "One suit gives no chip bonus";
+            }
+        case BossBlindModifier::FaceTax:
+            return "J, Q, K, A give half chip bonus";
+        case BossBlindModifier::HighCardWall:
+            return "High Card and Pair score 70%";
+        case BossBlindModifier::None:
+        default:
+            return "No modifier";
+    }
+}
+
 void RunState::startNewRun() {
     ante = kStartingAnte;
     blindStage = BlindStage::Small;
     money = kStartingMoney;
     jokerLimit = kStartingJokerLimit;
+    currentBossModifier = BossBlindModifier::None;
+    nextBossModifier = BossBlindModifier::None;
+    currentBlockedSuit = Suit::Clubs;
+    nextBlockedSuit = Suit::Clubs;
     jokers.clear();
+
+    std::mt19937 rng = makeBossModifierRng();
+    rollNextBossModifier(rng);
 }
 
 void RunState::startRound() {
@@ -89,18 +173,48 @@ void RunState::awardRoundWin() {
     money += currentBlindReward();
 }
 
+void RunState::rollNextBossModifier(std::mt19937& rng) {
+    std::uniform_int_distribution<size_t> modifierDist(0, kBossBlindModifiers.size() - 1);
+    nextBossModifier = kBossBlindModifiers[modifierDist(rng)];
+
+    if (nextBossModifier == BossBlindModifier::SuitLock) {
+        std::uniform_int_distribution<int> suitDist(0, 3);
+        nextBlockedSuit = suitFromIndex(suitDist(rng));
+    } else {
+        nextBlockedSuit = Suit::Clubs;
+    }
+}
+
+void RunState::enterCurrentBlind() {
+    if (blindStage == BlindStage::Boss) {
+        currentBossModifier = nextBossModifier;
+        currentBlockedSuit = nextBlockedSuit;
+        return;
+    }
+
+    currentBossModifier = BossBlindModifier::None;
+    currentBlockedSuit = Suit::Clubs;
+}
+
 void RunState::advanceBlind() {
     switch (blindStage) {
         case BlindStage::Small:
             blindStage = BlindStage::Big;
+            enterCurrentBlind();
             return;
         case BlindStage::Big:
             blindStage = BlindStage::Boss;
+            enterCurrentBlind();
+            {
+                std::mt19937 rng = makeBossModifierRng();
+                rollNextBossModifier(rng);
+            }
             return;
         case BlindStage::Boss:
             if (ante < kMaxAnte) {
                 ++ante;
                 blindStage = BlindStage::Small;
+                enterCurrentBlind();
             }
             return;
         default:
