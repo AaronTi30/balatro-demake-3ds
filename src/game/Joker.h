@@ -1,8 +1,10 @@
 #pragma once
 
 #include "Card.h"
-#include <vector>
 #include <functional>
+#include <random>
+#include <string>
+#include <vector>
 
 enum class HandType;
 
@@ -23,13 +25,40 @@ enum class JokerEffectType {
     MulMult
 };
 
+enum class JokerTier {
+    Weak,
+    Medium,
+    Strong
+};
+
+struct ShopPriceRange {
+    int min;
+    int max;
+};
+
 struct Joker {
     std::string name;
     std::string description;
     JokerEffectType effectType; // For UI rendering colors
-    
     std::function<void(HandEvalContext&)> evaluate;
+    JokerTier tier = JokerTier::Weak;
+    ShopPriceRange shopPriceRange{4, 6};
 
-    // Factory method to generate a random joker from the phase 1 pool
-    static Joker getRandom();
+    static Joker plainJoker();
+    static Joker greedyJoker();
+    static Joker suitJoker();
+    static Joker focusedJoker();
+    static Joker flushJoker();
+    static Joker straightJoker();
+    static Joker heavyJoker();
+    static Joker aggroJoker();
+    static Joker precisionJoker();
+
+    static const std::vector<Joker>& weakPool();
+    static const std::vector<Joker>& mediumPool();
+    static const std::vector<Joker>& strongPool();
+
+    static Joker drawFromPool(const std::vector<Joker>& pool, std::mt19937& rng);
+    static Joker drawWeakOrMedium(std::mt19937& rng);
+    static Joker drawWeightedFullPool(std::mt19937& rng);
 };

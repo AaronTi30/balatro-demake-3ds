@@ -14,11 +14,6 @@
 #include <SDL.h>
 #endif
 
-ShopState::ShopState(StateMachine* machine, std::shared_ptr<RunState> runState)
-    : m_runState(std::move(runState)), m_cursorIndex(0), m_inputDelay(0.3f) {
-    m_stateMachine = machine;
-}
-
 namespace {
 
 void advanceToNextBlindAndResume(StateMachine* machine, const std::shared_ptr<RunState>& runState) {
@@ -27,6 +22,14 @@ void advanceToNextBlindAndResume(StateMachine* machine, const std::shared_ptr<Ru
 }
 
 } // namespace
+
+ShopState::ShopState(StateMachine* machine, std::shared_ptr<RunState> runState)
+    : m_runState(std::move(runState)),
+      m_cursorIndex(0),
+      m_inputDelay(0.3f),
+      m_rng(std::random_device{}()) {
+    m_stateMachine = machine;
+}
 
 void ShopState::enter() {
     generateItems();
@@ -41,22 +44,7 @@ void ShopState::update(float dt) {
 }
 
 void ShopState::generateItems() {
-    m_items.clear();
-    // Generate 2 random jokers for the shop
-    for (int i = 0; i < 2; ++i) {
-        ShopItem item;
-        item.joker = Joker::getRandom();
-        // Base price calculation
-        int basePrice = 4;
-        if (item.joker.effectType == JokerEffectType::MulMult) basePrice += 2;
-        
-        static std::random_device rd;
-        static std::mt19937 gen(rd());
-        std::uniform_int_distribution<> dis(-1, 2);
-        
-        item.price = basePrice + dis(gen);
-        m_items.push_back(item);
-    }
+    m_items = generateShopItems(m_rng);
 }
 
 void ShopState::handleInput() {

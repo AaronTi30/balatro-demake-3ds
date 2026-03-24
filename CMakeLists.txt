@@ -74,4 +74,12 @@ if(NOT N3DS)
     )
     target_include_directories(hand_evaluator_tests PRIVATE src)
     add_test(NAME hand_evaluator_tests COMMAND hand_evaluator_tests)
+
+    add_executable(joker_tests
+        tests/JokerTests.cpp
+        src/game/Joker.cpp
+        src/game/HandEvaluator.cpp
+    )
+    target_include_directories(joker_tests PRIVATE src)
+    add_test(NAME joker_tests COMMAND joker_tests)
 endif()
