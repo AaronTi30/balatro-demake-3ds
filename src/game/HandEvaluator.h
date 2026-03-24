@@ -31,6 +31,7 @@ struct HandResult {
     int finalChips;
     int finalMult;
     int finalScore;
+    bool scoreEquationExact;
 };
 
 inline const char* handTypeName(HandType t) {
@@ -62,6 +63,7 @@ private:
         int chips;
         int mult;
         int score;
+        bool scoreEquationExact;
     };
 
     // Helper: count how many of each rank appear

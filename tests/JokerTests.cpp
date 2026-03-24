@@ -83,6 +83,27 @@ void testWeightedDrawAlwaysComesFromNineJokerCatalog() {
     }
 }
 
+void testWeightedTierRollPreservesFiftyThirtyFiveFifteenSplit() {
+    int weakCount = 0;
+    int mediumCount = 0;
+    int strongCount = 0;
+
+    for (int roll = 1; roll <= 100; ++roll) {
+        const JokerTier tier = Joker::tierForWeightedRoll(roll);
+        if (tier == JokerTier::Weak) {
+            ++weakCount;
+        } else if (tier == JokerTier::Medium) {
+            ++mediumCount;
+        } else {
+            ++strongCount;
+        }
+    }
+
+    expectEqual(weakCount, 50, "weighted roll weak odds");
+    expectEqual(mediumCount, 35, "weighted roll medium odds");
+    expectEqual(strongCount, 15, "weighted roll strong odds");
+}
+
 void testShopOfferGenerationUsesSlotRulesAndPriceRanges() {
     std::mt19937 actualRng(77);
     const std::vector<ShopItem> items = ShopState::generateShopItems(actualRng);
@@ -115,6 +136,7 @@ int main() {
         testJokerMetadataMatchesTierBalance();
         testWeakOrMediumDrawNeverReturnsStrongJoker();
         testWeightedDrawAlwaysComesFromNineJokerCatalog();
+        testWeightedTierRollPreservesFiftyThirtyFiveFifteenSplit();
         testShopOfferGenerationUsesSlotRulesAndPriceRanges();
     } catch (const std::exception& ex) {
         std::cerr << ex.what() << '\n';

@@ -22,6 +22,14 @@ void expectEqual(int actual, int expected, const std::string& label) {
     }
 }
 
+void expectEqual(const std::string& actual, const std::string& expected, const std::string& label) {
+    if (actual != expected) {
+        std::ostringstream oss;
+        oss << label << ": expected \"" << expected << "\", got \"" << actual << "\"";
+        fail(oss.str());
+    }
+}
+
 void expect(bool condition, const std::string& label) {
     if (!condition) {
         fail(label);
@@ -175,6 +183,15 @@ void testLeavingBossBlindClearsCurrentModifier() {
     expect(run.currentBlockedSuit == Suit::Clubs, "leaving boss blind should reset blocked suit");
 }
 
+void testBossModifierDescriptionsMatchImplementedSemantics() {
+    expectEqual(std::string(RunState::bossModifierDescription(BossBlindModifier::SuitLock, Suit::Hearts)),
+                "Subtracts Hearts rank chips after jokers",
+                "suit lock description should match post-joker semantics");
+    expectEqual(std::string(RunState::bossModifierDescription(BossBlindModifier::FaceTax, Suit::Clubs)),
+                "Subtracts half of J, Q, K, A chips after jokers",
+                "face tax description should match post-joker semantics");
+}
+
 } // namespace
 
 int main() {
@@ -189,6 +206,7 @@ int main() {
         testEnterCurrentBlindPromotesPreviewedBossModifier();
         testAdvanceBlindActivatesStoredBossModifierAndRollsPreview();
         testLeavingBossBlindClearsCurrentModifier();
+        testBossModifierDescriptionsMatchImplementedSemantics();
     } catch (const std::exception& ex) {
         std::cerr << ex.what() << '\n';
         return 1;

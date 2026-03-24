@@ -239,20 +239,24 @@ HandEvaluator::ScoreTotals HandEvaluator::calculateFinalTotals(HandType type,
     }
 
     int finalScore = finalChips * finalMult;
+    bool scoreEquationExact = true;
     switch (bossModifier) {
         case BossBlindModifier::PairTax:
             if (type == HandType::Pair || type == HandType::TwoPair) {
                 finalScore = finalScore * 75 / 100;
+                scoreEquationExact = false;
             }
             break;
         case BossBlindModifier::SmallHandPunish:
             if (playedCards.size() <= 3) {
                 finalScore = finalScore * 70 / 100;
+                scoreEquationExact = false;
             }
             break;
         case BossBlindModifier::HighCardWall:
             if (type == HandType::HighCard || type == HandType::Pair) {
                 finalScore = finalScore * 70 / 100;
+                scoreEquationExact = false;
             }
             break;
         case BossBlindModifier::FaceTax:
@@ -262,7 +266,7 @@ HandEvaluator::ScoreTotals HandEvaluator::calculateFinalTotals(HandType type,
             break;
     }
 
-    return { finalChips, finalMult, finalScore };
+    return { finalChips, finalMult, finalScore, scoreEquationExact };
 }
 
 HandResult HandEvaluator::evaluate(std::vector<Card> cards,
@@ -306,6 +310,7 @@ HandResult HandEvaluator::evaluate(std::vector<Card> cards,
     result.finalChips = finalTotals.chips;
     result.finalMult = finalTotals.mult;
     result.finalScore = finalTotals.score;
+    result.scoreEquationExact = finalTotals.scoreEquationExact;
 
     return result;
 }

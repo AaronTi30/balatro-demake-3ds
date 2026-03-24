@@ -190,14 +190,25 @@ Joker Joker::drawWeakOrMedium(std::mt19937& rng) {
     return drawFromPool(combinedPool, rng);
 }
 
+JokerTier Joker::tierForWeightedRoll(int roll) {
+    if (roll <= 50) {
+        return JokerTier::Weak;
+    }
+    if (roll <= 85) {
+        return JokerTier::Medium;
+    }
+    return JokerTier::Strong;
+}
+
 Joker Joker::drawWeightedFullPool(std::mt19937& rng) {
     std::uniform_int_distribution<int> distribution(1, 100);
     const int roll = distribution(rng);
 
-    if (roll <= 50) {
+    const JokerTier tier = tierForWeightedRoll(roll);
+    if (tier == JokerTier::Weak) {
         return drawFromPool(weakPool(), rng);
     }
-    if (roll <= 85) {
+    if (tier == JokerTier::Medium) {
         return drawFromPool(mediumPool(), rng);
     }
     return drawFromPool(strongPool(), rng);

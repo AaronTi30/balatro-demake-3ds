@@ -264,6 +264,7 @@ void testPairTaxLowersPairAndTwoPairScores() {
     };
     HandResult baselinePair = HandEvaluator::evaluate(pairCards, {});
     HandResult taxedPair = HandEvaluator::evaluate(pairCards, {}, BossBlindModifier::PairTax);
+    expect(!taxedPair.scoreEquationExact, "pair tax should mark the displayed score equation inexact");
     expectEqual(taxedPair.finalScore, baselinePair.finalScore * 75 / 100, "pair tax lowers pair score");
 
     const std::vector<Card> twoPairCards{
@@ -288,6 +289,7 @@ void testSmallHandPunishLowersThreeCardHands() {
     HandResult baseline = HandEvaluator::evaluate(threeCardHand, {});
     HandResult punished = HandEvaluator::evaluate(threeCardHand, {}, BossBlindModifier::SmallHandPunish);
 
+    expect(!punished.scoreEquationExact, "small hand punish should mark the displayed score equation inexact");
     expectEqual(punished.finalScore, baseline.finalScore * 70 / 100, "small hand punish lowers short hands");
 }
 
@@ -302,6 +304,7 @@ void testSuitLockRemovesBlockedSuitChipBonus() {
     HandResult locked = HandEvaluator::evaluate(pairCards, {}, BossBlindModifier::SuitLock, Suit::Hearts);
 
     expectEqual(baseline.scoringCardChipBonus, 8, "baseline pair chip bonus");
+    expect(locked.scoreEquationExact, "suit lock should preserve an exact displayed score equation");
     expectEqual(locked.scoringCardChipBonus, 4, "suit lock should remove blocked suit chips");
     expectEqual(locked.finalChips, 14, "suit lock should reduce final chips");
     expectEqual(locked.finalScore, 28, "suit lock should reduce final score");
@@ -341,6 +344,7 @@ void testFaceTaxHalvesFaceCardChipContribution() {
     HandResult taxed = HandEvaluator::evaluate(pairCards, {}, BossBlindModifier::FaceTax);
 
     expectEqual(baseline.scoringCardChipBonus, 20, "baseline face-card chip bonus");
+    expect(taxed.scoreEquationExact, "face tax should preserve an exact displayed score equation");
     expectEqual(taxed.scoringCardChipBonus, 10, "face tax should halve face-card chips");
     expectEqual(taxed.finalChips, 20, "face tax should keep half the face-card chips");
     expectEqual(taxed.finalScore, 40, "face tax should reduce final score");
@@ -377,6 +381,7 @@ void testHighCardWallLowersHighCardAndPairScores() {
     };
     HandResult baselineHighCard = HandEvaluator::evaluate(highCardHand, {});
     HandResult walledHighCard = HandEvaluator::evaluate(highCardHand, {}, BossBlindModifier::HighCardWall);
+    expect(!walledHighCard.scoreEquationExact, "high card wall should mark the displayed score equation inexact");
     expectEqual(walledHighCard.finalScore, baselineHighCard.finalScore * 70 / 100, "high card wall lowers high card score");
 
     const std::vector<Card> pairCards{

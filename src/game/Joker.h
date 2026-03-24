@@ -59,6 +59,7 @@ struct Joker {
     static const std::vector<Joker>& strongPool();
 
     static Joker drawFromPool(const std::vector<Joker>& pool, std::mt19937& rng);
+    static JokerTier tierForWeightedRoll(int roll);
     static Joker drawWeakOrMedium(std::mt19937& rng);
     static Joker drawWeightedFullPool(std::mt19937& rng);
 };

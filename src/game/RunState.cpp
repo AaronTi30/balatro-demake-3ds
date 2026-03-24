@@ -122,18 +122,18 @@ const char* RunState::bossModifierDescription(BossBlindModifier modifier, Suit b
         case BossBlindModifier::SuitLock:
             switch (blockedSuit) {
                 case Suit::Hearts:
-                    return "Hearts cards give no chip bonus";
+                    return "Subtracts Hearts rank chips after jokers";
                 case Suit::Diamonds:
-                    return "Diamonds cards give no chip bonus";
+                    return "Subtracts Diamonds rank chips after jokers";
                 case Suit::Clubs:
-                    return "Clubs cards give no chip bonus";
+                    return "Subtracts Clubs rank chips after jokers";
                 case Suit::Spades:
-                    return "Spades cards give no chip bonus";
+                    return "Subtracts Spades rank chips after jokers";
                 default:
-                    return "One suit gives no chip bonus";
+                    return "Subtracts one suit's rank chips after jokers";
             }
         case BossBlindModifier::FaceTax:
-            return "J, Q, K, A give half chip bonus";
+            return "Subtracts half of J, Q, K, A chips after jokers";
         case BossBlindModifier::HighCardWall:
             return "High Card and Pair score 70%";
         case BossBlindModifier::None:

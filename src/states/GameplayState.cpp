@@ -17,6 +17,19 @@
 #include <string>
 #include <utility>
 
+namespace {
+
+std::string formatScoreLine(int chips, int mult, int score, bool scoreEquationExact) {
+    if (!scoreEquationExact) {
+        return "Score: " + std::to_string(score);
+    }
+
+    return std::to_string(chips) + " x " + std::to_string(mult) +
+        " = " + std::to_string(score);
+}
+
+} // namespace
+
 GameplayState::GameplayState(StateMachine* machine, std::shared_ptr<RunState> runState)
     : m_runState(std::move(runState)), m_cursorIndex(0),
       m_phase(RoundPhase::Playing), m_phaseTimer(0.0f),
@@ -307,16 +320,22 @@ void GameplayState::renderTopScreen(Application* app) {
             C2D_DrawRectSolid(80, 20, 0.5f, 240, 40, C2D_Color32(25, 25, 50, 230));
             TextRenderer::drawText(handTypeName(m_lastHandType), 90, 22, 0.45f, 0.45f,
                                    C2D_Color32(255, 255, 255, 255));
-            std::string scoreStr = std::to_string(m_lastChips) + " x " + std::to_string(m_lastMult) +
-                                   " = " + std::to_string(m_lastScore);
+            std::string scoreStr = formatScoreLine(
+                m_lastChips,
+                m_lastMult,
+                m_lastScore,
+                m_lastScore == m_lastChips * m_lastMult);
             TextRenderer::drawText(scoreStr, 90, 38, 0.5f, 0.5f, C2D_Color32(255, 220, 80, 255));
 #else
             SDL_SetRenderDrawColor(renderer, 25, 25, 50, 230);
             SDL_Rect bg = { 100, 20, 220, 45 };
             SDL_RenderFillRect(renderer, &bg);
             TextRenderer::drawText(renderer, handTypeName(m_lastHandType), 110, 22, 1, 255, 255, 255);
-            std::string scoreStr = std::to_string(m_lastChips) + " x " + std::to_string(m_lastMult) +
-                                   " = " + std::to_string(m_lastScore);
+            std::string scoreStr = formatScoreLine(
+                m_lastChips,
+                m_lastMult,
+                m_lastScore,
+                m_lastScore == m_lastChips * m_lastMult);
             TextRenderer::drawText(renderer, scoreStr, 110, 42, 1, 255, 220, 80);
 #endif
         }
@@ -523,8 +542,11 @@ void GameplayState::renderBottomScreen(Application* app) {
                 m_runState->currentBlockedSuit);
             TextRenderer::drawText(handTypeName(preview.detectedHand), baseX + 20, 86, 0.45f, 0.45f,
                                    C2D_Color32(255, 255, 180, 255));
-            std::string ps = std::to_string(preview.finalChips) + " x " + std::to_string(preview.finalMult) +
-                " = " + std::to_string(preview.finalScore);
+            std::string ps = formatScoreLine(
+                preview.finalChips,
+                preview.finalMult,
+                preview.finalScore,
+                preview.scoreEquationExact);
             TextRenderer::drawText(ps, baseX + 20, 102, 0.4f, 0.4f, C2D_Color32(200, 200, 255, 255));
         }
 #else
@@ -536,8 +558,11 @@ void GameplayState::renderBottomScreen(Application* app) {
                 m_runState->currentBossModifier,
                 m_runState->currentBlockedSuit);
             TextRenderer::drawText(renderer, handTypeName(preview.detectedHand), baseX + 20, 86, 1, 255, 255, 180);
-            std::string ps = std::to_string(preview.finalChips) + " x " + std::to_string(preview.finalMult) +
-                " = " + std::to_string(preview.finalScore);
+            std::string ps = formatScoreLine(
+                preview.finalChips,
+                preview.finalMult,
+                preview.finalScore,
+                preview.scoreEquationExact);
             TextRenderer::drawText(renderer, ps, baseX + 20, 106, 0, 200, 200, 255);
         }
 #endif
