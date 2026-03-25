@@ -8,6 +8,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 
 namespace {
 
@@ -129,6 +130,25 @@ void testShopOfferGenerationUsesSlotRulesAndPriceRanges() {
     expectEqual(items[1].price, expectedSlot1Price, "shop slot 1 should use joker price range");
 }
 
+void testJokerIdentityAndFilteredCandidates() {
+    // idFor returns stable name-based identity
+    expectEqual(Joker::idFor(Joker::plainJoker()), std::string("Plain Joker"),
+                "plain joker id should use stable catalog identity");
+
+    // filtering "Plain Joker" excludes it from weak candidates
+    std::unordered_set<std::string> excluded = {"Plain Joker"};
+    const std::vector<Joker> filteredWeak = Joker::weakPoolFiltered(excluded);
+    for (const Joker& j : filteredWeak) {
+        expect(j.name != "Plain Joker", "filtered weak pool should exclude Plain Joker");
+    }
+
+    // filtering "Plain Joker" excludes it from weak+medium candidates
+    const std::vector<Joker> filteredWeakMedium = Joker::weakOrMediumPoolFiltered(excluded);
+    for (const Joker& j : filteredWeakMedium) {
+        expect(j.name != "Plain Joker", "filtered weak+medium pool should exclude Plain Joker");
+    }
+}
+
 } // namespace
 
 int main() {
@@ -138,6 +158,7 @@ int main() {
         testWeightedDrawAlwaysComesFromNineJokerCatalog();
         testWeightedTierRollPreservesFiftyThirtyFiveFifteenSplit();
         testShopOfferGenerationUsesSlotRulesAndPriceRanges();
+        testJokerIdentityAndFilteredCandidates();
     } catch (const std::exception& ex) {
         std::cerr << ex.what() << '\n';
         return 1;
