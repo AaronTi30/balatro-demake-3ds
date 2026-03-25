@@ -4,11 +4,17 @@ enum class ShopPlatform { SDL, N3DS };
 
 struct ShopRect { int x, y, w, h; };
 
+// Stride between shop card slots (body + gap). Fixed at 140px on both platforms.
+static constexpr int kShopCardStride = 140;
+
 struct ShopCardLayout {
     int startX, y, bodyWidth, bodyHeight, highlightPad, priceOffsetY;
 };
 
 struct HeldJokerRowLayout {
+    // startX is an absolute pixel coordinate on both platforms.
+    // SDL: 412 (= bottom-screen base 400 + centered offset 12). Use directly — do NOT add baseX again.
+    // 3DS: 12 (centered in 320px bottom screen).
     int startX, y, cardWidth, cardHeight, stride;
 };
 

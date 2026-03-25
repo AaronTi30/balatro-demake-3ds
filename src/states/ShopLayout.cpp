@@ -3,7 +3,7 @@
 ShopCardLayout shopCardLayout(ShopPlatform platform, int itemCount) {
     const int screenWidth = (platform == ShopPlatform::N3DS) ? 320 : 400;
     return {
-        (screenWidth - itemCount * 140) / 2 + 20,
+        (screenWidth - itemCount * kShopCardStride) / 2 + 20,
         125,
         (platform == ShopPlatform::N3DS) ? 90 : 100,
         70,
@@ -15,7 +15,7 @@ ShopCardLayout shopCardLayout(ShopPlatform platform, int itemCount) {
 ShopRect shopCardBodyRect(ShopPlatform platform, int itemCount, int index) {
     const ShopCardLayout layout = shopCardLayout(platform, itemCount);
     return {
-        layout.startX + index * 140,
+        layout.startX + index * kShopCardStride,
         layout.y,
         layout.bodyWidth,
         layout.bodyHeight
@@ -59,7 +59,7 @@ int hitShopCard(ShopPlatform platform, int itemCount, int px, int py) {
         return -1;
     }
     for (int i = 0; i < itemCount; ++i) {
-        const int cardX = layout.startX + i * 140;
+        const int cardX = layout.startX + i * kShopCardStride;
         if (px >= cardX && px < cardX + layout.bodyWidth) {
             return i;
         }
