@@ -19,6 +19,22 @@ void expect(bool condition, const std::string& label) {
     }
 }
 
+void expectEqual(int actual, int expected, const std::string& label) {
+    if (actual != expected) {
+        std::ostringstream oss;
+        oss << label << ": expected " << expected << ", got " << actual;
+        fail(oss.str());
+    }
+}
+
+void expectEqual(const std::string& actual, const std::string& expected, const std::string& label) {
+    if (actual != expected) {
+        std::ostringstream oss;
+        oss << label << ": expected " << expected << ", got " << actual;
+        fail(oss.str());
+    }
+}
+
 void expectRectEqual(const ShopRect& actual, const ShopRect& expected, const std::string& label) {
     if (actual.x != expected.x || actual.y != expected.y ||
         actual.w != expected.w || actual.h != expected.h) {
@@ -42,23 +58,24 @@ void expectColorEqual(const ShopColor& actual, const ShopColor& expected, const 
 }
 
 void testShopCardBodyRect() {
-    // SDL: startX = (400 - 2*140)/2 + 20 = (400-280)/2 + 20 = 60+20 = 80
-    // index 0: x=80, y=125, w=100, h=70
-    expectRectEqual(shopCardBodyRect(ShopPlatform::SDL, 2, 0),
-                    ShopRect{80, 125, 100, 70},
-                    "SDL shop card body rect");
+    expectRectEqual(shopCardBodyRect(ShopPlatform::SDL, 3, 0),
+                    ShopRect{35, 125, 90, 70},
+                    "SDL slot 0 body rect");
+    expectRectEqual(shopCardBodyRect(ShopPlatform::SDL, 3, 2),
+                    ShopRect{255, 125, 90, 70},
+                    "SDL slot 2 body rect");
 
-    expectRectEqual(shopCardBodyRect(ShopPlatform::SDL, 2, 1),
-                    ShopRect{220, 125, 100, 70},
-                    "second SDL slot should stay in the original right-hand position");
+    expectRectEqual(shopCardBodyRect(ShopPlatform::ThreeDS, 3, 0),
+                    ShopRect{15, 125, 80, 70},
+                    "3DS slot 0 body rect");
+    expectRectEqual(shopCardBodyRect(ShopPlatform::ThreeDS, 3, 2),
+                    ShopRect{215, 125, 80, 70},
+                    "3DS slot 2 body rect");
 }
 
 void testShopCardHighlightRect() {
-    // 3DS: startX = (320 - 2*140)/2 + 20 = (320-280)/2 + 20 = 20+20 = 40
-    // index 1: bodyX = 40 + 1*140 = 180, bodyY=125, bodyW=90, bodyH=70
-    // highlight: x=180-5=175, y=125-5=120, w=90+10=100, h=70+10=80
-    expectRectEqual(shopCardHighlightRect(ShopPlatform::ThreeDS, 2, 1),
-                    ShopRect{175, 120, 100, 80},
+    expectRectEqual(shopCardHighlightRect(ShopPlatform::ThreeDS, 3, 1),
+                    ShopRect{110, 120, 90, 80},
                     "3DS highlight rect keeps 5px padding");
 }
 
@@ -141,50 +158,44 @@ void testHitRerollButton() {
 }
 
 void testResolveInspectSelection() {
-    // heldInspectIndex=2, heldCount=3 -> valid held joker (index 2 < 3)
-    // cursorIndex=0, itemCount=2 -> would be ShopItem but HeldJoker takes precedence
-    const InspectSelection sel = resolveInspectSelection(2, 3, 0, 2);
+    const InspectSelection sel = resolveInspectSelection(2, 3, 0, 3);
     expect(sel.source == InspectSource::HeldJoker,
            "valid held inspect should override shop cursor");
     expect(sel.index == 2, "held inspect index should be 2");
 }
 
 void testResolveInspectSelectionShopItem() {
-    // heldInspectIndex=-1 -> invalid, cursorIndex=1, itemCount=2 -> ShopItem
-    const InspectSelection sel = resolveInspectSelection(-1, 3, 1, 2);
+    const InspectSelection sel = resolveInspectSelection(-1, 3, 1, 3);
     expect(sel.source == InspectSource::ShopItem,
            "invalid held inspect falls through to shop item");
     expect(sel.index == 1, "shop item index should be 1");
 }
 
 void testResolveInspectSelectionPlaceholder() {
-    // heldInspectIndex=-1, cursorIndex=-1 -> Placeholder
-    const InspectSelection sel = resolveInspectSelection(-1, 3, -1, 2);
+    const InspectSelection sel = resolveInspectSelection(-1, 3, -1, 3);
     expect(sel.source == InspectSource::Placeholder,
            "no valid selection yields placeholder");
     expect(sel.index == -1, "placeholder index should be -1");
 }
 
 void testHitShopCard() {
-    // SDL, 2 items: startX=80, stride=140
-    // card 0 body: x=80..180, y=125..195
-    // click inside card 0
-    const int hit0 = hitShopCard(ShopPlatform::SDL, 2, 100, 150);
+    const int hit0 = hitShopCard(ShopPlatform::SDL, 3, 100, 150);
     std::ostringstream oss0;
     oss0 << "hit inside card 0: expected 0, got " << hit0;
     expect(hit0 == 0, oss0.str());
 
-    // click inside card 1: x=80+140=220..320
-    const int hit1 = hitShopCard(ShopPlatform::SDL, 2, 250, 150);
+    const int hit1 = hitShopCard(ShopPlatform::SDL, 3, 150, 150);
     std::ostringstream oss1;
     oss1 << "hit inside card 1: expected 1, got " << hit1;
     expect(hit1 == 1, oss1.str());
 
-    // miss (above card y range)
-    const int miss = hitShopCard(ShopPlatform::SDL, 2, 100, 100);
+    expectEqual(hitShopCard(ShopPlatform::SDL, 3, 280, 150), 2,
+                "third SDL shop slot should be hittable");
+
+    const int miss = hitShopCard(ShopPlatform::SDL, 3, 100, 100);
     expect(miss == -1, "click above card y range should miss");
 
-    const int rightEdgeMiss = hitShopCard(ShopPlatform::SDL, 2, 180, 150);
+    const int rightEdgeMiss = hitShopCard(ShopPlatform::SDL, 3, 125, 150);
     expect(rightEdgeMiss == -1, "shop card hit should exclude the body right edge");
 }
 
@@ -204,26 +215,10 @@ void testHitHeldJoker() {
     expect(bottomEdgeMiss == -1, "held joker hit should exclude the body bottom edge");
 }
 
-void expectEqual(int actual, int expected, const std::string& label) {
-    if (actual != expected) {
-        std::ostringstream oss;
-        oss << label << ": expected " << expected << ", got " << actual;
-        fail(oss.str());
-    }
-}
-
-void expectEqual(const std::string& actual, const std::string& expected, const std::string& label) {
-    if (actual != expected) {
-        std::ostringstream oss;
-        oss << label << ": expected " << expected << ", got " << actual;
-        fail(oss.str());
-    }
-}
-
 void testTask2Assertions() {
-    expectEqual(hitShopCard(ShopPlatform::SDL, 2, 90, 140), 0,
+    expectEqual(hitShopCard(ShopPlatform::SDL, 3, 90, 140), 0,
                 "SDL hover should use y=125..195");
-    expectEqual(hitShopCard(ShopPlatform::SDL, 2, 90, 110), -1,
+    expectEqual(hitShopCard(ShopPlatform::SDL, 3, 90, 110), -1,
                 "old y=105 card band should no longer hit");
 
     expectEqual(hitHeldJoker(ShopPlatform::ThreeDS, 3, 12, 90), 0,
@@ -249,32 +244,39 @@ void testJokerEffectColors() {
 }
 
 void testFixedShopSlotNavigation() {
-    expectEqual(nextSelectableShopSlot(0, +1, std::array<bool, 2>{true, false}), 1,
-                "cursor should skip from sold left slot to live right slot");
-    expectEqual(nextSelectableShopSlot(1, -1, std::array<bool, 2>{false, true}), 0,
-                "cursor should skip from sold right slot to live left slot");
-    expectEqual(nextSelectableShopSlot(0, +1, std::array<bool, 2>{true, true}), -1,
+    expectEqual(nextSelectableShopSlot(0, +1, std::array<bool, 3>{true, false, false}), 1,
+                "cursor should skip from sold left slot to next live slot");
+    expectEqual(nextSelectableShopSlot(1, +1, std::array<bool, 3>{true, true, false}), 2,
+                "cursor should advance to the third live slot");
+    expectEqual(nextSelectableShopSlot(0, +1, std::array<bool, 3>{true, true, true}), -1,
                 "cursor should become invalid when every slot is sold");
 }
 
 void testShopSlotSaleKeepsItemAndAdvancesCursor() {
     std::array<ShopSlot, kVisibleShopSlots> slots{};
-    slots[0].item.price = 4;
-    slots[0].item.joker.name = "Alpha";
-    slots[1].item.price = 6;
-    slots[1].item.joker.name = "Beta";
+    slots[0].offer.price = 4;
+    slots[0].offer.joker.name = "Alpha";
+    slots[1].offer.price = 6;
+    slots[1].offer.joker.name = "Beta";
+    slots[2].offer.price = 8;
+    slots[2].offer.joker.name = "Gamma";
 
     int cursor = shop_state_helpers::markShopSlotSoldAndAdvanceCursor(slots, 0);
     expect(slots[0].sold, "sold slot should be marked sold");
-    expectEqual(slots[0].item.price, 4, "sold slot should keep its item data");
-    expect(!isSelectableShopSlot(0, std::array<bool, kVisibleShopSlots>{slots[0].sold, slots[1].sold}),
+    expectEqual(slots[0].offer.price, 4, "sold slot should keep its item data");
+    expect(!isSelectableShopSlot(0, std::array<bool, kVisibleShopSlots>{slots[0].sold, slots[1].sold, slots[2].sold}),
            "sold slot should no longer be selectable");
     expectEqual(cursor, 1, "cursor should retarget to the remaining live slot");
 
     cursor = shop_state_helpers::markShopSlotSoldAndAdvanceCursor(slots, cursor);
     expect(slots[1].sold, "second sold slot should be marked sold");
-    expectEqual(slots[1].item.price, 6, "second sold slot should keep its item data");
-    expectEqual(cursor, -1, "cursor should become invalid after both slots are sold");
+    expectEqual(slots[1].offer.price, 6, "second sold slot should keep its item data");
+    expectEqual(cursor, 2, "cursor should retarget to the final live slot");
+
+    cursor = shop_state_helpers::markShopSlotSoldAndAdvanceCursor(slots, cursor);
+    expect(slots[2].sold, "third sold slot should be marked sold");
+    expectEqual(slots[2].offer.price, 8, "third sold slot should keep its item data");
+    expectEqual(cursor, -1, "cursor should become invalid after all slots are sold");
 }
 
 void testUnavailableShopSlotBlocksSelectionAndUsesDedicatedLabel() {
@@ -287,6 +289,8 @@ void testUnavailableShopSlotBlocksSelectionAndUsesDedicatedLabel() {
            "unavailable slot should not be selectable");
     expect(!isSelectableShopSlot(1, disabled),
            "sold slot should remain non-selectable");
+    expect(isSelectableShopSlot(2, disabled),
+           "remaining live slot should stay selectable");
     expectEqual(shop_state_helpers::blockedShopSlotLabel(slots[0]), std::string("UNAVAILABLE"),
                 "unavailable slot should use dedicated label text");
     expectEqual(shop_state_helpers::blockedShopSlotLabel(slots[1]), std::string("SOLD"),
@@ -296,10 +300,11 @@ void testUnavailableShopSlotBlocksSelectionAndUsesDedicatedLabel() {
 void testUnavailableShopSlotNavigationSkipsBlockedOffer() {
     std::array<ShopSlot, kVisibleShopSlots> slots{};
     slots[0].unavailable = true;
+    slots[1].sold = true;
 
     const std::array<bool, kVisibleShopSlots> disabled = shop_state_helpers::disabledShopSlots(slots);
-    expectEqual(nextSelectableShopSlot(0, +1, disabled), 1,
-                "cursor should skip unavailable slots when advancing");
+    expectEqual(nextSelectableShopSlot(0, +1, disabled), 2,
+                "cursor should skip blocked slots when advancing");
 }
 
 } // namespace

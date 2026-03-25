@@ -18,7 +18,7 @@ enum class ShopOfferKind {
 
 struct ShopOffer {
     ShopOfferKind kind = ShopOfferKind::Joker;
-    Joker joker = Joker::plainJoker();
+    Joker joker{};
     Card card{Suit::Clubs, Rank::Ace};
     HandType handType = HandType::HighCard;
     int price = 0;

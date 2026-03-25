@@ -9,12 +9,10 @@ enum class ShopPlatform { SDL, ThreeDS };
 struct ShopRect { int x, y, w, h; };
 struct ShopColor { int r, g, b, a; };
 
-// Stride between shop card slots (body + gap). Fixed at 140px on both platforms.
-static constexpr int kShopCardStride = 140;
-static constexpr int kVisibleShopSlots = 2;
+static constexpr int kVisibleShopSlots = 3;
 
 struct ShopCardLayout {
-    int startX, y, bodyWidth, bodyHeight, highlightPad, priceOffsetY;
+    int startX, y, bodyWidth, bodyHeight, highlightPad, priceOffsetY, stride;
 };
 
 struct HeldJokerRowLayout {
