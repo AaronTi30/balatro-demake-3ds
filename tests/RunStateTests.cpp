@@ -317,6 +317,47 @@ void testDeckMutationApisAffectCanonicalDeckAndFutureRounds() {
     expectEqual(run.roundDeck().remaining(), 53, "next round deck should reflect canonical mutations");
 }
 
+void testInterestPayoutUsesFiveDollarBandsAndCap() {
+    RunState run;
+    run.startNewRun();
+
+    run.money = 4;
+    expectEqual(run.interestPayout(), 0, "interest below five dollars");
+
+    run.money = 10;
+    expectEqual(run.interestPayout(), 2, "interest at ten dollars");
+
+    run.money = 40;
+    expectEqual(run.interestPayout(), 5, "interest should cap at five dollars");
+}
+
+void testAwardInterestAddsCurrentPayout() {
+    RunState run;
+    run.startNewRun();
+    run.money = 19;
+
+    run.awardInterest();
+
+    expectEqual(run.money, 22, "awardInterest should add the computed payout");
+}
+
+void testHandLevelsResetAndUpgradeIndependently() {
+    RunState run;
+    run.startNewRun();
+
+    expectEqual(run.handLevel(HandType::Pair), 1, "pair starts at level one");
+    expectEqual(run.handLevel(HandType::Flush), 1, "flush starts at level one");
+
+    run.levelUpHand(HandType::Pair);
+    run.levelUpHand(HandType::Pair);
+
+    expectEqual(run.handLevel(HandType::Pair), 3, "pair should level independently");
+    expectEqual(run.handLevel(HandType::Flush), 1, "other hands should remain unchanged");
+
+    run.startNewRun();
+    expectEqual(run.handLevel(HandType::Pair), 1, "startNewRun should reset hand levels");
+}
+
 } // namespace
 
 int main() {
@@ -338,6 +379,9 @@ int main() {
         testNewRunBuildsCanonicalDeckWithUniqueInstanceIds();
         testStartRoundLoadsLiveDeckWithoutMutatingCanonicalDeck();
         testDeckMutationApisAffectCanonicalDeckAndFutureRounds();
+        testInterestPayoutUsesFiveDollarBandsAndCap();
+        testAwardInterestAddsCurrentPayout();
+        testHandLevelsResetAndUpgradeIndependently();
     } catch (const std::exception& ex) {
         std::cerr << ex.what() << '\n';
         return 1;

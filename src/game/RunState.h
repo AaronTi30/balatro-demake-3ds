@@ -1,7 +1,9 @@
 #pragma once
 
 #include "Deck.h"
+#include "HandType.h"
 #include "Joker.h"
+#include <array>
 #include <cstdint>
 #include <random>
 #include <string>
@@ -43,6 +45,8 @@ public:
         { 50000, 75000, 100000 }
     };
     inline static constexpr int kBlindRewards[] = { 2, 3, 4 };
+    static constexpr int kInterestDivisor = 5;
+    static constexpr int kMaxInterest = 5;
 
     int ante = 1;
     BlindStage blindStage = BlindStage::Small;
@@ -81,6 +85,10 @@ public:
     static int targetForAnte(int ante);
     static int targetForBlind(int ante, BlindStage stage);
     static const char* blindStageName(BlindStage stage);
+    int interestPayout() const;
+    void awardInterest();
+    int handLevel(HandType type) const;
+    void levelUpHand(HandType type);
 
     void resetShopJokerAvailability();
     bool isJokerShopAvailable(const std::string& jokerId) const;
@@ -101,6 +109,7 @@ private:
     uint32_t makeNextCardInstanceId();
 
     std::vector<Card> m_runDeckCards;
+    std::array<int, kHandTypeCount> m_handLevels{};
     uint32_t m_nextCardInstanceId = 1;
     Deck m_roundDeck;
     std::unordered_set<std::string> m_shopAvailableJokerIds;
