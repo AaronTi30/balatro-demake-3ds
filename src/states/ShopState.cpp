@@ -1,5 +1,6 @@
 #include "ShopState.h"
 #include "GameplayState.h"
+#include "states/ShopLayout.h"
 #include "../core/StateMachine.h"
 #include "../core/Application.h"
 #include "../core/TextRenderer.h"
@@ -25,13 +26,12 @@ void advanceToNextBlindAndResume(StateMachine* machine, const std::shared_ptr<Ru
 
 ShopState::ShopState(StateMachine* machine, std::shared_ptr<RunState> runState)
     : m_runState(std::move(runState)),
-      m_cursorIndex(0),
-      m_inputDelay(0.3f),
       m_rng(std::random_device{}()) {
     m_stateMachine = machine;
 }
 
 void ShopState::enter() {
+    m_heldInspectIndex = -1;
     generateItems();
 }
 
@@ -47,6 +47,23 @@ void ShopState::generateItems() {
     m_items = generateShopItems(m_rng);
 }
 
+void ShopState::clearHeldInspect() {
+    m_heldInspectIndex = -1;
+}
+
+bool ShopState::tryBuySelectedItem() {
+    if (m_cursorIndex < 0 || m_cursorIndex >= static_cast<int>(m_items.size())) return false;
+    if (m_runState->money < m_items[m_cursorIndex].price) return false;
+    if (m_runState->jokers.size() >= static_cast<size_t>(m_runState->jokerLimit)) return false;
+
+    clearHeldInspect();
+    m_runState->money -= m_items[m_cursorIndex].price;
+    m_runState->jokers.push_back(m_items[m_cursorIndex].joker);
+    m_items.erase(m_items.begin() + m_cursorIndex);
+    if (m_cursorIndex >= static_cast<int>(m_items.size()) && m_cursorIndex > 0) m_cursorIndex--;
+    return true;
+}
+
 void ShopState::handleInput() {
     if (m_inputDelay > 0.0f) return;
 
@@ -57,48 +74,38 @@ void ShopState::handleInput() {
     if (kDown & KEY_DLEFT) {
         m_cursorIndex--;
         if (m_cursorIndex < 0) m_cursorIndex = 0;
+        clearHeldInspect();
     } else if (kDown & KEY_DRIGHT) {
         m_cursorIndex++;
-        if (m_cursorIndex >= m_items.size()) m_cursorIndex = m_items.size() - 1;
+        if (m_cursorIndex >= static_cast<int>(m_items.size())) m_cursorIndex = static_cast<int>(m_items.size()) - 1;
+        clearHeldInspect();
     }
-    
+
     if (kDown & KEY_A) {
-        // Buy item
-        if (m_cursorIndex >= 0 && m_cursorIndex < m_items.size()) {
-            if (m_runState->money >= m_items[m_cursorIndex].price &&
-                m_runState->jokers.size() < static_cast<size_t>(m_runState->jokerLimit)) {
-                m_runState->money -= m_items[m_cursorIndex].price;
-                m_runState->jokers.push_back(m_items[m_cursorIndex].joker);
-                m_items.erase(m_items.begin() + m_cursorIndex);
-                if (m_cursorIndex >= m_items.size() && m_cursorIndex > 0) {
-                    m_cursorIndex--;
-                }
-            }
-        }
+        tryBuySelectedItem();
     }
-    
+
     if (kDown & KEY_START || kDown & KEY_X) {
         // Next Round
         advanceToNextBlindAndResume(m_stateMachine, m_runState);
     }
-    
+
     // Bottom Screen Touch
     if (kDown & KEY_TOUCH) {
         touchPosition touch;
         hidTouchRead(&touch);
-        
+
+        // Held joker slots: check first
+        {
+            int heldHit = hitHeldJoker(ShopPlatform::N3DS, static_cast<int>(m_runState->jokers.size()), touch.px, touch.py);
+            if (heldHit >= 0) {
+                m_heldInspectIndex = heldHit;
+            }
+        }
+
         // Buy Button: x: 20 -> 140, y: 160 -> 210
         if (touch.px >= 20 && touch.px <= 140 && touch.py >= 160 && touch.py <= 210) {
-            // Trigger buy
-            if (m_cursorIndex >= 0 && m_cursorIndex < m_items.size()) {
-                if (m_runState->money >= m_items[m_cursorIndex].price &&
-                    m_runState->jokers.size() < static_cast<size_t>(m_runState->jokerLimit)) {
-                    m_runState->money -= m_items[m_cursorIndex].price;
-                    m_runState->jokers.push_back(m_items[m_cursorIndex].joker);
-                    m_items.erase(m_items.begin() + m_cursorIndex);
-                    if (m_cursorIndex >= m_items.size() && m_cursorIndex > 0) m_cursorIndex--;
-                }
-            }
+            tryBuySelectedItem();
         }
         // Next Ante Button: x: 160 -> 280, y: 160 -> 210
         else if (touch.px >= 160 && touch.px <= 280 && touch.py >= 160 && touch.py <= 210) {
@@ -111,27 +118,25 @@ void ShopState::handleInput() {
     static bool leftPressed = false, rightPressed = false, spacePressed = false, enterPressed = false;
 
     if (keys[SDL_SCANCODE_LEFT]) {
-        if (!leftPressed) { m_cursorIndex = std::max(0, m_cursorIndex - 1); leftPressed = true; }
+        if (!leftPressed) {
+            m_cursorIndex = std::max(0, m_cursorIndex - 1);
+            clearHeldInspect();
+            leftPressed = true;
+        }
     } else { leftPressed = false; }
 
     if (keys[SDL_SCANCODE_RIGHT]) {
-        if (!rightPressed) { m_cursorIndex = std::min(static_cast<int>(m_items.size()) - 1, m_cursorIndex + 1); rightPressed = true; }
+        if (!rightPressed) {
+            m_cursorIndex = std::min(static_cast<int>(m_items.size()) - 1, m_cursorIndex + 1);
+            clearHeldInspect();
+            rightPressed = true;
+        }
     } else { rightPressed = false; }
 
     if (keys[SDL_SCANCODE_SPACE]) {
         if (!spacePressed) {
             spacePressed = true;
-            if (m_cursorIndex >= 0 && m_cursorIndex < m_items.size()) {
-                if (m_runState->money >= m_items[m_cursorIndex].price &&
-                    m_runState->jokers.size() < static_cast<size_t>(m_runState->jokerLimit)) {
-                    m_runState->money -= m_items[m_cursorIndex].price;
-                    m_runState->jokers.push_back(m_items[m_cursorIndex].joker);
-                    m_items.erase(m_items.begin() + m_cursorIndex);
-                    if (m_cursorIndex >= m_items.size() && m_cursorIndex > 0) {
-                        m_cursorIndex--;
-                    }
-                }
-            }
+            tryBuySelectedItem();
         }
     } else { spacePressed = false; }
 
@@ -141,38 +146,44 @@ void ShopState::handleInput() {
             advanceToNextBlindAndResume(m_stateMachine, m_runState);
         }
     } else { enterPressed = false; }
-    
+
     // Mouse Input
     int mx, my;
     uint32_t mouseState = SDL_GetMouseState(&mx, &my);
+
+    // Hover — update cursor only when mouse moves so keyboard nav wins when mouse is stationary
+    if (mx != m_lastMouseX || my != m_lastMouseY) {
+        if (mx < 400) {
+            clearHeldInspect();
+            if (!m_items.empty()) {
+                int hit = hitShopCard(ShopPlatform::SDL, static_cast<int>(m_items.size()), mx, my);
+                if (hit >= 0) m_cursorIndex = hit;
+            }
+        }
+    }
+    m_lastMouseX = mx;
+    m_lastMouseY = my;
+
     static bool mousePressed = false;
     if (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) {
         if (!mousePressed) {
             mousePressed = true;
-            
-            // Top Screen (Card selection)
-            if (mx < 400 && m_items.size() > 0) {
-                int startX = (400 - (m_items.size() * 140)) / 2 + 20; // Replicate rendering logic
-                for (size_t i = 0; i < m_items.size(); ++i) {
-                    int bx = startX + i * 140;
-                    if (mx >= bx && mx <= bx + 100 && my >= 105 && my <= 225) {
-                        m_cursorIndex = i;
-                    }
-                }
+
+            // Top Screen (card selection via click)
+            if (mx < 400 && !m_items.empty()) {
+                int hit = hitShopCard(ShopPlatform::SDL, static_cast<int>(m_items.size()), mx, my);
+                if (hit >= 0) m_cursorIndex = hit;
             }
             // Bottom screen
             else if (mx >= 400) {
+                // Held joker inspect: check before Buy/Next Blind
+                if (my >= 90 && my <= 150) {
+                    int heldHit = hitHeldJoker(ShopPlatform::SDL, static_cast<int>(m_runState->jokers.size()), mx, my);
+                    if (heldHit >= 0) m_heldInspectIndex = heldHit;
+                }
                 // Buy Button: x: 420 -> 540, y: 160 -> 210
                 if (mx >= 420 && mx <= 540 && my >= 160 && my <= 210) {
-                    if (m_cursorIndex >= 0 && m_cursorIndex < m_items.size()) {
-                        if (m_runState->money >= m_items[m_cursorIndex].price &&
-                            m_runState->jokers.size() < static_cast<size_t>(m_runState->jokerLimit)) {
-                            m_runState->money -= m_items[m_cursorIndex].price;
-                            m_runState->jokers.push_back(m_items[m_cursorIndex].joker);
-                            m_items.erase(m_items.begin() + m_cursorIndex);
-                            if (m_cursorIndex >= m_items.size() && m_cursorIndex > 0) m_cursorIndex--;
-                        }
-                    }
+                    tryBuySelectedItem();
                 }
                 // Next Ante Button: x: 560 -> 680, y: 160 -> 210
                 else if (mx >= 560 && mx <= 680 && my >= 160 && my <= 210) {
@@ -249,7 +260,6 @@ void ShopState::renderTopScreen(Application* app) {
         
         // Text
         TextRenderer::drawText(m_items[i].joker.name, x + 5, y + 10, 0.45f, 0.45f, C2D_Color32(255, 255, 255, 255));
-        TextRenderer::drawText(m_items[i].joker.description, x + 10, y + 50, 0.4f, 0.4f, C2D_Color32(255, 255, 255, 255));
         TextRenderer::drawText("$" + std::to_string(m_items[i].price), x + 30, y + 90, 0.5f, 0.5f, C2D_Color32(255, 215, 0, 255));
 #else
         int r = 100, g = 100, b = 100;
@@ -271,7 +281,6 @@ void ShopState::renderTopScreen(Application* app) {
         SDL_RenderDrawRect(renderer, &jbox);
 
         TextRenderer::drawText(renderer, m_items[i].joker.name, x + 5, y + 10, 0, 255, 255, 255);
-        TextRenderer::drawText(renderer, m_items[i].joker.description, x + 10, y + 50, 0, 255, 255, 255);
         TextRenderer::drawText(renderer, "$" + std::to_string(m_items[i].price), x + 35, y + 95, 1, 255, 215, 0);
 #endif
     }
@@ -282,11 +291,17 @@ void ShopState::renderBottomScreen(Application* app) {
     int baseX = 0;
     C2D_DrawRectSolid(0, 0, 0.5f, 320, 240, C2D_Color32(15, 20, 30, 255)); // Darker background
     
-    TextRenderer::drawText("SHOP CONTROLS", 100, 30, 0.5f, 0.5f, C2D_Color32(200, 200, 220, 255));
-    
+    // Inspect panel
+    if (m_cursorIndex >= 0 && static_cast<size_t>(m_cursorIndex) < m_items.size()) {
+        TextRenderer::drawText(m_items[m_cursorIndex].joker.name, 10, 20, 0.5f, 0.5f, C2D_Color32(255, 255, 255, 255));
+        TextRenderer::drawText(m_items[m_cursorIndex].joker.description, 10, 45, 0.4f, 0.4f, C2D_Color32(180, 180, 180, 255));
+    } else {
+        TextRenderer::drawText("Use D-pad to inspect", 10, 20, 0.4f, 0.4f, C2D_Color32(150, 150, 150, 255));
+    }
+
     // Jokers slots text
     TextRenderer::drawText("Jokers: " + std::to_string(m_runState->jokers.size()) + "/" + std::to_string(m_runState->jokerLimit),
-                           115, 50, 0.5f, 0.5f, C2D_Color32(200, 200, 200, 255));
+                           115, 80, 0.5f, 0.5f, C2D_Color32(200, 200, 200, 255));
     
     // Buy Button (Green)
     C2D_DrawRectSolid(baseX + 20, 160, 0.5f, 120, 50, C2D_Color32(80, 200, 80, 255));
@@ -314,10 +329,17 @@ void ShopState::renderBottomScreen(Application* app) {
     SDL_Rect bgBot = { 400, 0, 400, 240 };
     SDL_RenderFillRect(renderer, &bgBot);
 
-    TextRenderer::drawText(renderer, "SHOP CONTROLS", baseX + 120, 30, 1, 200, 200, 220);
+    // Inspect panel
+    if (m_cursorIndex >= 0 && static_cast<size_t>(m_cursorIndex) < m_items.size()) {
+        TextRenderer::drawText(renderer, m_items[m_cursorIndex].joker.name, baseX + 10, 20, 1, 255, 255, 255);
+        TextRenderer::drawText(renderer, m_items[m_cursorIndex].joker.description, baseX + 10, 45, 0, 180, 180, 180);
+    } else {
+        TextRenderer::drawText(renderer, "Hover a card to inspect", baseX + 10, 20, 0, 150, 150, 150);
+    }
+
     TextRenderer::drawText(renderer,
                            "Jokers: " + std::to_string(m_runState->jokers.size()) + "/" + std::to_string(m_runState->jokerLimit),
-                           baseX + 130, 60, 1, 200, 200, 200);
+                           baseX + 130, 80, 1, 200, 200, 200);
     
     // Buy Button (Green)
     SDL_SetRenderDrawColor(renderer, 80, 200, 80, 255);

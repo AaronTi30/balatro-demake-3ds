@@ -111,6 +111,30 @@ void testHitHeldJoker() {
     expect(miss == -1, "hit beyond jokerCount should miss");
 }
 
+void expectEqual(int actual, int expected, const std::string& label) {
+    if (actual != expected) {
+        std::ostringstream oss;
+        oss << label << ": expected " << expected << ", got " << actual;
+        fail(oss.str());
+    }
+}
+
+void testTask2Assertions() {
+    expectEqual(hitShopCard(ShopPlatform::SDL, 2, 90, 140), 0,
+                "SDL hover should use y=125..195");
+    expectEqual(hitShopCard(ShopPlatform::SDL, 2, 90, 110), -1,
+                "old y=105 card band should no longer hit");
+
+    expectEqual(hitHeldJoker(ShopPlatform::N3DS, 3, 12, 90), 0,
+                "3DS first held joker slot");
+    // N3DS: startX=12, stride=60 -> slot 2 body is x=132..187; use 150 (mid-slot)
+    expectEqual(hitHeldJoker(ShopPlatform::N3DS, 3, 150, 100), 2,
+                "3DS third held joker slot uses 60px stride");
+
+    expect(resolveInspectSelection(-1, 3, -1, 0).source == InspectSource::Placeholder,
+           "placeholder should show only when neither held nor shop selection is valid");
+}
+
 } // namespace
 
 int main() {
@@ -122,6 +146,7 @@ int main() {
     testResolveInspectSelectionPlaceholder();
     testHitShopCard();
     testHitHeldJoker();
+    testTask2Assertions();
 
     std::cout << "ShopLayout tests passed\n";
     return 0;

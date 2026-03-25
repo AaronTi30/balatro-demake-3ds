@@ -26,12 +26,19 @@ public:
 
 private:
     void generateItems();
+    void clearHeldInspect();
+    bool tryBuySelectedItem();
 
     std::shared_ptr<RunState> m_runState;
     std::vector<ShopItem> m_items;
-    int m_cursorIndex;
-    float m_inputDelay;
+    int m_cursorIndex = 0;
+    int m_heldInspectIndex = -1;
+    float m_inputDelay = 0.3f;
     std::mt19937 m_rng;
+#ifndef N3DS
+    int m_lastMouseX = -1;
+    int m_lastMouseY = -1;
+#endif
 };
 
 inline std::vector<ShopItem> ShopState::generateShopItems(std::mt19937& rng) {
