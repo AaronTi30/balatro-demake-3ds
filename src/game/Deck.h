@@ -9,7 +9,7 @@ class Deck {
 public:
     Deck();
     
-    void reset();
+    void loadCards(const std::vector<Card>& cards);
     void shuffle();
     Card draw();
     bool empty() const;

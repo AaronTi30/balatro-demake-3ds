@@ -1,5 +1,6 @@
 #include "RunState.h"
 
+#include <algorithm>
 #include <array>
 
 namespace {
@@ -62,6 +63,10 @@ Suit suitFromIndex(int index) {
 }
 
 } // namespace
+
+uint32_t RunState::makeNextCardInstanceId() {
+    return m_nextCardInstanceId++;
+}
 
 int RunState::targetForAnte(int ante) {
     return RunState::kBlindTargets[clampAnteIndex(ante)].small;
@@ -153,6 +158,7 @@ void RunState::startNewRun() {
     currentBlockedSuit = Suit::Clubs;
     nextBlockedSuit = Suit::Clubs;
     jokers.clear();
+    resetRunDeckToStandard52();
 
     std::mt19937 rng = makeBossModifierRng();
     rollNextBossModifier(rng);
@@ -164,7 +170,7 @@ void RunState::startRound() {
     discardsRemaining = kStartingDiscards;
     roundScore = 0;
     roundTarget = targetForBlind(ante, blindStage);
-    deck.reset();
+    prepareRoundDeckForCurrentBlind();
 }
 
 void RunState::addRoundScore(int points) {
@@ -303,4 +309,74 @@ std::unordered_set<std::string> RunState::currentOwnedJokerIds() const {
         ids.insert(Joker::idFor(j));
     }
     return ids;
+}
+
+void RunState::resetRunDeckToStandard52() {
+    m_runDeckCards.clear();
+    m_runDeckCards.reserve(52);
+    m_nextCardInstanceId = 1;
+
+    for (int s = 0; s < 4; ++s) {
+        for (int r = 1; r <= 13; ++r) {
+            Card card{ static_cast<Suit>(s), static_cast<Rank>(r) };
+            card.instanceId = makeNextCardInstanceId();
+            m_runDeckCards.push_back(card);
+        }
+    }
+}
+
+void RunState::prepareRoundDeckForCurrentBlind() {
+    m_roundDeck.loadCards(m_runDeckCards);
+    m_roundDeck.shuffle();
+}
+
+const std::vector<Card>& RunState::runDeckCards() const {
+    return m_runDeckCards;
+}
+
+int RunState::runDeckSize() const {
+    return static_cast<int>(m_runDeckCards.size());
+}
+
+uint32_t RunState::addCardToRunDeck(Suit suit, Rank rank) {
+    Card card{ suit, rank };
+    card.instanceId = makeNextCardInstanceId();
+    m_runDeckCards.push_back(card);
+    return card.instanceId;
+}
+
+bool RunState::removeCardFromRunDeck(uint32_t instanceId) {
+    const auto it = std::find_if(
+        m_runDeckCards.begin(),
+        m_runDeckCards.end(),
+        [instanceId](const Card& card) { return card.instanceId == instanceId; });
+    if (it == m_runDeckCards.end()) {
+        return false;
+    }
+
+    m_runDeckCards.erase(it);
+    return true;
+}
+
+uint32_t RunState::duplicateCardInRunDeck(uint32_t instanceId) {
+    const auto it = std::find_if(
+        m_runDeckCards.begin(),
+        m_runDeckCards.end(),
+        [instanceId](const Card& card) { return card.instanceId == instanceId; });
+    if (it == m_runDeckCards.end()) {
+        return 0;
+    }
+
+    Card duplicate = *it;
+    duplicate.instanceId = makeNextCardInstanceId();
+    m_runDeckCards.push_back(duplicate);
+    return duplicate.instanceId;
+}
+
+Deck& RunState::roundDeck() {
+    return m_roundDeck;
+}
+
+const Deck& RunState::roundDeck() const {
+    return m_roundDeck;
 }

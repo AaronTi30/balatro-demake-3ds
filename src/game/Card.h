@@ -16,10 +16,25 @@ enum class Rank {
     Jack, Queen, King
 };
 
+enum class CardEnhancement {
+    None
+};
+
+enum class CardEdition {
+    None
+};
+
+enum class CardSeal {
+    None
+};
+
 struct Card {
     Suit suit;
     Rank rank;
-    bool selected = false;
+    uint32_t instanceId = 0;
+    CardEnhancement enhancement = CardEnhancement::None;
+    CardEdition edition = CardEdition::None;
+    CardSeal seal = CardSeal::None;
 };
 
 // ── Helpers ──────────────────────────────────────────
