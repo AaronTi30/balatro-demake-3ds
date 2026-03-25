@@ -223,6 +223,12 @@ void testRunScopedShopAvailability() {
     expect(runState.isJokerShopAvailable(plainId),
            "returned joker should be available again");
 
+    // Calling startNewRun() again resets availability — joker removed mid-run comes back
+    runState.markJokerRemovedFromShopPool(plainId);
+    expect(!runState.isJokerShopAvailable(plainId), "joker should be gone before re-run");
+    runState.startNewRun();
+    expect(runState.isJokerShopAvailable(plainId), "startNewRun should restore all jokers to shop pool");
+
     // currentOwnedJokerIds reflects jokers vector
     Joker plain = Joker::plainJoker();
     runState.jokers.push_back(plain);
