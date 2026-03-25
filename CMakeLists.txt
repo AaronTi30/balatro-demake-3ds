@@ -82,4 +82,11 @@ if(NOT N3DS)
     )
     target_include_directories(joker_tests PRIVATE src)
     add_test(NAME joker_tests COMMAND joker_tests)
+
+    add_executable(shop_layout_tests
+        tests/ShopLayoutTests.cpp
+        src/states/ShopLayout.cpp
+    )
+    target_include_directories(shop_layout_tests PRIVATE src)
+    add_test(NAME shop_layout_tests COMMAND shop_layout_tests)
 endif()
