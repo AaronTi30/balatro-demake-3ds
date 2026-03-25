@@ -1,11 +1,5 @@
 #include "game/HandEvaluator.h"
 
-// hand_evaluator_tests does not link RunState/Deck sources directly, so the
-// regression test pulls in the needed implementations here.
-#include "game/Deck.cpp"
-#include "game/Joker.cpp"
-#include "game/RunState.cpp"
-
 #include <cstdlib>
 #include <exception>
 #include <iostream>

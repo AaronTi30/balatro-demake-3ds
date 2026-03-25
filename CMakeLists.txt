@@ -76,6 +76,9 @@ if(NOT N3DS)
     add_executable(hand_evaluator_tests
         tests/HandEvaluatorTests.cpp
         src/game/HandEvaluator.cpp
+        src/game/Deck.cpp
+        src/game/RunState.cpp
+        src/game/Joker.cpp
     )
     target_include_directories(hand_evaluator_tests PRIVATE src)
     add_test(NAME hand_evaluator_tests COMMAND hand_evaluator_tests)
