@@ -19,6 +19,14 @@ struct ShopSlot {
     bool sold = false;
 };
 
+namespace shop_state_helpers {
+inline int markShopSlotSoldAndAdvanceCursor(std::array<ShopSlot, kVisibleShopSlots>& slots, int purchasedSlot) {
+    slots[purchasedSlot].sold = true;
+    const std::array<bool, kVisibleShopSlots> soldSlots{ slots[0].sold, slots[1].sold };
+    return nextSelectableShopSlot(purchasedSlot, +1, soldSlots);
+}
+} // namespace shop_state_helpers
+
 class ShopState : public State {
 public:
     ShopState(StateMachine* machine, std::shared_ptr<RunState> runState);

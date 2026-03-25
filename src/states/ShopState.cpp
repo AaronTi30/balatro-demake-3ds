@@ -95,8 +95,7 @@ bool ShopState::tryBuySelectedItem() {
     clearHeldInspect();
     m_runState->money -= m_slots[purchasedSlot].item.price;
     m_runState->jokers.push_back(m_slots[purchasedSlot].item.joker);
-    m_slots[purchasedSlot].sold = true;
-    m_cursorIndex = nextSelectableShopSlot(purchasedSlot, +1, soldMask());
+    m_cursorIndex = shop_state_helpers::markShopSlotSoldAndAdvanceCursor(m_slots, purchasedSlot);
     return true;
 }
 
