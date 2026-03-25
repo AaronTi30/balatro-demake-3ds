@@ -101,6 +101,30 @@ ShopColor jokerEffectColor(JokerEffectType effectType) {
     return {100, 100, 100, 255};
 }
 
+bool isSelectableShopSlot(int slotIndex, const std::array<bool, kVisibleShopSlots>& soldSlots) {
+    return slotIndex >= 0 &&
+           slotIndex < kVisibleShopSlots &&
+           !soldSlots[slotIndex];
+}
+
+int nextSelectableShopSlot(int currentSlot, int direction,
+                           const std::array<bool, kVisibleShopSlots>& soldSlots) {
+    for (int step = 0; step < kVisibleShopSlots; ++step) {
+        const int candidate = currentSlot + direction * step;
+        if (isSelectableShopSlot(candidate, soldSlots)) {
+            return candidate;
+        }
+    }
+
+    for (int candidate = 0; candidate < kVisibleShopSlots; ++candidate) {
+        if (isSelectableShopSlot(candidate, soldSlots)) {
+            return candidate;
+        }
+    }
+
+    return -1;
+}
+
 int hitShopCard(ShopPlatform platform, int itemCount, int px, int py) {
     const ShopCardLayout layout = shopCardLayout(platform, itemCount);
     if (py < layout.y || py >= layout.y + layout.bodyHeight) {

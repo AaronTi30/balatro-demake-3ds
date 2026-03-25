@@ -1,4 +1,5 @@
 #include "states/ShopLayout.h"
+#include "states/ShopState.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -46,6 +47,10 @@ void testShopCardBodyRect() {
     expectRectEqual(shopCardBodyRect(ShopPlatform::SDL, 2, 0),
                     ShopRect{80, 125, 100, 70},
                     "SDL shop card body rect");
+
+    expectRectEqual(shopCardBodyRect(ShopPlatform::SDL, 2, 1),
+                    ShopRect{220, 125, 100, 70},
+                    "second SDL slot should stay in the original right-hand position");
 }
 
 void testShopCardHighlightRect() {
@@ -214,6 +219,35 @@ void testJokerEffectColors() {
                     "MulMult color should match shop-card purple");
 }
 
+void testFixedShopSlotNavigation() {
+    expectEqual(nextSelectableShopSlot(0, +1, std::array<bool, 2>{true, false}), 1,
+                "cursor should skip from sold left slot to live right slot");
+    expectEqual(nextSelectableShopSlot(1, -1, std::array<bool, 2>{false, true}), 0,
+                "cursor should skip from sold right slot to live left slot");
+    expectEqual(nextSelectableShopSlot(0, +1, std::array<bool, 2>{true, true}), -1,
+                "cursor should become invalid when every slot is sold");
+}
+
+void testShopSlotSaleKeepsItemAndAdvancesCursor() {
+    std::array<ShopSlot, kVisibleShopSlots> slots{};
+    slots[0].item.price = 4;
+    slots[0].item.joker.name = "Alpha";
+    slots[1].item.price = 6;
+    slots[1].item.joker.name = "Beta";
+
+    int cursor = shop_state_helpers::markShopSlotSoldAndAdvanceCursor(slots, 0);
+    expect(slots[0].sold, "sold slot should be marked sold");
+    expectEqual(slots[0].item.price, 4, "sold slot should keep its item data");
+    expect(!isSelectableShopSlot(0, std::array<bool, kVisibleShopSlots>{slots[0].sold, slots[1].sold}),
+           "sold slot should no longer be selectable");
+    expectEqual(cursor, 1, "cursor should retarget to the remaining live slot");
+
+    cursor = shop_state_helpers::markShopSlotSoldAndAdvanceCursor(slots, cursor);
+    expect(slots[1].sold, "second sold slot should be marked sold");
+    expectEqual(slots[1].item.price, 6, "second sold slot should keep its item data");
+    expectEqual(cursor, -1, "cursor should become invalid after both slots are sold");
+}
+
 } // namespace
 
 int main() {
@@ -231,6 +265,8 @@ int main() {
     testHitHeldJoker();
     testTask2Assertions();
     testJokerEffectColors();
+    testFixedShopSlotNavigation();
+    testShopSlotSaleKeepsItemAndAdvancesCursor();
 
     std::cout << "ShopLayout tests passed\n";
     return 0;

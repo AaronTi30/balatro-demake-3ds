@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include "../game/Joker.h"
 
 enum class ShopPlatform { SDL, ThreeDS };
@@ -9,6 +11,7 @@ struct ShopColor { int r, g, b, a; };
 
 // Stride between shop card slots (body + gap). Fixed at 140px on both platforms.
 static constexpr int kShopCardStride = 140;
+static constexpr int kVisibleShopSlots = 2;
 
 struct ShopCardLayout {
     int startX, y, bodyWidth, bodyHeight, highlightPad, priceOffsetY;
@@ -39,6 +42,10 @@ ShopColor jokerEffectColor(JokerEffectType effectType);
 
 int hitShopCard(ShopPlatform platform, int itemCount, int px, int py);
 int hitHeldJoker(ShopPlatform platform, int jokerCount, int px, int py);
+
+bool isSelectableShopSlot(int slotIndex, const std::array<bool, kVisibleShopSlots>& soldSlots);
+int nextSelectableShopSlot(int currentSlot, int direction,
+                           const std::array<bool, kVisibleShopSlots>& soldSlots);
 
 InspectSelection resolveInspectSelection(int heldInspectIndex, int heldCount,
                                          int cursorIndex, int itemCount);
