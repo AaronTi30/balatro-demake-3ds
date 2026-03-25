@@ -75,6 +75,20 @@ void testJokerMetadataMatchesTierBalance() {
     expectEqual(heavyJoker.shopPriceRange.max, 10, "strong joker max price");
 }
 
+void testAllJokersHavePositiveSellValue() {
+    const std::vector<std::vector<Joker>> pools = {
+        Joker::weakPool(), Joker::mediumPool(), Joker::strongPool()
+    };
+    for (const auto& pool : pools) {
+        for (const Joker& j : pool) {
+            if (j.sellValue <= 0) {
+                fail("Joker \"" + j.name + "\" has non-positive sellValue: "
+                     + std::to_string(j.sellValue));
+            }
+        }
+    }
+}
+
 void testWeakOrMediumDrawNeverReturnsStrongJoker() {
     std::mt19937 rng(1337);
 
@@ -293,6 +307,7 @@ void testReturnedJokerBecomesEligibleAgainAfterLeavingInventory() {
 int main() {
     try {
         testJokerMetadataMatchesTierBalance();
+        testAllJokersHavePositiveSellValue();
         testWeakOrMediumDrawNeverReturnsStrongJoker();
         testWeightedDrawAlwaysComesFromNineJokerCatalog();
         testWeightedTierRollPreservesFiftyThirtyFiveFifteenSplit();

@@ -146,6 +146,7 @@ void RunState::startNewRun() {
     ante = kStartingAnte;
     blindStage = BlindStage::Small;
     money = kStartingMoney;
+    rerollCost = 5;
     jokerLimit = kStartingJokerLimit;
     currentBossModifier = BossBlindModifier::None;
     nextBossModifier = BossBlindModifier::None;

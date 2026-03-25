@@ -14,6 +14,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 add_executable(balatro_demake
     src/main.cpp
     src/core/Application.cpp
+    src/core/AssetPath.cpp
     src/core/StateMachine.cpp
     src/states/TitleState.cpp
     src/states/GameplayState.cpp
@@ -96,4 +97,11 @@ if(NOT N3DS)
     )
     target_include_directories(shop_layout_tests PRIVATE src)
     add_test(NAME shop_layout_tests COMMAND shop_layout_tests)
+
+    add_executable(asset_path_tests
+        tests/AssetPathTests.cpp
+        src/core/AssetPath.cpp
+    )
+    target_include_directories(asset_path_tests PRIVATE src)
+    add_test(NAME asset_path_tests COMMAND asset_path_tests)
 endif()

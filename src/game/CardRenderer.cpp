@@ -1,5 +1,6 @@
 #include "CardRenderer.h"
 #include "../core/Application.h"
+#include "../core/AssetPath.h"
 #include "../core/TextRenderer.h"
 
 #ifdef N3DS
@@ -11,6 +12,7 @@
 #endif
 
 #include <math.h>
+#include <filesystem>
 
 #ifndef N3DS
 SDL_Texture* CardRenderer::t_base = nullptr;
@@ -36,11 +38,19 @@ void CardRenderer::init(Application* app) {
 #ifndef N3DS
     SDL_Renderer* renderer = app->getRenderer();
     if (!t_base) {
-        t_base = loadTexture(renderer, "assets/textures/card_base.png");
-        t_spade = loadTexture(renderer, "assets/textures/spade.png");
-        t_heart = loadTexture(renderer, "assets/textures/heart.png");
-        t_club = loadTexture(renderer, "assets/textures/club.png");
-        t_diamond = loadTexture(renderer, "assets/textures/diamond.png");
+        const std::filesystem::path currentDir = std::filesystem::current_path();
+        char* rawBasePath = SDL_GetBasePath();
+        const std::filesystem::path executableDir =
+            rawBasePath ? std::filesystem::path(rawBasePath) : currentDir;
+        if (rawBasePath) {
+            SDL_free(rawBasePath);
+        }
+
+        t_base = loadTexture(renderer, resolveAssetPath("assets/textures/card_base.png", currentDir, executableDir).string().c_str());
+        t_spade = loadTexture(renderer, resolveAssetPath("assets/textures/spade.png", currentDir, executableDir).string().c_str());
+        t_heart = loadTexture(renderer, resolveAssetPath("assets/textures/heart.png", currentDir, executableDir).string().c_str());
+        t_club = loadTexture(renderer, resolveAssetPath("assets/textures/club.png", currentDir, executableDir).string().c_str());
+        t_diamond = loadTexture(renderer, resolveAssetPath("assets/textures/diamond.png", currentDir, executableDir).string().c_str());
     }
 #endif
 }

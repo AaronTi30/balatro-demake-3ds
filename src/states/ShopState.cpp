@@ -100,6 +100,30 @@ bool ShopState::tryBuySelectedItem() {
     return true;
 }
 
+bool ShopState::trySellHeldJoker() {
+    if (m_heldInspectIndex < 0) return false;
+
+    const int idx = m_heldInspectIndex;
+    if (idx >= static_cast<int>(m_runState->jokers.size())) return false;
+
+    const Joker& sold = m_runState->jokers[idx];
+    m_runState->money += sold.sellValue;
+    m_runState->markJokerReturnedToShopPool(Joker::idFor(sold));
+    m_runState->jokers.erase(m_runState->jokers.begin() + idx);
+    clearHeldInspect();
+    return true;
+}
+
+bool ShopState::tryReroll() {
+    if (m_runState->money < m_runState->rerollCost) return false;
+
+    m_runState->money -= m_runState->rerollCost;
+    ++m_runState->rerollCost;
+    generateItems();
+    clearHeldInspect();
+    return true;
+}
+
 void ShopState::handleInput() {
     if (m_inputDelay > 0.0f) return;
 
@@ -123,7 +147,10 @@ void ShopState::handleInput() {
     }
 
     if (kDown & KEY_A) {
-        tryBuySelectedItem();
+        if (m_heldInspectIndex >= 0)
+            trySellHeldJoker();
+        else
+            tryBuySelectedItem();
     }
 
     if (kDown & KEY_START || kDown & KEY_X) {
@@ -136,7 +163,7 @@ void ShopState::handleInput() {
         touchPosition touch;
         hidTouchRead(&touch);
 
-        // Held joker slots: check first
+        // Held joker inspect
         {
             int heldHit = hitHeldJoker(ShopPlatform::ThreeDS, static_cast<int>(m_runState->jokers.size()), touch.px, touch.py);
             if (heldHit >= 0) {
@@ -145,7 +172,13 @@ void ShopState::handleInput() {
         }
 
         if (hitBuyButton(ShopPlatform::ThreeDS, touch.px, touch.py)) {
-            tryBuySelectedItem();
+            if (m_heldInspectIndex >= 0)
+                trySellHeldJoker();
+            else
+                tryBuySelectedItem();
+        }
+        else if (hitRerollButton(ShopPlatform::ThreeDS, touch.px, touch.py)) {
+            tryReroll();
         }
         else if (hitNextBlindButton(ShopPlatform::ThreeDS, touch.px, touch.py)) {
             advanceToNextBlindAndResume(m_stateMachine, m_runState);
@@ -154,7 +187,8 @@ void ShopState::handleInput() {
     
 #else
     const Uint8* keys = SDL_GetKeyboardState(nullptr);
-    static bool leftPressed = false, rightPressed = false, spacePressed = false, enterPressed = false;
+    static bool leftPressed = false, rightPressed = false, spacePressed = false, enterPressed = false,
+                rerollPressed = false;
 
     if (keys[SDL_SCANCODE_LEFT]) {
         if (!leftPressed) {
@@ -173,9 +207,19 @@ void ShopState::handleInput() {
     if (keys[SDL_SCANCODE_SPACE]) {
         if (!spacePressed) {
             spacePressed = true;
-            tryBuySelectedItem();
+            if (m_heldInspectIndex >= 0)
+                trySellHeldJoker();
+            else
+                tryBuySelectedItem();
         }
     } else { spacePressed = false; }
+
+    if (keys[SDL_SCANCODE_R]) {
+        if (!rerollPressed) {
+            rerollPressed = true;
+            tryReroll();
+        }
+    } else { rerollPressed = false; }
 
     if (keys[SDL_SCANCODE_RETURN]) {
         if (!enterPressed) {
@@ -216,11 +260,17 @@ void ShopState::handleInput() {
             }
             // Bottom screen
             else if (mx >= 400) {
-                // Held joker inspect: check before Buy/Next Blind
+                // Held joker inspect
                 int heldHit = hitHeldJoker(ShopPlatform::SDL, static_cast<int>(m_runState->jokers.size()), mx, my);
                 if (heldHit >= 0) m_heldInspectIndex = heldHit;
                 if (hitBuyButton(ShopPlatform::SDL, mx, my)) {
-                    tryBuySelectedItem();
+                    if (m_heldInspectIndex >= 0)
+                        trySellHeldJoker();
+                    else
+                        tryBuySelectedItem();
+                }
+                else if (hitRerollButton(ShopPlatform::SDL, mx, my)) {
+                    tryReroll();
                 }
                 else if (hitNextBlindButton(ShopPlatform::SDL, mx, my)) {
                     advanceToNextBlindAndResume(m_stateMachine, m_runState);
@@ -382,20 +432,62 @@ void ShopState::renderBottomScreen(Application* app) {
         }
     }
     
-    // Buy Button (Green)
-    C2D_DrawRectSolid(baseX + 20, 160, 0.5f, 120, 50, C2D_Color32(80, 200, 80, 255));
-    C2D_DrawRectSolid(baseX + 20, 160, 0.5f, 120, 2, C2D_Color32(120, 240, 120, 255)); // highlight
-    
-    std::string buyText = "Sold Out";
-    if (isSelectableShopSlot(m_cursorIndex, disabledMask())) {
-        buyText = "Buy ($" + std::to_string(m_slots[m_cursorIndex].item.price) + ")";
+    // Action button (Buy or Sell)
+    {
+        const ShopRect actionRect = buyButtonRect(ShopPlatform::ThreeDS);
+        const bool isSell = m_heldInspectIndex >= 0 &&
+                            m_heldInspectIndex < static_cast<int>(m_runState->jokers.size());
+        const u32 fillColor = isSell ? C2D_Color32(100, 50, 20, 255) : C2D_Color32(20, 60, 20, 255);
+        const u32 borderColor = C2D_Color32(200, 200, 80, 255);
+
+        C2D_DrawRectSolid(actionRect.x, actionRect.y, 0.5f, actionRect.w, actionRect.h, fillColor);
+        C2D_DrawRectSolid(actionRect.x, actionRect.y, 0.5f, actionRect.w, 2, borderColor);
+        C2D_DrawRectSolid(actionRect.x, actionRect.y + actionRect.h - 2, 0.5f, actionRect.w, 2, borderColor);
+        C2D_DrawRectSolid(actionRect.x, actionRect.y, 0.5f, 2, actionRect.h, borderColor);
+        C2D_DrawRectSolid(actionRect.x + actionRect.w - 2, actionRect.y, 0.5f, 2, actionRect.h, borderColor);
+
+        if (isSell) {
+            const int sellAmt = m_runState->jokers[m_heldInspectIndex].sellValue;
+            TextRenderer::drawText("SELL $" + std::to_string(sellAmt),
+                                   actionRect.x + 6, actionRect.y + 18,
+                                   0.38f, 0.38f, C2D_Color32(255, 215, 0, 255));
+        } else {
+            TextRenderer::drawText("BUY",
+                                   actionRect.x + 36, actionRect.y + 18,
+                                   0.45f, 0.45f, C2D_Color32(255, 255, 255, 255));
+        }
     }
-    TextRenderer::drawText(buyText, baseX + 35, 175, 0.5f, 0.5f, C2D_Color32(0, 0, 0, 255));
-    
-    // Next Blind Button (Blue)
-    C2D_DrawRectSolid(baseX + 160, 160, 0.5f, 120, 50, C2D_Color32(80, 140, 255, 255));
-    C2D_DrawRectSolid(baseX + 160, 160, 0.5f, 120, 2, C2D_Color32(120, 180, 255, 255)); // highlight
-    TextRenderer::drawText("Next Blind", baseX + 170, 175, 0.5f, 0.5f, C2D_Color32(0, 0, 0, 255));
+
+    // Reroll button
+    {
+        const ShopRect rRect = rerollButtonRect(ShopPlatform::ThreeDS);
+        const bool canAfford = m_runState->money >= m_runState->rerollCost;
+        const u32 fillColor = canAfford
+            ? C2D_Color32(30, 30, 70, 255) : C2D_Color32(30, 30, 30, 255);
+        const u32 borderColor = canAfford
+            ? C2D_Color32(120, 120, 220, 255) : C2D_Color32(60, 60, 60, 255);
+        const u32 textColor = canAfford
+            ? C2D_Color32(200, 200, 255, 255) : C2D_Color32(80, 80, 80, 255);
+
+        C2D_DrawRectSolid(rRect.x, rRect.y, 0.5f, rRect.w, rRect.h, fillColor);
+        C2D_DrawRectSolid(rRect.x, rRect.y, 0.5f, rRect.w, 2, borderColor);
+        C2D_DrawRectSolid(rRect.x, rRect.y + rRect.h - 2, 0.5f, rRect.w, 2, borderColor);
+        C2D_DrawRectSolid(rRect.x, rRect.y, 0.5f, 2, rRect.h, borderColor);
+        C2D_DrawRectSolid(rRect.x + rRect.w - 2, rRect.y, 0.5f, 2, rRect.h, borderColor);
+        TextRenderer::drawText("REROLL",
+                               rRect.x + 4, rRect.y + 8, 0.30f, 0.30f, textColor);
+        TextRenderer::drawText("$" + std::to_string(m_runState->rerollCost),
+                               rRect.x + 16, rRect.y + 26, 0.35f, 0.35f, textColor);
+    }
+
+    // Next Blind button
+    {
+        const ShopRect nRect = nextBlindButtonRect(ShopPlatform::ThreeDS);
+        C2D_DrawRectSolid(nRect.x, nRect.y, 0.5f, nRect.w, nRect.h, C2D_Color32(80, 140, 255, 255));
+        C2D_DrawRectSolid(nRect.x, nRect.y, 0.5f, nRect.w, 2, C2D_Color32(120, 180, 255, 255));
+        TextRenderer::drawText("Next Blind", nRect.x + 8, nRect.y + 18,
+                               0.42f, 0.42f, C2D_Color32(0, 0, 0, 255));
+    }
     
     // Hints
     TextRenderer::drawText("[A]", baseX + 70, 215, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
@@ -450,25 +542,62 @@ void ShopState::renderBottomScreen(Application* app) {
         }
     }
     
-    // Buy Button (Green)
-    SDL_SetRenderDrawColor(renderer, 80, 200, 80, 255);
-    SDL_Rect buyRect = { baseX + 20, 160, 120, 50 };
-    SDL_RenderFillRect(renderer, &buyRect);
-    
-    std::string buyText = "Sold Out";
-    if (isSelectableShopSlot(m_cursorIndex, disabledMask())) {
-        buyText = "Buy ($" + std::to_string(m_slots[m_cursorIndex].item.price) + ")";
-    }
-    TextRenderer::drawText(renderer, buyText, baseX + 35, 175, 1, 0, 0, 0);
+    // Action button (Buy or Sell)
+    {
+        const ShopRect actionRect = buyButtonRect(ShopPlatform::SDL);
+        const bool isSell = m_heldInspectIndex >= 0 &&
+                            m_heldInspectIndex < static_cast<int>(m_runState->jokers.size());
+        SDL_Rect fill = { actionRect.x, actionRect.y, actionRect.w, actionRect.h };
+        SDL_SetRenderDrawColor(renderer, isSell ? 100 : 20, isSell ? 50 : 60, isSell ? 20 : 20, 255);
+        SDL_RenderFillRect(renderer, &fill);
+        SDL_SetRenderDrawColor(renderer, 200, 200, 80, 255);
+        SDL_RenderDrawRect(renderer, &fill);
 
-    // Next Blind Button (Blue)
-    SDL_SetRenderDrawColor(renderer, 80, 140, 255, 255);
-    SDL_Rect nextRect = { baseX + 160, 160, 120, 50 };
-    SDL_RenderFillRect(renderer, &nextRect);
-    TextRenderer::drawText(renderer, "Next Blind", baseX + 170, 175, 1, 0, 0, 0);
+        if (isSell) {
+            const int sellAmt = m_runState->jokers[m_heldInspectIndex].sellValue;
+            TextRenderer::drawText(renderer,
+                                   "SELL $" + std::to_string(sellAmt),
+                                   actionRect.x + 6, actionRect.y + 16,
+                                   0, 255, 215, 0);
+        } else {
+            TextRenderer::drawText(renderer, "BUY",
+                                   actionRect.x + 34, actionRect.y + 16,
+                                   0, 255, 255, 255);
+        }
+    }
+
+    // Reroll button
+    {
+        const ShopRect rRect = rerollButtonRect(ShopPlatform::SDL);
+        const bool canAfford = m_runState->money >= m_runState->rerollCost;
+        SDL_Rect fill = { rRect.x, rRect.y, rRect.w, rRect.h };
+        SDL_SetRenderDrawColor(renderer, 30, 30, canAfford ? 70 : 30, 255);
+        SDL_RenderFillRect(renderer, &fill);
+        SDL_SetRenderDrawColor(renderer,
+                               canAfford ? 120 : 60,
+                               canAfford ? 120 : 60,
+                               canAfford ? 220 : 60, 255);
+        SDL_RenderDrawRect(renderer, &fill);
+        TextRenderer::drawText(renderer, "REROLL",
+                               rRect.x + 4, rRect.y + 8,
+                               0, canAfford ? 200 : 80, canAfford ? 200 : 80, canAfford ? 255 : 80);
+        TextRenderer::drawText(renderer, "$" + std::to_string(m_runState->rerollCost),
+                               rRect.x + 18, rRect.y + 26,
+                               0, canAfford ? 200 : 80, canAfford ? 200 : 80, canAfford ? 255 : 80);
+    }
+
+    // Next Blind button
+    {
+        const ShopRect nRect = nextBlindButtonRect(ShopPlatform::SDL);
+        SDL_Rect fill = { nRect.x, nRect.y, nRect.w, nRect.h };
+        SDL_SetRenderDrawColor(renderer, 80, 140, 255, 255);
+        SDL_RenderFillRect(renderer, &fill);
+        TextRenderer::drawText(renderer, "Next Blind", nRect.x + 8, nRect.y + 18, 0, 0, 0, 0);
+    }
     
     // Hints
     TextRenderer::drawText(renderer, "[Space]", baseX + 60, 215, 0, 200, 200, 220);
-    TextRenderer::drawText(renderer, "[Enter]", baseX + 200, 215, 0, 200, 200, 220);
+    TextRenderer::drawText(renderer, "[R]", baseX + 145, 215, 0, 200, 200, 220);
+    TextRenderer::drawText(renderer, "[Enter]", baseX + 220, 215, 0, 200, 200, 220);
 #endif
 }

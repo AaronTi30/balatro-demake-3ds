@@ -246,6 +246,16 @@ void testAwardBlindSkipAddsMoney() {
                 "awardBlindSkip should add kBlindSkipReward to money");
 }
 
+void testRerollCostResetsOnNewRun() {
+    RunState run;
+    run.startNewRun();
+    expectEqual(run.rerollCost, 5, "rerollCost should start at 5 on new run");
+
+    run.rerollCost = 9;
+    run.startNewRun();
+    expectEqual(run.rerollCost, 5, "rerollCost should reset to 5 on startNewRun");
+}
+
 } // namespace
 
 int main() {
@@ -263,6 +273,7 @@ int main() {
         testBossModifierDescriptionsMatchImplementedSemantics();
         testRunScopedShopAvailability();
         testAwardBlindSkipAddsMoney();
+        testRerollCostResetsOnNewRun();
     } catch (const std::exception& ex) {
         std::cerr << ex.what() << '\n';
         return 1;

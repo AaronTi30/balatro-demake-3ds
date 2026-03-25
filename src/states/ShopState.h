@@ -64,6 +64,8 @@ private:
     void generateItems();
     void clearHeldInspect();
     bool tryBuySelectedItem();
+    bool trySellHeldJoker();
+    bool tryReroll();
     std::array<bool, kVisibleShopSlots> disabledMask() const;
 
     std::shared_ptr<RunState> m_runState;

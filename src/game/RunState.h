@@ -48,6 +48,7 @@ public:
     int roundTarget = 300;
     int roundScore = 0;
     int money = 4;
+    int rerollCost = 5;
     int handsRemaining = 4;
     int discardsRemaining = 3;
     int jokerLimit = 5;

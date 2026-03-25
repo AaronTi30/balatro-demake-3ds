@@ -24,7 +24,8 @@ Joker Joker::plainJoker() {
             ctx.mult += 2;
         },
         JokerTier::Weak,
-        kWeakPriceRange
+        kWeakPriceRange,
+        2
     };
 }
 
@@ -39,7 +40,8 @@ Joker Joker::greedyJoker() {
             }
         },
         JokerTier::Weak,
-        kWeakPriceRange
+        kWeakPriceRange,
+        2
     };
 }
 
@@ -56,7 +58,8 @@ Joker Joker::suitJoker() {
             }
         },
         JokerTier::Weak,
-        kWeakPriceRange
+        kWeakPriceRange,
+        2
     };
 }
 
@@ -71,7 +74,8 @@ Joker Joker::focusedJoker() {
             }
         },
         JokerTier::Medium,
-        kMediumPriceRange
+        kMediumPriceRange,
+        3
     };
 }
 
@@ -86,7 +90,8 @@ Joker Joker::flushJoker() {
             }
         },
         JokerTier::Medium,
-        kMediumPriceRange
+        kMediumPriceRange,
+        3
     };
 }
 
@@ -101,7 +106,8 @@ Joker Joker::straightJoker() {
             }
         },
         JokerTier::Medium,
-        kMediumPriceRange
+        kMediumPriceRange,
+        3
     };
 }
 
@@ -114,7 +120,8 @@ Joker Joker::heavyJoker() {
             ctx.mult += 5;
         },
         JokerTier::Strong,
-        kStrongPriceRange
+        kStrongPriceRange,
+        4
     };
 }
 
@@ -129,7 +136,8 @@ Joker Joker::aggroJoker() {
             }
         },
         JokerTier::Strong,
-        kStrongPriceRange
+        kStrongPriceRange,
+        4
     };
 }
 
@@ -144,7 +152,8 @@ Joker Joker::precisionJoker() {
             }
         },
         JokerTier::Strong,
-        kStrongPriceRange
+        kStrongPriceRange,
+        4
     };
 }
 

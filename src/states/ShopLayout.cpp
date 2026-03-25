@@ -66,16 +66,16 @@ ShopRect buyButtonRect(ShopPlatform platform) {
     return {
         (platform == ShopPlatform::ThreeDS) ? 20 : 420,
         160,
-        120,
+        100,
         50
     };
 }
 
 ShopRect nextBlindButtonRect(ShopPlatform platform) {
     return {
-        (platform == ShopPlatform::ThreeDS) ? 160 : 560,
+        (platform == ShopPlatform::ThreeDS) ? 215 : 615,
         160,
-        120,
+        (platform == ShopPlatform::ThreeDS) ? 95 : 120,
         50
     };
 }
@@ -86,6 +86,19 @@ bool hitBuyButton(ShopPlatform platform, int px, int py) {
 
 bool hitNextBlindButton(ShopPlatform platform, int px, int py) {
     return pointInRect(nextBlindButtonRect(platform), px, py);
+}
+
+ShopRect rerollButtonRect(ShopPlatform platform) {
+    return {
+        (platform == ShopPlatform::ThreeDS) ? 130 : 530,
+        160,
+        75,
+        50
+    };
+}
+
+bool hitRerollButton(ShopPlatform platform, int px, int py) {
+    return pointInRect(rerollButtonRect(platform), px, py);
 }
 
 ShopColor jokerEffectColor(JokerEffectType effectType) {

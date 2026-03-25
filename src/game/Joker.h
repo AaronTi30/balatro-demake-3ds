@@ -44,6 +44,7 @@ struct Joker {
     std::function<void(HandEvalContext&)> evaluate;
     JokerTier tier = JokerTier::Weak;
     ShopPriceRange shopPriceRange{4, 6};
+    int sellValue = 2;
 
     static Joker plainJoker();
     static Joker greedyJoker();

@@ -71,52 +71,73 @@ void testHeldJokerSlotRect() {
 
 void testBuyButtonRect() {
     expectRectEqual(buyButtonRect(ShopPlatform::SDL),
-                    ShopRect{420, 160, 120, 50},
+                    ShopRect{420, 160, 100, 50},
                     "SDL buy button rect");
     expectRectEqual(buyButtonRect(ShopPlatform::ThreeDS),
-                    ShopRect{20, 160, 120, 50},
+                    ShopRect{20, 160, 100, 50},
                     "3DS buy button rect");
 }
 
 void testNextBlindButtonRect() {
     expectRectEqual(nextBlindButtonRect(ShopPlatform::SDL),
-                    ShopRect{560, 160, 120, 50},
+                    ShopRect{615, 160, 120, 50},
                     "SDL next blind button rect");
     expectRectEqual(nextBlindButtonRect(ShopPlatform::ThreeDS),
-                    ShopRect{160, 160, 120, 50},
+                    ShopRect{215, 160, 95, 50},
                     "3DS next blind button rect");
 }
 
 void testHitBuyButton() {
     expect(hitBuyButton(ShopPlatform::SDL, 420, 160),
            "SDL buy button should include top-left corner");
-    expect(hitBuyButton(ShopPlatform::SDL, 539, 209),
+    expect(hitBuyButton(ShopPlatform::SDL, 519, 209),
            "SDL buy button should include the last pixel inside the rect");
-    expect(!hitBuyButton(ShopPlatform::SDL, 540, 160),
+    expect(!hitBuyButton(ShopPlatform::SDL, 520, 160),
            "SDL buy button should exclude the right edge");
     expect(!hitBuyButton(ShopPlatform::SDL, 420, 210),
            "SDL buy button should exclude the bottom edge");
 
     expect(hitBuyButton(ShopPlatform::ThreeDS, 20, 160),
            "3DS buy button should include top-left corner");
-    expect(!hitBuyButton(ShopPlatform::ThreeDS, 140, 160),
+    expect(!hitBuyButton(ShopPlatform::ThreeDS, 120, 160),
            "3DS buy button should exclude the right edge");
 }
 
 void testHitNextBlindButton() {
-    expect(hitNextBlindButton(ShopPlatform::SDL, 560, 160),
+    expect(hitNextBlindButton(ShopPlatform::SDL, 615, 160),
            "SDL next blind button should include top-left corner");
-    expect(hitNextBlindButton(ShopPlatform::SDL, 679, 209),
+    expect(hitNextBlindButton(ShopPlatform::SDL, 734, 209),
            "SDL next blind button should include the last pixel inside the rect");
-    expect(!hitNextBlindButton(ShopPlatform::SDL, 680, 160),
+    expect(!hitNextBlindButton(ShopPlatform::SDL, 735, 160),
            "SDL next blind button should exclude the right edge");
-    expect(!hitNextBlindButton(ShopPlatform::SDL, 560, 210),
+    expect(!hitNextBlindButton(ShopPlatform::SDL, 615, 210),
            "SDL next blind button should exclude the bottom edge");
 
-    expect(hitNextBlindButton(ShopPlatform::ThreeDS, 160, 160),
+    expect(hitNextBlindButton(ShopPlatform::ThreeDS, 215, 160),
            "3DS next blind button should include top-left corner");
-    expect(!hitNextBlindButton(ShopPlatform::ThreeDS, 280, 160),
+    expect(!hitNextBlindButton(ShopPlatform::ThreeDS, 310, 160),
            "3DS next blind button should exclude the right edge");
+}
+
+void testRerollButtonRects() {
+    expectRectEqual(rerollButtonRect(ShopPlatform::ThreeDS),
+                    ShopRect{130, 160, 75, 50},
+                    "3DS reroll button rect");
+    expectRectEqual(rerollButtonRect(ShopPlatform::SDL),
+                    ShopRect{530, 160, 75, 50},
+                    "SDL reroll button rect");
+}
+
+void testHitRerollButton() {
+    expect(hitRerollButton(ShopPlatform::ThreeDS, 167, 185),
+           "3DS: center should hit reroll");
+    expect(!hitRerollButton(ShopPlatform::ThreeDS, 129, 185),
+           "3DS: one pixel left of reroll should miss");
+
+    expect(hitRerollButton(ShopPlatform::SDL, 567, 185),
+           "SDL: center should hit reroll");
+    expect(!hitRerollButton(ShopPlatform::SDL, 529, 185),
+           "SDL: one pixel left of reroll should miss");
 }
 
 void testResolveInspectSelection() {
@@ -291,6 +312,8 @@ int main() {
     testNextBlindButtonRect();
     testHitBuyButton();
     testHitNextBlindButton();
+    testRerollButtonRects();
+    testHitRerollButton();
     testResolveInspectSelection();
     testResolveInspectSelectionShopItem();
     testResolveInspectSelectionPlaceholder();

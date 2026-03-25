@@ -38,6 +38,8 @@ ShopRect buyButtonRect(ShopPlatform platform);
 ShopRect nextBlindButtonRect(ShopPlatform platform);
 bool hitBuyButton(ShopPlatform platform, int px, int py);
 bool hitNextBlindButton(ShopPlatform platform, int px, int py);
+ShopRect rerollButtonRect(ShopPlatform platform);
+bool hitRerollButton(ShopPlatform platform, int px, int py);
 ShopColor jokerEffectColor(JokerEffectType effectType);
 
 int hitShopCard(ShopPlatform platform, int itemCount, int px, int py);
