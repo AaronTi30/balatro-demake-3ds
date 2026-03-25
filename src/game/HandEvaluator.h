@@ -1,25 +1,12 @@
 #pragma once
 
+#include "HandType.h"
 #include "RunState.h"
 #include "Card.h"
 #include "Joker.h"
 #include <algorithm>
 #include <string>
 #include <vector>
-
-// ── Poker Hand Types (ordered by Balatro's ranking) ──
-enum class HandType {
-    HighCard,
-    Pair,
-    TwoPair,
-    ThreeOfAKind,
-    Straight,
-    Flush,
-    FullHouse,
-    FourOfAKind,
-    StraightFlush,
-    RoyalFlush
-};
 
 // ── Result of evaluating a hand ──
 struct HandResult {
@@ -34,29 +21,14 @@ struct HandResult {
     bool scoreEquationExact;
 };
 
-inline const char* handTypeName(HandType t) {
-    switch (t) {
-        case HandType::HighCard:       return "High Card";
-        case HandType::Pair:           return "Pair";
-        case HandType::TwoPair:        return "Two Pair";
-        case HandType::ThreeOfAKind:   return "Three of a Kind";
-        case HandType::Straight:       return "Straight";
-        case HandType::Flush:          return "Flush";
-        case HandType::FullHouse:      return "Full House";
-        case HandType::FourOfAKind:    return "Four of a Kind";
-        case HandType::StraightFlush:  return "Straight Flush";
-        case HandType::RoyalFlush:     return "Royal Flush";
-        default:                       return "???";
-    }
-}
-
 class HandEvaluator {
 public:
     // Evaluate a set of played cards (up to 5) and return the best hand
     static HandResult evaluate(std::vector<Card> cards,
                                const std::vector<Joker>& jokers = {},
                                BossBlindModifier bossModifier = BossBlindModifier::None,
-                               Suit blockedSuit = Suit::Clubs);
+                               Suit blockedSuit = Suit::Clubs,
+                               const RunState* runState = nullptr);
 
 private:
     struct ScoreTotals {
@@ -87,7 +59,7 @@ private:
                                                 HandType type);
 
     // Helper: look up the base chips and mult for a hand type
-    static std::pair<int, int> lookupBaseValues(HandType type);
+    static std::pair<int, int> lookupBaseValues(HandType type, int level = 1);
 
     // Helper: sum the rank chip value of the scoring cards
     static int calculateScoringCardChipBonus(const std::vector<Card>& scoringCards);

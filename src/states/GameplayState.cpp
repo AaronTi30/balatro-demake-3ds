@@ -93,7 +93,8 @@ void GameplayState::playHand() {
         selected,
         m_runState->jokers,
         m_runState->currentBossModifier,
-        m_runState->currentBlockedSuit);
+        m_runState->currentBlockedSuit,
+        m_runState.get());
     m_lastHandType = result.detectedHand;
     m_lastChips = result.finalChips;
     m_lastMult = result.finalMult;
@@ -539,7 +540,8 @@ void GameplayState::renderBottomScreen(Application* app) {
                 selected,
                 m_runState->jokers,
                 m_runState->currentBossModifier,
-                m_runState->currentBlockedSuit);
+                m_runState->currentBlockedSuit,
+                m_runState.get());
             TextRenderer::drawText(handTypeName(preview.detectedHand), baseX + 20, 86, 0.45f, 0.45f,
                                    C2D_Color32(255, 255, 180, 255));
             std::string ps = formatScoreLine(
@@ -556,7 +558,8 @@ void GameplayState::renderBottomScreen(Application* app) {
                 selected,
                 m_runState->jokers,
                 m_runState->currentBossModifier,
-                m_runState->currentBlockedSuit);
+                m_runState->currentBlockedSuit,
+                m_runState.get());
             TextRenderer::drawText(renderer, handTypeName(preview.detectedHand), baseX + 20, 86, 1, 255, 255, 180);
             std::string ps = formatScoreLine(
                 preview.finalChips,

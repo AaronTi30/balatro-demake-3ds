@@ -100,6 +100,23 @@ const char* RunState::blindStageName(BlindStage stage) {
     }
 }
 
+int RunState::interestPayout() const {
+    const int payout = money / kInterestDivisor;
+    return std::min(payout, kMaxInterest);
+}
+
+void RunState::awardInterest() {
+    money += interestPayout();
+}
+
+int RunState::handLevel(HandType type) const {
+    return m_handLevels[handTypeIndex(type)];
+}
+
+void RunState::levelUpHand(HandType type) {
+    ++m_handLevels[handTypeIndex(type)];
+}
+
 const char* RunState::bossModifierName(BossBlindModifier modifier) {
     switch (modifier) {
         case BossBlindModifier::PairTax:
@@ -159,6 +176,7 @@ void RunState::startNewRun() {
     nextBlockedSuit = Suit::Clubs;
     jokers.clear();
     resetRunDeckToStandard52();
+    m_handLevels.fill(1);
 
     std::mt19937 rng = makeBossModifierRng();
     rollNextBossModifier(rng);

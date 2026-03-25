@@ -21,6 +21,17 @@ void advanceToNextBlindAndResume(StateMachine* machine, const std::shared_ptr<Ru
     machine->changeState(std::make_shared<BlindSelectState>(machine, runState));
 }
 
+bool leaveShopForNextBlind(StateMachine* machine, const std::shared_ptr<RunState>& runState, bool& exitQueued) {
+    if (exitQueued) {
+        return false;
+    }
+
+    exitQueued = true;
+    runState->awardInterest();
+    advanceToNextBlindAndResume(machine, runState);
+    return true;
+}
+
 #ifdef N3DS
 u32 toC2DColor(const ShopColor& color) {
     return C2D_Color32(color.r, color.g, color.b, color.a);
@@ -51,6 +62,36 @@ const ShopColor kSoldFill{ 45, 45, 55, 255 };
 const ShopColor kSoldBorder{ 100, 100, 120, 255 };
 const ShopColor kUnavailableFill{ 55, 42, 32, 255 };
 const ShopColor kUnavailableBorder{ 165, 140, 105, 255 };
+const ShopColor kDeckCardFill{ 70, 110, 170, 255 };
+const ShopColor kDeckCardBorder{ 170, 210, 255, 255 };
+const ShopColor kHandUpgradeFill{ 90, 70, 45, 255 };
+const ShopColor kHandUpgradeBorder{ 220, 190, 120, 255 };
+
+ShopColor shopOfferFillColor(const ShopOffer& offer) {
+    switch (offer.kind) {
+        case ShopOfferKind::Joker:
+            return jokerEffectColor(offer.joker.effectType);
+        case ShopOfferKind::DeckCard:
+            return kDeckCardFill;
+        case ShopOfferKind::HandUpgrade:
+            return kHandUpgradeFill;
+        default:
+            return kSoldFill;
+    }
+}
+
+ShopColor shopOfferBorderColor(const ShopOffer& offer) {
+    switch (offer.kind) {
+        case ShopOfferKind::Joker:
+            return kWhite;
+        case ShopOfferKind::DeckCard:
+            return kDeckCardBorder;
+        case ShopOfferKind::HandUpgrade:
+            return kHandUpgradeBorder;
+        default:
+            return kWhite;
+    }
+}
 
 } // namespace
 
@@ -60,7 +101,12 @@ ShopState::ShopState(StateMachine* machine, std::shared_ptr<RunState> runState)
     m_stateMachine = machine;
 }
 
+std::array<ShopSlot, kVisibleShopSlots> ShopState::generateShopItems(std::mt19937& rng, const RunState& runState) {
+    return generateShopOffers(rng, runState);
+}
+
 void ShopState::enter() {
+    m_exitQueued = false;
     m_heldInspectIndex = -1;
     generateItems();
 }
@@ -91,12 +137,11 @@ std::array<bool, kVisibleShopSlots> ShopState::disabledMask() const {
 
 bool ShopState::tryBuySelectedItem() {
     if (!isSelectableShopSlot(m_cursorIndex, disabledMask())) return false;
-    if (m_runState->money < m_slots[m_cursorIndex].item.price) return false;
-    if (m_runState->jokers.size() >= static_cast<size_t>(m_runState->jokerLimit)) return false;
-
+    if (m_runState->money < m_slots[m_cursorIndex].offer.price) return false;
     const int purchasedSlot = m_cursorIndex;
     clearHeldInspect();
-    m_cursorIndex = shop_state_helpers::purchaseShopSlotAndAdvanceCursor(*m_runState, m_slots, purchasedSlot);
+    if (!applyShopOfferPurchase(*m_runState, m_slots[purchasedSlot])) return false;
+    m_cursorIndex = shop_state_helpers::markShopSlotSoldAndAdvanceCursor(m_slots, purchasedSlot);
     return true;
 }
 
@@ -154,8 +199,8 @@ void ShopState::handleInput() {
     }
 
     if (kDown & KEY_START || kDown & KEY_X) {
-        // Next Round
-        advanceToNextBlindAndResume(m_stateMachine, m_runState);
+        leaveShopForNextBlind(m_stateMachine, m_runState, m_exitQueued);
+        return;
     }
 
     // Bottom Screen Touch
@@ -181,7 +226,8 @@ void ShopState::handleInput() {
             tryReroll();
         }
         else if (hitNextBlindButton(ShopPlatform::ThreeDS, touch.px, touch.py)) {
-            advanceToNextBlindAndResume(m_stateMachine, m_runState);
+            leaveShopForNextBlind(m_stateMachine, m_runState, m_exitQueued);
+            return;
         }
     }
     
@@ -224,7 +270,8 @@ void ShopState::handleInput() {
     if (keys[SDL_SCANCODE_RETURN]) {
         if (!enterPressed) {
             enterPressed = true;
-            advanceToNextBlindAndResume(m_stateMachine, m_runState);
+            leaveShopForNextBlind(m_stateMachine, m_runState, m_exitQueued);
+            return;
         }
     } else { enterPressed = false; }
 
@@ -273,7 +320,8 @@ void ShopState::handleInput() {
                     tryReroll();
                 }
                 else if (hitNextBlindButton(ShopPlatform::SDL, mx, my)) {
-                    advanceToNextBlindAndResume(m_stateMachine, m_runState);
+                    leaveShopForNextBlind(m_stateMachine, m_runState, m_exitQueued);
+                    return;
                 }
             }
         }
@@ -293,12 +341,14 @@ void ShopState::renderTopScreen(Application* app) {
     C2D_DrawRectSolid(0, 0, 0.5f, 400, 240, C2D_Color32(20, 30, 40, 255)); // Background
     TextRenderer::drawText("SHOP", 12, 14, 0.75f, 0.75f, C2D_Color32(255, 180, 80, 255));
     TextRenderer::drawText("Money: $" + std::to_string(m_runState->money), 12, 39, 0.55f, 0.55f, C2D_Color32(255, 215, 0, 255));
+    TextRenderer::drawText("Interest: +$" + std::to_string(m_runState->interestPayout()),
+                           12, 58, 0.42f, 0.42f, C2D_Color32(180, 220, 180, 255));
     TextRenderer::drawText("Next: Ante " + std::to_string(m_runState->nextBlindAnte()) + " " + RunState::blindStageName(m_runState->nextBlindStage()),
-                           12, 59, 0.38f, 0.38f, C2D_Color32(200, 200, 220, 255));
+                           12, 77, 0.38f, 0.38f, C2D_Color32(200, 200, 220, 255));
     TextRenderer::drawText("Boss: " + std::string(RunState::bossModifierName(m_runState->nextBossModifier)),
-                           12, 78, 0.34f, 0.34f, C2D_Color32(255, 170, 120, 255));
+                           12, 96, 0.34f, 0.34f, C2D_Color32(255, 170, 120, 255));
     TextRenderer::drawText(RunState::bossModifierDescription(m_runState->nextBossModifier, m_runState->nextBlockedSuit),
-                           12, 96, 0.3f, 0.3f, C2D_Color32(220, 220, 220, 255));
+                           12, 114, 0.3f, 0.3f, C2D_Color32(220, 220, 220, 255));
 #else
     SDL_SetRenderDrawColor(renderer, 20, 30, 40, 255);
     SDL_Rect bgTop = { 0, 0, 400, 240 };
@@ -306,13 +356,15 @@ void ShopState::renderTopScreen(Application* app) {
     
     TextRenderer::drawText(renderer, "SHOP", 16, 14, 2, 255, 180, 80);
     TextRenderer::drawText(renderer, "Money: $" + std::to_string(m_runState->money), 16, 42, 1, 255, 215, 0);
+    TextRenderer::drawText(renderer, "Interest: +$" + std::to_string(m_runState->interestPayout()),
+                           16, 63, 0, 180, 220, 180);
     TextRenderer::drawText(renderer, "Next: Ante " + std::to_string(m_runState->nextBlindAnte()) + " " + RunState::blindStageName(m_runState->nextBlindStage()),
-                           16, 64, 0, 200, 200, 220);
+                           16, 82, 0, 200, 200, 220);
     TextRenderer::drawText(renderer, "Boss: " + std::string(RunState::bossModifierName(m_runState->nextBossModifier)),
-                           16, 84, 0, 255, 170, 120);
+                           16, 100, 0, 255, 170, 120);
     TextRenderer::drawText(renderer,
                            RunState::bossModifierDescription(m_runState->nextBossModifier, m_runState->nextBlockedSuit),
-                           16, 102, 0, 220, 220, 220);
+                           16, 118, 0, 220, 220, 220);
 #endif
 
     // ── Items for Sale ──
@@ -330,10 +382,10 @@ void ShopState::renderTopScreen(Application* app) {
         const bool selectable = isSelectableShopSlot(i, disabled);
         const bool unavailable = m_slots[i].unavailable;
         const ShopColor fillColor = selectable
-            ? jokerEffectColor(m_slots[i].item.joker.effectType)
+            ? shopOfferFillColor(m_slots[i].offer)
             : (unavailable ? kUnavailableFill : kSoldFill);
         const ShopColor borderColor = selectable
-            ? kWhite
+            ? shopOfferBorderColor(m_slots[i].offer)
             : (unavailable ? kUnavailableBorder : kSoldBorder);
 
 #ifdef N3DS
@@ -348,8 +400,8 @@ void ShopState::renderTopScreen(Application* app) {
         C2D_DrawRectSolid(body.x + body.w - 1, body.y, 0.5f, 1, body.h, toC2DColor(borderColor));
 
         if (selectable) {
-            TextRenderer::drawText(m_slots[i].item.joker.name, body.x + 5, body.y + 10, 0.45f, 0.45f, toC2DColor(kWhite));
-            TextRenderer::drawText("$" + std::to_string(m_slots[i].item.price), body.x + 30, body.y + 50, 0.5f, 0.5f, C2D_Color32(255, 215, 0, 255));
+            TextRenderer::drawText(shopOfferTitle(m_slots[i].offer), body.x + 4, body.y + 10, 0.40f, 0.40f, toC2DColor(kWhite));
+            TextRenderer::drawText("$" + std::to_string(m_slots[i].offer.price), body.x + 22, body.y + 50, 0.5f, 0.5f, C2D_Color32(255, 215, 0, 255));
         } else {
             TextRenderer::drawText(shop_state_helpers::blockedShopSlotLabel(m_slots[i]),
                                    body.x + (unavailable ? 6 : body.w / 2 - 8),
@@ -367,8 +419,8 @@ void ShopState::renderTopScreen(Application* app) {
         drawRect(renderer, body, borderColor);
 
         if (selectable) {
-            TextRenderer::drawText(renderer, m_slots[i].item.joker.name, body.x + 5, body.y + 10, 0, 255, 255, 255);
-            TextRenderer::drawText(renderer, "$" + std::to_string(m_slots[i].item.price), body.x + 35, body.y + 50, 1, 255, 215, 0);
+            TextRenderer::drawText(renderer, shopOfferTitle(m_slots[i].offer), body.x + 4, body.y + 10, 0, 255, 255, 255);
+            TextRenderer::drawText(renderer, "$" + std::to_string(m_slots[i].offer.price), body.x + 24, body.y + 50, 1, 255, 215, 0);
         } else {
             TextRenderer::drawText(renderer,
                                    shop_state_helpers::blockedShopSlotLabel(m_slots[i]),
@@ -399,8 +451,8 @@ void ShopState::renderBottomScreen(Application* app) {
         TextRenderer::drawText(m_runState->jokers[sel.index].name, 10, 20, 0.5f, 0.5f, C2D_Color32(255, 255, 255, 255));
         TextRenderer::drawText(m_runState->jokers[sel.index].description, 10, 45, 0.4f, 0.4f, C2D_Color32(180, 180, 180, 255));
     } else if (sel.source == InspectSource::ShopItem) {
-        TextRenderer::drawText(m_slots[sel.index].item.joker.name, 10, 20, 0.5f, 0.5f, C2D_Color32(255, 255, 255, 255));
-        TextRenderer::drawText(m_slots[sel.index].item.joker.description, 10, 45, 0.4f, 0.4f, C2D_Color32(180, 180, 180, 255));
+        TextRenderer::drawText(shopOfferTitle(m_slots[sel.index].offer), 10, 20, 0.5f, 0.5f, C2D_Color32(255, 255, 255, 255));
+        TextRenderer::drawText(shopOfferDescription(m_slots[sel.index].offer), 10, 45, 0.4f, 0.4f, C2D_Color32(180, 180, 180, 255));
     } else {
         TextRenderer::drawText("Use D-pad to inspect", 10, 20, 0.4f, 0.4f, C2D_Color32(150, 150, 150, 255));
     }
@@ -511,8 +563,8 @@ void ShopState::renderBottomScreen(Application* app) {
         TextRenderer::drawText(renderer, m_runState->jokers[sel.index].name, baseX + 10, 20, 1, 255, 255, 255);
         TextRenderer::drawText(renderer, m_runState->jokers[sel.index].description, baseX + 10, 45, 0, 180, 180, 180);
     } else if (sel.source == InspectSource::ShopItem) {
-        TextRenderer::drawText(renderer, m_slots[sel.index].item.joker.name, baseX + 10, 20, 1, 255, 255, 255);
-        TextRenderer::drawText(renderer, m_slots[sel.index].item.joker.description, baseX + 10, 45, 0, 180, 180, 180);
+        TextRenderer::drawText(renderer, shopOfferTitle(m_slots[sel.index].offer), baseX + 10, 20, 1, 255, 255, 255);
+        TextRenderer::drawText(renderer, shopOfferDescription(m_slots[sel.index].offer), baseX + 10, 45, 0, 180, 180, 180);
     } else {
         TextRenderer::drawText(renderer, "Hover a card to inspect", baseX + 10, 20, 0, 150, 150, 150);
     }

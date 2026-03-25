@@ -27,6 +27,7 @@ add_executable(balatro_demake
     src/game/CardRenderer.cpp
     src/game/HandEvaluator.cpp
     src/game/Joker.cpp
+    src/game/ShopOffer.cpp
     src/core/TextRenderer.cpp
 )
 
@@ -76,6 +77,9 @@ if(NOT N3DS)
     add_executable(hand_evaluator_tests
         tests/HandEvaluatorTests.cpp
         src/game/HandEvaluator.cpp
+        src/game/Deck.cpp
+        src/game/RunState.cpp
+        src/game/Joker.cpp
     )
     target_include_directories(hand_evaluator_tests PRIVATE src)
     add_test(NAME hand_evaluator_tests COMMAND hand_evaluator_tests)
@@ -91,9 +95,21 @@ if(NOT N3DS)
     target_include_directories(joker_tests PRIVATE src)
     add_test(NAME joker_tests COMMAND joker_tests)
 
+    add_executable(shop_offer_tests
+        tests/ShopOfferTests.cpp
+        src/game/Deck.cpp
+        src/game/RunState.cpp
+        src/game/Joker.cpp
+        src/game/HandEvaluator.cpp
+        src/game/ShopOffer.cpp
+    )
+    target_include_directories(shop_offer_tests PRIVATE src)
+    add_test(NAME shop_offer_tests COMMAND shop_offer_tests)
+
     add_executable(shop_layout_tests
         tests/ShopLayoutTests.cpp
         src/states/ShopLayout.cpp
+        src/game/Joker.cpp
     )
     target_include_directories(shop_layout_tests PRIVATE src)
     add_test(NAME shop_layout_tests COMMAND shop_layout_tests)

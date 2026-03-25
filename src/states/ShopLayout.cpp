@@ -10,21 +10,19 @@ bool pointInRect(const ShopRect& rect, int px, int py) {
 } // namespace
 
 ShopCardLayout shopCardLayout(ShopPlatform platform, int itemCount) {
-    const int screenWidth = (platform == ShopPlatform::ThreeDS) ? 320 : 400;
-    return {
-        (screenWidth - itemCount * kShopCardStride) / 2 + 20,
-        125,
-        (platform == ShopPlatform::ThreeDS) ? 90 : 100,
-        70,
-        5,
-        50
-    };
+    (void)itemCount;
+
+    if (platform == ShopPlatform::ThreeDS) {
+        return {15, 125, 80, 70, 5, 50, 100};
+    }
+
+    return {35, 125, 90, 70, 5, 50, 110};
 }
 
 ShopRect shopCardBodyRect(ShopPlatform platform, int itemCount, int index) {
     const ShopCardLayout layout = shopCardLayout(platform, itemCount);
     return {
-        layout.startX + index * kShopCardStride,
+        layout.startX + index * layout.stride,
         layout.y,
         layout.bodyWidth,
         layout.bodyHeight
@@ -144,7 +142,7 @@ int hitShopCard(ShopPlatform platform, int itemCount, int px, int py) {
         return -1;
     }
     for (int i = 0; i < itemCount; ++i) {
-        const int cardX = layout.startX + i * kShopCardStride;
+        const int cardX = layout.startX + i * layout.stride;
         if (px >= cardX && px < cardX + layout.bodyWidth) {
             return i;
         }

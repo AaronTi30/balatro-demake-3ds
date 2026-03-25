@@ -2,6 +2,7 @@
 
 #include "../core/State.h"
 #include "../game/Hand.h"
+#include "../game/HandType.h"
 #include "../game/HandEvaluator.h"
 #include "../game/RunState.h"
 #include <memory>

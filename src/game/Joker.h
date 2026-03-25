@@ -1,13 +1,12 @@
 #pragma once
 
 #include "Card.h"
+#include "HandType.h"
 #include <functional>
 #include <random>
 #include <string>
 #include <unordered_set>
 #include <vector>
-
-enum class HandType;
 
 struct HandEvalContext {
     HandType playedHand;

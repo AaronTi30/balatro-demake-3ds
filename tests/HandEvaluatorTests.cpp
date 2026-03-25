@@ -394,6 +394,33 @@ void testHighCardWallLowersHighCardAndPairScores() {
     expectEqual(walledPair.finalScore, baselinePair.finalScore * 70 / 100, "high card wall lowers pair score");
 }
 
+void testRunStateHandLevelBoostsBaseValues() {
+    RunState run;
+    run.startNewRun();
+    run.levelUpHand(HandType::Pair);
+    run.levelUpHand(HandType::Pair);
+
+    const std::vector<Card> pairCards{
+        makeCard(Suit::Hearts, Rank::Four),
+        makeCard(Suit::Spades, Rank::Four),
+        makeCard(Suit::Diamonds, Rank::Nine)
+    };
+
+    HandResult baseline = HandEvaluator::evaluate(pairCards);
+    HandResult leveled = HandEvaluator::evaluate(
+        pairCards,
+        {},
+        BossBlindModifier::None,
+        Suit::Clubs,
+        &run
+    );
+
+    expectEqual(leveled.baseHandChips, baseline.baseHandChips + 20,
+                "pair level should add ten chips per extra level");
+    expectEqual(leveled.baseHandMult, baseline.baseHandMult + 2,
+                "pair level should add one mult per extra level");
+}
+
 } // namespace
 
 int main() {
@@ -413,6 +440,7 @@ int main() {
         testFaceTaxHalvesFaceCardChipContribution();
         testFaceTaxAppliesAfterJokerChipChanges();
         testHighCardWallLowersHighCardAndPairScores();
+        testRunStateHandLevelBoostsBaseValues();
     } catch (const std::exception& ex) {
         std::cerr << ex.what() << '\n';
         return 1;
