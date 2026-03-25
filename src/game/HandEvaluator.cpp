@@ -15,20 +15,26 @@ bool isFaceRank(Rank rank) {
 } // namespace
 
 // ── Balatro base values (chips, mult) by hand type ──
-std::pair<int, int> HandEvaluator::lookupBaseValues(HandType t) {
+std::pair<int, int> HandEvaluator::lookupBaseValues(HandType t, int level) {
+    std::pair<int, int> base;
     switch (t) {
-        case HandType::HighCard:       return {  5, 1 };
-        case HandType::Pair:           return { 10, 2 };
-        case HandType::TwoPair:        return { 20, 2 };
-        case HandType::ThreeOfAKind:   return { 30, 3 };
-        case HandType::Straight:       return { 30, 4 };
-        case HandType::Flush:          return { 35, 4 };
-        case HandType::FullHouse:      return { 40, 4 };
-        case HandType::FourOfAKind:    return { 60, 7 };
-        case HandType::StraightFlush:  return {100, 8 };
-        case HandType::RoyalFlush:     return {100, 8 };
-        default:                       return {  5, 1 };
+        case HandType::HighCard:       base = {  5, 1 }; break;
+        case HandType::Pair:           base = { 10, 2 }; break;
+        case HandType::TwoPair:        base = { 20, 2 }; break;
+        case HandType::ThreeOfAKind:   base = { 30, 3 }; break;
+        case HandType::Straight:       base = { 30, 4 }; break;
+        case HandType::Flush:          base = { 35, 4 }; break;
+        case HandType::FullHouse:      base = { 40, 4 }; break;
+        case HandType::FourOfAKind:    base = { 60, 7 }; break;
+        case HandType::StraightFlush:  base = {100, 8 }; break;
+        case HandType::RoyalFlush:     base = {100, 8 }; break;
+        default:                       base = {  5, 1 }; break;
     }
+
+    const int extraLevels = std::max(0, level - 1);
+    base.first += extraLevels * 10;
+    base.second += extraLevels;
+    return base;
 }
 
 int HandEvaluator::calculateScoringCardChipBonus(const std::vector<Card>& scoringCards) {
@@ -272,7 +278,8 @@ HandEvaluator::ScoreTotals HandEvaluator::calculateFinalTotals(HandType type,
 HandResult HandEvaluator::evaluate(std::vector<Card> cards,
                                    const std::vector<Joker>& jokers,
                                    BossBlindModifier bossModifier,
-                                   Suit blockedSuit) {
+                                   Suit blockedSuit,
+                                   const RunState* runState) {
     auto counts = rankCounts(cards);
     bool flush = isFlush(cards);
     bool straight = isStraight(cards);
@@ -286,7 +293,8 @@ HandResult HandEvaluator::evaluate(std::vector<Card> cards,
         : classifyHand(cards, counts, flush, straight);
     std::vector<Card> scoringCards = selectScoringCards(cards, counts, detectedHand);
 
-    std::pair<int, int> handBaseValues = lookupBaseValues(detectedHand);
+    const int handLevel = runState ? runState->handLevel(detectedHand) : 1;
+    std::pair<int, int> handBaseValues = lookupBaseValues(detectedHand, handLevel);
     const int rawScoringCardChipBonus = calculateScoringCardChipBonus(scoringCards);
     const int bossChipPenalty = calculateBossChipPenalty(scoringCards, bossModifier, blockedSuit);
     const int scoringCardChipBonus = rawScoringCardChipBonus - bossChipPenalty;

@@ -27,7 +27,8 @@ public:
     static HandResult evaluate(std::vector<Card> cards,
                                const std::vector<Joker>& jokers = {},
                                BossBlindModifier bossModifier = BossBlindModifier::None,
-                               Suit blockedSuit = Suit::Clubs);
+                               Suit blockedSuit = Suit::Clubs,
+                               const RunState* runState = nullptr);
 
 private:
     struct ScoreTotals {
@@ -58,7 +59,7 @@ private:
                                                 HandType type);
 
     // Helper: look up the base chips and mult for a hand type
-    static std::pair<int, int> lookupBaseValues(HandType type);
+    static std::pair<int, int> lookupBaseValues(HandType type, int level = 1);
 
     // Helper: sum the rank chip value of the scoring cards
     static int calculateScoringCardChipBonus(const std::vector<Card>& scoringCards);
