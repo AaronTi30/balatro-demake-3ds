@@ -6,10 +6,6 @@
 #include <sstream>
 #include <string>
 
-namespace shop_state_helpers {
-int markShopSlotSoldAndAdvanceCursor(std::array<ShopSlot, kVisibleShopSlots>& slots, int purchasedSlot);
-}
-
 namespace {
 
 void fail(const std::string& message) {
