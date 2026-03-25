@@ -137,6 +137,13 @@ void testJokerIdentityAndFilteredCandidates() {
     }
 }
 
+void testDrawFromCandidatesFallsBackWhenEmpty() {
+    std::mt19937 rng(17);
+    const Joker joker = Joker::drawFromCandidates({}, rng);
+    expectEqual(joker.name, std::string("Plain Joker"),
+                "empty candidate draw should fall back to plain joker");
+}
+
 } // namespace
 
 int main() {
@@ -147,6 +154,7 @@ int main() {
         testWeightedDrawAlwaysComesFromNineJokerCatalog();
         testWeightedTierRollPreservesFiftyThirtyFiveFifteenSplit();
         testJokerIdentityAndFilteredCandidates();
+        testDrawFromCandidatesFallsBackWhenEmpty();
     } catch (const std::exception& ex) {
         std::cerr << ex.what() << '\n';
         return 1;

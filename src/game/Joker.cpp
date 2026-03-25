@@ -262,7 +262,7 @@ std::vector<Joker> Joker::weakOrMediumPoolFiltered(const std::unordered_set<std:
 
 Joker Joker::drawFromCandidates(const std::vector<Joker>& candidates, std::mt19937& rng) {
     if (candidates.empty()) {
-        throw std::runtime_error("drawFromCandidates: candidate list is empty");
+        return plainJoker();
     }
     std::uniform_int_distribution<size_t> distribution(0, candidates.size() - 1);
     return candidates[distribution(rng)];
