@@ -1,8 +1,11 @@
 #pragma once
 
-enum class ShopPlatform { SDL, N3DS };
+#include "../game/Joker.h"
+
+enum class ShopPlatform { SDL, ThreeDS };
 
 struct ShopRect { int x, y, w, h; };
+struct ShopColor { int r, g, b, a; };
 
 // Stride between shop card slots (body + gap). Fixed at 140px on both platforms.
 static constexpr int kShopCardStride = 140;
@@ -28,6 +31,7 @@ ShopRect shopCardHighlightRect(ShopPlatform platform, int itemCount, int index);
 
 HeldJokerRowLayout heldJokerRowLayout(ShopPlatform platform);
 ShopRect heldJokerSlotRect(ShopPlatform platform, int index);
+ShopColor jokerEffectColor(JokerEffectType effectType);
 
 int hitShopCard(ShopPlatform platform, int itemCount, int px, int py);
 int hitHeldJoker(ShopPlatform platform, int jokerCount, int px, int py);

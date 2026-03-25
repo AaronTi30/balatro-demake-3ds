@@ -22,6 +22,33 @@ void advanceToNextBlindAndResume(StateMachine* machine, const std::shared_ptr<Ru
     machine->changeState(std::make_shared<GameplayState>(machine, runState));
 }
 
+#ifdef N3DS
+u32 toC2DColor(const ShopColor& color) {
+    return C2D_Color32(color.r, color.g, color.b, color.a);
+}
+#else
+SDL_Rect toSDLRect(const ShopRect& rect) {
+    return SDL_Rect{ rect.x, rect.y, rect.w, rect.h };
+}
+
+void fillRect(SDL_Renderer* renderer, const ShopRect& rect, const ShopColor& color) {
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    const SDL_Rect sdlRect = toSDLRect(rect);
+    SDL_RenderFillRect(renderer, &sdlRect);
+}
+
+void drawRect(SDL_Renderer* renderer, const ShopRect& rect, const ShopColor& color) {
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    const SDL_Rect sdlRect = toSDLRect(rect);
+    SDL_RenderDrawRect(renderer, &sdlRect);
+}
+#endif
+
+const ShopColor kWhite{ 255, 255, 255, 255 };
+const ShopColor kSelectedBorder{ 255, 255, 100, 255 };
+const ShopColor kEmptySlot{ 30, 30, 40, 255 };
+const ShopColor kDimBorder{ 80, 80, 100, 255 };
+
 } // namespace
 
 ShopState::ShopState(StateMachine* machine, std::shared_ptr<RunState> runState)
@@ -97,7 +124,7 @@ void ShopState::handleInput() {
 
         // Held joker slots: check first
         {
-            int heldHit = hitHeldJoker(ShopPlatform::N3DS, static_cast<int>(m_runState->jokers.size()), touch.px, touch.py);
+            int heldHit = hitHeldJoker(ShopPlatform::ThreeDS, static_cast<int>(m_runState->jokers.size()), touch.px, touch.py);
             if (heldHit >= 0) {
                 m_heldInspectIndex = heldHit;
             }
@@ -177,10 +204,8 @@ void ShopState::handleInput() {
             // Bottom screen
             else if (mx >= 400) {
                 // Held joker inspect: check before Buy/Next Blind
-                if (my >= 90 && my <= 150) {
-                    int heldHit = hitHeldJoker(ShopPlatform::SDL, static_cast<int>(m_runState->jokers.size()), mx, my);
-                    if (heldHit >= 0) m_heldInspectIndex = heldHit;
-                }
+                int heldHit = hitHeldJoker(ShopPlatform::SDL, static_cast<int>(m_runState->jokers.size()), mx, my);
+                if (heldHit >= 0) m_heldInspectIndex = heldHit;
                 // Buy Button: x: 420 -> 540, y: 160 -> 210
                 if (mx >= 420 && mx <= 540 && my >= 160 && my <= 210) {
                     tryBuySelectedItem();
@@ -230,58 +255,43 @@ void ShopState::renderTopScreen(Application* app) {
 #endif
 
     // ── Items for Sale ──
+    const ShopPlatform platform =
 #ifdef N3DS
-    int startX = (320 - (m_items.size() * 140)) / 2 + 20;
+        ShopPlatform::ThreeDS;
 #else
-    int startX = (400 - (m_items.size() * 140)) / 2 + 20;
+        ShopPlatform::SDL;
 #endif
-    
+    const int itemCount = static_cast<int>(m_items.size());
+
     for (size_t i = 0; i < m_items.size(); ++i) {
-        int x = startX + i * 140;
-        int y = 105;
-        
+        const int index = static_cast<int>(i);
+        const ShopRect body = shopCardBodyRect(platform, itemCount, index);
+        const ShopRect highlight = shopCardHighlightRect(platform, itemCount, index);
+        const ShopColor fillColor = jokerEffectColor(m_items[i].joker.effectType);
+
 #ifdef N3DS
-        u32 color = C2D_Color32(100, 100, 100, 255);
-        if (m_items[i].joker.effectType == JokerEffectType::AddChips) color = C2D_Color32(80, 120, 220, 255);
-        else if (m_items[i].joker.effectType == JokerEffectType::AddMult) color = C2D_Color32(220, 60, 60, 255);
-        else if (m_items[i].joker.effectType == JokerEffectType::MulMult) color = C2D_Color32(180, 60, 220, 255);
-
-        // Selection highlight
         if (i == m_cursorIndex) {
-            C2D_DrawRectSolid(x - 5, y - 5, 0.5f, 100, 120, C2D_Color32(255, 255, 100, 255));
+            C2D_DrawRectSolid(highlight.x, highlight.y, 0.5f, highlight.w, highlight.h, toC2DColor(kSelectedBorder));
         }
 
-        // Card body
-        C2D_DrawRectSolid(x, y, 0.5f, 90, 110, color);
-        C2D_DrawRectSolid(x, y, 0.5f, 90, 1, C2D_Color32(255, 255, 255, 255));
-        C2D_DrawRectSolid(x, y + 109, 0.5f, 90, 1, C2D_Color32(255, 255, 255, 255));
-        C2D_DrawRectSolid(x, y, 0.5f, 1, 110, C2D_Color32(255, 255, 255, 255));
-        C2D_DrawRectSolid(x + 89, y, 0.5f, 1, 110, C2D_Color32(255, 255, 255, 255));
-        
-        // Text
-        TextRenderer::drawText(m_items[i].joker.name, x + 5, y + 10, 0.45f, 0.45f, C2D_Color32(255, 255, 255, 255));
-        TextRenderer::drawText("$" + std::to_string(m_items[i].price), x + 30, y + 90, 0.5f, 0.5f, C2D_Color32(255, 215, 0, 255));
+        C2D_DrawRectSolid(body.x, body.y, 0.5f, body.w, body.h, toC2DColor(fillColor));
+        C2D_DrawRectSolid(body.x, body.y, 0.5f, body.w, 1, toC2DColor(kWhite));
+        C2D_DrawRectSolid(body.x, body.y + body.h - 1, 0.5f, body.w, 1, toC2DColor(kWhite));
+        C2D_DrawRectSolid(body.x, body.y, 0.5f, 1, body.h, toC2DColor(kWhite));
+        C2D_DrawRectSolid(body.x + body.w - 1, body.y, 0.5f, 1, body.h, toC2DColor(kWhite));
+
+        TextRenderer::drawText(m_items[i].joker.name, body.x + 5, body.y + 10, 0.45f, 0.45f, toC2DColor(kWhite));
+        TextRenderer::drawText("$" + std::to_string(m_items[i].price), body.x + 30, body.y + 50, 0.5f, 0.5f, C2D_Color32(255, 215, 0, 255));
 #else
-        int r = 100, g = 100, b = 100;
-        if (m_items[i].joker.effectType == JokerEffectType::AddChips) { r = 80; g = 120; b = 220; }
-        else if (m_items[i].joker.effectType == JokerEffectType::AddMult) { r = 220; g = 60; b = 60; }
-        else if (m_items[i].joker.effectType == JokerEffectType::MulMult) { r = 180; g = 60; b = 220; }
-
         if (i == m_cursorIndex) {
-            SDL_SetRenderDrawColor(renderer, 255, 255, 100, 255);
-            SDL_Rect hbox = { x - 5, y - 5, 110, 130 };
-            SDL_RenderFillRect(renderer, &hbox);
+            fillRect(renderer, highlight, kSelectedBorder);
         }
 
-        SDL_SetRenderDrawColor(renderer, r, g, b, 255);
-        SDL_Rect jbox = { x, y, 100, 120 };
-        SDL_RenderFillRect(renderer, &jbox);
+        fillRect(renderer, body, fillColor);
+        drawRect(renderer, body, kWhite);
 
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-        SDL_RenderDrawRect(renderer, &jbox);
-
-        TextRenderer::drawText(renderer, m_items[i].joker.name, x + 5, y + 10, 0, 255, 255, 255);
-        TextRenderer::drawText(renderer, "$" + std::to_string(m_items[i].price), x + 35, y + 95, 1, 255, 215, 0);
+        TextRenderer::drawText(renderer, m_items[i].joker.name, body.x + 5, body.y + 10, 0, 255, 255, 255);
+        TextRenderer::drawText(renderer, "$" + std::to_string(m_items[i].price), body.x + 35, body.y + 50, 1, 255, 215, 0);
 #endif
     }
 }
@@ -292,16 +302,48 @@ void ShopState::renderBottomScreen(Application* app) {
     C2D_DrawRectSolid(0, 0, 0.5f, 320, 240, C2D_Color32(15, 20, 30, 255)); // Darker background
     
     // Inspect panel
-    if (m_cursorIndex >= 0 && static_cast<size_t>(m_cursorIndex) < m_items.size()) {
-        TextRenderer::drawText(m_items[m_cursorIndex].joker.name, 10, 20, 0.5f, 0.5f, C2D_Color32(255, 255, 255, 255));
-        TextRenderer::drawText(m_items[m_cursorIndex].joker.description, 10, 45, 0.4f, 0.4f, C2D_Color32(180, 180, 180, 255));
+    const InspectSelection sel = resolveInspectSelection(
+        m_heldInspectIndex,
+        static_cast<int>(m_runState->jokers.size()),
+        m_cursorIndex,
+        static_cast<int>(m_items.size())
+    );
+    if (sel.source == InspectSource::HeldJoker) {
+        TextRenderer::drawText(m_runState->jokers[sel.index].name, 10, 20, 0.5f, 0.5f, C2D_Color32(255, 255, 255, 255));
+        TextRenderer::drawText(m_runState->jokers[sel.index].description, 10, 45, 0.4f, 0.4f, C2D_Color32(180, 180, 180, 255));
+    } else if (sel.source == InspectSource::ShopItem) {
+        TextRenderer::drawText(m_items[sel.index].joker.name, 10, 20, 0.5f, 0.5f, C2D_Color32(255, 255, 255, 255));
+        TextRenderer::drawText(m_items[sel.index].joker.description, 10, 45, 0.4f, 0.4f, C2D_Color32(180, 180, 180, 255));
     } else {
         TextRenderer::drawText("Use D-pad to inspect", 10, 20, 0.4f, 0.4f, C2D_Color32(150, 150, 150, 255));
     }
 
-    // Jokers slots text
-    TextRenderer::drawText("Jokers: " + std::to_string(m_runState->jokers.size()) + "/" + std::to_string(m_runState->jokerLimit),
-                           115, 80, 0.5f, 0.5f, C2D_Color32(200, 200, 200, 255));
+    TextRenderer::drawText("Your Jokers: " + std::to_string(m_runState->jokers.size()) + "/" + std::to_string(m_runState->jokerLimit),
+                           75, 80, 0.5f, 0.5f, C2D_Color32(200, 200, 200, 255));
+
+    for (int i = 0; i < m_runState->jokerLimit; ++i) {
+        const ShopRect slot = heldJokerSlotRect(ShopPlatform::ThreeDS, i);
+        const bool filled = i < static_cast<int>(m_runState->jokers.size());
+        const ShopColor slotColor = filled ? jokerEffectColor(m_runState->jokers[i].effectType) : kEmptySlot;
+        const ShopColor borderColor = filled ? kWhite : kDimBorder;
+
+        C2D_DrawRectSolid(slot.x, slot.y, 0.5f, slot.w, slot.h, toC2DColor(slotColor));
+        C2D_DrawRectSolid(slot.x, slot.y, 0.5f, slot.w, 1, toC2DColor(borderColor));
+        C2D_DrawRectSolid(slot.x, slot.y + slot.h - 1, 0.5f, slot.w, 1, toC2DColor(borderColor));
+        C2D_DrawRectSolid(slot.x, slot.y, 0.5f, 1, slot.h, toC2DColor(borderColor));
+        C2D_DrawRectSolid(slot.x + slot.w - 1, slot.y, 0.5f, 1, slot.h, toC2DColor(borderColor));
+
+        if (filled) {
+            TextRenderer::drawText(m_runState->jokers[i].name, slot.x + 4, slot.y + 8, 0.35f, 0.35f, toC2DColor(kWhite));
+        }
+
+        if (m_heldInspectIndex == i && filled) {
+            C2D_DrawRectSolid(slot.x, slot.y, 0.5f, slot.w, 2, toC2DColor(kSelectedBorder));
+            C2D_DrawRectSolid(slot.x, slot.y + slot.h - 2, 0.5f, slot.w, 2, toC2DColor(kSelectedBorder));
+            C2D_DrawRectSolid(slot.x, slot.y, 0.5f, 2, slot.h, toC2DColor(kSelectedBorder));
+            C2D_DrawRectSolid(slot.x + slot.w - 2, slot.y, 0.5f, 2, slot.h, toC2DColor(kSelectedBorder));
+        }
+    }
     
     // Buy Button (Green)
     C2D_DrawRectSolid(baseX + 20, 160, 0.5f, 120, 50, C2D_Color32(80, 200, 80, 255));
@@ -330,16 +372,46 @@ void ShopState::renderBottomScreen(Application* app) {
     SDL_RenderFillRect(renderer, &bgBot);
 
     // Inspect panel
-    if (m_cursorIndex >= 0 && static_cast<size_t>(m_cursorIndex) < m_items.size()) {
-        TextRenderer::drawText(renderer, m_items[m_cursorIndex].joker.name, baseX + 10, 20, 1, 255, 255, 255);
-        TextRenderer::drawText(renderer, m_items[m_cursorIndex].joker.description, baseX + 10, 45, 0, 180, 180, 180);
+    const InspectSelection sel = resolveInspectSelection(
+        m_heldInspectIndex,
+        static_cast<int>(m_runState->jokers.size()),
+        m_cursorIndex,
+        static_cast<int>(m_items.size())
+    );
+    if (sel.source == InspectSource::HeldJoker) {
+        TextRenderer::drawText(renderer, m_runState->jokers[sel.index].name, baseX + 10, 20, 1, 255, 255, 255);
+        TextRenderer::drawText(renderer, m_runState->jokers[sel.index].description, baseX + 10, 45, 0, 180, 180, 180);
+    } else if (sel.source == InspectSource::ShopItem) {
+        TextRenderer::drawText(renderer, m_items[sel.index].joker.name, baseX + 10, 20, 1, 255, 255, 255);
+        TextRenderer::drawText(renderer, m_items[sel.index].joker.description, baseX + 10, 45, 0, 180, 180, 180);
     } else {
         TextRenderer::drawText(renderer, "Hover a card to inspect", baseX + 10, 20, 0, 150, 150, 150);
     }
 
     TextRenderer::drawText(renderer,
-                           "Jokers: " + std::to_string(m_runState->jokers.size()) + "/" + std::to_string(m_runState->jokerLimit),
-                           baseX + 130, 80, 1, 200, 200, 200);
+                           "Your Jokers: " + std::to_string(m_runState->jokers.size()) + "/" + std::to_string(m_runState->jokerLimit),
+                           baseX + 80, 80, 1, 200, 200, 200);
+
+    for (int i = 0; i < m_runState->jokerLimit; ++i) {
+        const ShopRect slot = heldJokerSlotRect(ShopPlatform::SDL, i);
+        const bool filled = i < static_cast<int>(m_runState->jokers.size());
+        const ShopColor slotColor = filled ? jokerEffectColor(m_runState->jokers[i].effectType) : kEmptySlot;
+        const ShopColor borderColor = filled ? kWhite : kDimBorder;
+
+        fillRect(renderer, slot, slotColor);
+        drawRect(renderer, slot, borderColor);
+
+        if (filled) {
+            const SDL_Rect clipRect = toSDLRect(slot);
+            SDL_RenderSetClipRect(renderer, &clipRect);
+            TextRenderer::drawText(renderer, m_runState->jokers[i].name, slot.x + 4, slot.y + 8, 0, 255, 255, 255);
+            SDL_RenderSetClipRect(renderer, nullptr);
+        }
+
+        if (m_heldInspectIndex == i && filled) {
+            drawRect(renderer, slot, kSelectedBorder);
+        }
+    }
     
     // Buy Button (Green)
     SDL_SetRenderDrawColor(renderer, 80, 200, 80, 255);

@@ -29,6 +29,17 @@ void expectRectEqual(const ShopRect& actual, const ShopRect& expected, const std
     }
 }
 
+void expectColorEqual(const ShopColor& actual, const ShopColor& expected, const std::string& label) {
+    if (actual.r != expected.r || actual.g != expected.g ||
+        actual.b != expected.b || actual.a != expected.a) {
+        std::ostringstream oss;
+        oss << label << ": expected {" << expected.r << ", " << expected.g
+            << ", " << expected.b << ", " << expected.a << "}, got {"
+            << actual.r << ", " << actual.g << ", " << actual.b << ", " << actual.a << "}";
+        fail(oss.str());
+    }
+}
+
 void testShopCardBodyRect() {
     // SDL: startX = (400 - 2*140)/2 + 20 = (400-280)/2 + 20 = 60+20 = 80
     // index 0: x=80, y=125, w=100, h=70
@@ -41,7 +52,7 @@ void testShopCardHighlightRect() {
     // 3DS: startX = (320 - 2*140)/2 + 20 = (320-280)/2 + 20 = 20+20 = 40
     // index 1: bodyX = 40 + 1*140 = 180, bodyY=125, bodyW=90, bodyH=70
     // highlight: x=180-5=175, y=125-5=120, w=90+10=100, h=70+10=80
-    expectRectEqual(shopCardHighlightRect(ShopPlatform::N3DS, 2, 1),
+    expectRectEqual(shopCardHighlightRect(ShopPlatform::ThreeDS, 2, 1),
                     ShopRect{175, 120, 100, 80},
                     "3DS highlight rect keeps 5px padding");
 }
@@ -125,14 +136,26 @@ void testTask2Assertions() {
     expectEqual(hitShopCard(ShopPlatform::SDL, 2, 90, 110), -1,
                 "old y=105 card band should no longer hit");
 
-    expectEqual(hitHeldJoker(ShopPlatform::N3DS, 3, 12, 90), 0,
+    expectEqual(hitHeldJoker(ShopPlatform::ThreeDS, 3, 12, 90), 0,
                 "3DS first held joker slot");
     // N3DS: startX=12, stride=60 -> slot 2 body is x=132..187; use 150 (mid-slot)
-    expectEqual(hitHeldJoker(ShopPlatform::N3DS, 3, 150, 100), 2,
+    expectEqual(hitHeldJoker(ShopPlatform::ThreeDS, 3, 150, 100), 2,
                 "3DS third held joker slot uses 60px stride");
 
     expect(resolveInspectSelection(-1, 3, -1, 0).source == InspectSource::Placeholder,
            "placeholder should show only when neither held nor shop selection is valid");
+}
+
+void testJokerEffectColors() {
+    expectColorEqual(jokerEffectColor(JokerEffectType::AddChips),
+                    ShopColor{80, 120, 220, 255},
+                    "AddChips color should match shop-card blue");
+    expectColorEqual(jokerEffectColor(JokerEffectType::AddMult),
+                    ShopColor{220, 60, 60, 255},
+                    "AddMult color should match shop-card red");
+    expectColorEqual(jokerEffectColor(JokerEffectType::MulMult),
+                    ShopColor{180, 60, 220, 255},
+                    "MulMult color should match shop-card purple");
 }
 
 } // namespace
@@ -147,6 +170,7 @@ int main() {
     testHitShopCard();
     testHitHeldJoker();
     testTask2Assertions();
+    testJokerEffectColors();
 
     std::cout << "ShopLayout tests passed\n";
     return 0;

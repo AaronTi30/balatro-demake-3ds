@@ -1,11 +1,11 @@
 #include "states/ShopLayout.h"
 
 ShopCardLayout shopCardLayout(ShopPlatform platform, int itemCount) {
-    const int screenWidth = (platform == ShopPlatform::N3DS) ? 320 : 400;
+    const int screenWidth = (platform == ShopPlatform::ThreeDS) ? 320 : 400;
     return {
         (screenWidth - itemCount * kShopCardStride) / 2 + 20,
         125,
-        (platform == ShopPlatform::N3DS) ? 90 : 100,
+        (platform == ShopPlatform::ThreeDS) ? 90 : 100,
         70,
         5,
         50
@@ -35,7 +35,7 @@ ShopRect shopCardHighlightRect(ShopPlatform platform, int itemCount, int index) 
 
 HeldJokerRowLayout heldJokerRowLayout(ShopPlatform platform) {
     return {
-        (platform == ShopPlatform::N3DS) ? 12 : 412,
+        (platform == ShopPlatform::ThreeDS) ? 12 : 412,
         90,
         55,
         60,
@@ -51,6 +51,19 @@ ShopRect heldJokerSlotRect(ShopPlatform platform, int index) {
         layout.cardWidth,
         layout.cardHeight
     };
+}
+
+ShopColor jokerEffectColor(JokerEffectType effectType) {
+    switch (effectType) {
+        case JokerEffectType::AddChips:
+            return {80, 120, 220, 255};
+        case JokerEffectType::AddMult:
+            return {220, 60, 60, 255};
+        case JokerEffectType::MulMult:
+            return {180, 60, 220, 255};
+    }
+
+    return {100, 100, 100, 255};
 }
 
 int hitShopCard(ShopPlatform platform, int itemCount, int px, int py) {
