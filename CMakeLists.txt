@@ -109,6 +109,7 @@ if(NOT N3DS)
     add_executable(shop_layout_tests
         tests/ShopLayoutTests.cpp
         src/states/ShopLayout.cpp
+        src/game/Joker.cpp
     )
     target_include_directories(shop_layout_tests PRIVATE src)
     add_test(NAME shop_layout_tests COMMAND shop_layout_tests)

@@ -131,6 +131,10 @@ bool applyShopOfferPurchase(RunState& runState, ShopSlot& slot) {
     if (slot.sold || slot.unavailable || runState.money < slot.offer.price) {
         return false;
     }
+    if (slot.offer.kind == ShopOfferKind::Joker &&
+        runState.jokers.size() >= static_cast<std::size_t>(runState.jokerLimit)) {
+        return false;
+    }
 
     switch (slot.offer.kind) {
         case ShopOfferKind::Joker:

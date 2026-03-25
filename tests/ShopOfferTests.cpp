@@ -96,6 +96,47 @@ void testBuyingJokerOfferAddsOwnedJokerAndRemovesItFromPool() {
            "bought joker should be removed from the shop pool");
 }
 
+void testJokerOfferRespectsJokerLimit() {
+    RunState run;
+    run.startNewRun();
+    run.money = 20;
+    run.jokerLimit = 0;
+
+    ShopSlot slot;
+    slot.offer.kind = ShopOfferKind::Joker;
+    slot.offer.joker = Joker::plainJoker();
+    slot.offer.price = 4;
+
+    expect(!applyShopOfferPurchase(run, slot), "joker offer should fail when joker limit is full");
+    expectEqual(run.money, 20, "failed joker purchase should not spend money");
+    expectEqual(static_cast<int>(run.jokers.size()), 0, "failed joker purchase should not add jokers");
+}
+
+void testNonJokerOffersIgnoreJokerLimit() {
+    RunState run;
+    run.startNewRun();
+    run.money = 20;
+    run.jokerLimit = 0;
+
+    ShopSlot deckCardSlot;
+    deckCardSlot.offer.kind = ShopOfferKind::DeckCard;
+    deckCardSlot.offer.card = Card{Suit::Hearts, Rank::King};
+    deckCardSlot.offer.price = 4;
+
+    expect(applyShopOfferPurchase(run, deckCardSlot),
+           "deck-card purchase should not depend on joker capacity");
+    expectEqual(run.runDeckSize(), 53, "deck-card purchase should still add a card");
+
+    ShopSlot handUpgradeSlot;
+    handUpgradeSlot.offer.kind = ShopOfferKind::HandUpgrade;
+    handUpgradeSlot.offer.handType = HandType::Pair;
+    handUpgradeSlot.offer.price = 6;
+
+    expect(applyShopOfferPurchase(run, handUpgradeSlot),
+           "hand-upgrade purchase should not depend on joker capacity");
+    expectEqual(run.handLevel(HandType::Pair), 2, "hand-upgrade purchase should still level the hand");
+}
+
 void testShopOfferStringsDescribeNonJokerOffers() {
     ShopOffer deckCardOffer;
     deckCardOffer.kind = ShopOfferKind::DeckCard;
@@ -123,6 +164,8 @@ int main() {
     testBuyingDeckCardOfferAddsOneCardToRunDeck();
     testBuyingHandUpgradeOfferLevelsOnlyThatHand();
     testBuyingJokerOfferAddsOwnedJokerAndRemovesItFromPool();
+    testJokerOfferRespectsJokerLimit();
+    testNonJokerOffersIgnoreJokerLimit();
     testShopOfferStringsDescribeNonJokerOffers();
     std::cout << "Shop offer tests passed\n";
     return 0;

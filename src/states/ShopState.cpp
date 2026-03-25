@@ -21,9 +21,15 @@ void advanceToNextBlindAndResume(StateMachine* machine, const std::shared_ptr<Ru
     machine->changeState(std::make_shared<BlindSelectState>(machine, runState));
 }
 
-void leaveShopForNextBlind(StateMachine* machine, const std::shared_ptr<RunState>& runState) {
+bool leaveShopForNextBlind(StateMachine* machine, const std::shared_ptr<RunState>& runState, bool& exitQueued) {
+    if (exitQueued) {
+        return false;
+    }
+
+    exitQueued = true;
     runState->awardInterest();
     advanceToNextBlindAndResume(machine, runState);
+    return true;
 }
 
 #ifdef N3DS
@@ -100,6 +106,7 @@ std::array<ShopSlot, kVisibleShopSlots> ShopState::generateShopItems(std::mt1993
 }
 
 void ShopState::enter() {
+    m_exitQueued = false;
     m_heldInspectIndex = -1;
     generateItems();
 }
@@ -131,11 +138,6 @@ std::array<bool, kVisibleShopSlots> ShopState::disabledMask() const {
 bool ShopState::tryBuySelectedItem() {
     if (!isSelectableShopSlot(m_cursorIndex, disabledMask())) return false;
     if (m_runState->money < m_slots[m_cursorIndex].offer.price) return false;
-    if (m_slots[m_cursorIndex].offer.kind == ShopOfferKind::Joker &&
-        m_runState->jokers.size() >= static_cast<size_t>(m_runState->jokerLimit)) {
-        return false;
-    }
-
     const int purchasedSlot = m_cursorIndex;
     clearHeldInspect();
     if (!applyShopOfferPurchase(*m_runState, m_slots[purchasedSlot])) return false;
@@ -197,7 +199,8 @@ void ShopState::handleInput() {
     }
 
     if (kDown & KEY_START || kDown & KEY_X) {
-        leaveShopForNextBlind(m_stateMachine, m_runState);
+        leaveShopForNextBlind(m_stateMachine, m_runState, m_exitQueued);
+        return;
     }
 
     // Bottom Screen Touch
@@ -223,7 +226,8 @@ void ShopState::handleInput() {
             tryReroll();
         }
         else if (hitNextBlindButton(ShopPlatform::ThreeDS, touch.px, touch.py)) {
-            leaveShopForNextBlind(m_stateMachine, m_runState);
+            leaveShopForNextBlind(m_stateMachine, m_runState, m_exitQueued);
+            return;
         }
     }
     
@@ -266,7 +270,8 @@ void ShopState::handleInput() {
     if (keys[SDL_SCANCODE_RETURN]) {
         if (!enterPressed) {
             enterPressed = true;
-            leaveShopForNextBlind(m_stateMachine, m_runState);
+            leaveShopForNextBlind(m_stateMachine, m_runState, m_exitQueued);
+            return;
         }
     } else { enterPressed = false; }
 
@@ -315,7 +320,8 @@ void ShopState::handleInput() {
                     tryReroll();
                 }
                 else if (hitNextBlindButton(ShopPlatform::SDL, mx, my)) {
-                    leaveShopForNextBlind(m_stateMachine, m_runState);
+                    leaveShopForNextBlind(m_stateMachine, m_runState, m_exitQueued);
+                    return;
                 }
             }
         }

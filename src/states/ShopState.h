@@ -57,6 +57,7 @@ private:
     std::array<ShopSlot, kVisibleShopSlots> m_slots{};
     int m_cursorIndex = 0;
     int m_heldInspectIndex = -1;
+    bool m_exitQueued = false;
     float m_inputDelay = 0.3f;
     std::mt19937 m_rng;
 #ifndef N3DS
