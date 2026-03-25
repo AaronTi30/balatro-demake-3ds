@@ -55,17 +55,17 @@ void CardRenderer::init(Application* app) {
 #endif
 }
 
-void CardRenderer::drawCard(Application* app, const Card& card, int x, int y) {
+void CardRenderer::drawCard(Application* app, const Card& card, int x, int y, bool selected) {
     init(app); // Lazy init textures
     
     // Shift card up if selected
-    int drawY = card.selected ? y - SELECT_OFFSET : y;
+    int drawY = selected ? y - SELECT_OFFSET : y;
     bool isRed = suitIsRed(card.suit);
     const char* rankStr = rankToString(card.rank);
 
     // Apply some slight wobble if selected (juice physics)
     float angle = 0.0f;
-    if (card.selected) {
+    if (selected) {
 #ifndef N3DS
         angle = sin(SDL_GetTicks() / 150.0f) * 4.0f; // Wobble ±4 degrees
 #endif
@@ -111,7 +111,7 @@ void CardRenderer::drawCard(Application* app, const Card& card, int x, int y) {
     // ── Rank text ──
     // Note: Text rotation isn't easily supported by our TextRenderer right now, 
     // so it will just wobble Y based on angle if we really wanted, but staying static is fine.
-    int textOfsY = (card.selected) ? (int)(sin(SDL_GetTicks() / 150.0f) * 2.0f) : 0;
+    int textOfsY = selected ? static_cast<int>(sin(SDL_GetTicks() / 150.0f) * 2.0f) : 0;
     TextRenderer::drawText(renderer, rankStr, x + 4, drawY + 2 + textOfsY, 0, tr, tg, tb);
 
     // ── Suit Icon ──
@@ -149,11 +149,12 @@ void CardRenderer::drawHand(Application* app, const Hand& hand, int centerX, int
 
     for (int i = 0; i < hand.size(); ++i) {
         int cardX = startX + i * CARD_SPACING;
-        drawCard(app, hand.at(i), cardX, y);
+        const bool selected = hand.isSelected(i);
+        drawCard(app, hand.at(i), cardX, y, selected);
 
         // Draw cursor indicator (yellow rectangle below the card)
         if (i == cursorIndex) {
-            int drawY = hand.at(i).selected ? y - SELECT_OFFSET : y;
+            int drawY = selected ? y - SELECT_OFFSET : y;
 #ifdef N3DS
             C2D_DrawRectSolid(cardX + CARD_W / 2 - 4, drawY + CARD_H + 4, 0.5f, 8, 4, 
                               C2D_Color32(255, 255, 0, 255));

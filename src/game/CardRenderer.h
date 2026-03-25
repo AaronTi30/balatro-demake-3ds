@@ -18,7 +18,7 @@ public:
     static void init(Application* app);
 
     // Draw a single card at x,y
-    static void drawCard(Application* app, const Card& card, int x, int y);
+    static void drawCard(Application* app, const Card& card, int x, int y, bool selected = false);
     
     // Draw a hand of cards fanned horizontally, centered around centerX
     static void drawHand(Application* app, const Hand& hand, int centerX, int y, int cursorIndex = -1);

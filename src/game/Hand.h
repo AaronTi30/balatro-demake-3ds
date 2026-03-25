@@ -15,6 +15,7 @@ public:
     std::vector<Card> getSelected() const;
     std::vector<int> getSelectedIndices() const;
     void removeSelected();
+    bool isSelected(int index) const;
 
     int size() const;
     bool empty() const;
@@ -23,5 +24,10 @@ public:
     Card& at(int i);
 
 private:
-    std::vector<Card> m_cards;
+    struct HeldCard {
+        Card card;
+        bool selected = false;
+    };
+
+    std::vector<HeldCard> m_cards;
 };

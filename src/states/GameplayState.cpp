@@ -59,8 +59,8 @@ void GameplayState::startNewRound() {
 }
 
 void GameplayState::drawToFull() {
-    while (!m_hand.full() && !m_runState->deck.empty()) {
-        m_hand.addCard(m_runState->deck.draw());
+    while (!m_hand.full() && !m_runState->roundDeck().empty()) {
+        m_hand.addCard(m_runState->roundDeck().draw());
     }
 }
 
@@ -298,14 +298,14 @@ void GameplayState::renderTopScreen(Application* app) {
                                C2D_Color32(100, 220, 100, 255));
         TextRenderer::drawText("Discards: " + std::to_string(m_runState->discardsRemaining), 160, 6, 0.4f, 0.4f,
                                C2D_Color32(240, 170, 60, 255));
-        TextRenderer::drawText("Deck: " + std::to_string(m_runState->deck.remaining()), 340, 6, 0.35f, 0.35f,
+        TextRenderer::drawText("Deck: " + std::to_string(m_runState->roundDeck().remaining()), 340, 6, 0.35f, 0.35f,
                                C2D_Color32(180, 180, 200, 255));
 #else
         TextRenderer::drawText(renderer, "Ante " + std::to_string(m_runState->ante), 10, 6, 0, 255, 200, 80);
         TextRenderer::drawText(renderer, m_runState->currentBlindName(), 10, 24, 0, 180, 180, 200);
         TextRenderer::drawText(renderer, "Hands: " + std::to_string(m_runState->handsRemaining), 80, 6, 0, 100, 220, 100);
         TextRenderer::drawText(renderer, "Discards: " + std::to_string(m_runState->discardsRemaining), 170, 6, 0, 240, 170, 60);
-        TextRenderer::drawText(renderer, "Deck: " + std::to_string(m_runState->deck.remaining()), 340, 6, 0, 180, 180, 200);
+        TextRenderer::drawText(renderer, "Deck: " + std::to_string(m_runState->roundDeck().remaining()), 340, 6, 0, 180, 180, 200);
 #endif
         // ── Money display ──
 #ifdef N3DS

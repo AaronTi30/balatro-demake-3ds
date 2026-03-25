@@ -3,7 +3,7 @@
 
 void Hand::addCard(Card card) {
     if (static_cast<int>(m_cards.size()) < MAX_HAND_SIZE) {
-        m_cards.push_back(card);
+        m_cards.push_back(HeldCard{ card, false });
     }
 }
 
@@ -23,7 +23,7 @@ void Hand::toggleSelect(int index) {
         const int selectedCount = static_cast<int>(std::count_if(
             m_cards.begin(),
             m_cards.end(),
-            [](const Card& card) { return card.selected; }));
+            [](const HeldCard& held) { return held.selected; }));
 
         if (selectedCount < 5) {
             m_cards[index].selected = true;
@@ -32,15 +32,17 @@ void Hand::toggleSelect(int index) {
 }
 
 void Hand::clearSelection() {
-    for (auto& c : m_cards) {
-        c.selected = false;
+    for (auto& held : m_cards) {
+        held.selected = false;
     }
 }
 
 std::vector<Card> Hand::getSelected() const {
     std::vector<Card> sel;
-    for (const auto& c : m_cards) {
-        if (c.selected) sel.push_back(c);
+    for (const auto& held : m_cards) {
+        if (held.selected) {
+            sel.push_back(held.card);
+        }
     }
     return sel;
 }
@@ -56,9 +58,15 @@ std::vector<int> Hand::getSelectedIndices() const {
 void Hand::removeSelected() {
     m_cards.erase(
         std::remove_if(m_cards.begin(), m_cards.end(),
-                        [](const Card& c) { return c.selected; }),
+                        [](const HeldCard& held) { return held.selected; }),
         m_cards.end()
     );
+}
+
+bool Hand::isSelected(int index) const {
+    return index >= 0 &&
+           index < static_cast<int>(m_cards.size()) &&
+           m_cards[index].selected;
 }
 
 int Hand::size() const {
@@ -74,9 +82,9 @@ bool Hand::full() const {
 }
 
 const Card& Hand::at(int i) const {
-    return m_cards[i];
+    return m_cards[i].card;
 }
 
 Card& Hand::at(int i) {
-    return m_cards[i];
+    return m_cards[i].card;
 }

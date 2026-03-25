@@ -2,6 +2,7 @@
 
 #include "Deck.h"
 #include "Joker.h"
+#include <cstdint>
 #include <random>
 #include <string>
 #include <unordered_set>
@@ -57,7 +58,6 @@ public:
     Suit currentBlockedSuit = Suit::Clubs;
     Suit nextBlockedSuit = Suit::Clubs;
     std::vector<Joker> jokers;
-    Deck deck;
 
     void startNewRun();
     void startRound();
@@ -87,7 +87,21 @@ public:
     void markJokerRemovedFromShopPool(const std::string& jokerId);
     void markJokerReturnedToShopPool(const std::string& jokerId);
     std::unordered_set<std::string> currentOwnedJokerIds() const;
+    void resetRunDeckToStandard52();
+    void prepareRoundDeckForCurrentBlind();
+    const std::vector<Card>& runDeckCards() const;
+    int runDeckSize() const;
+    uint32_t addCardToRunDeck(Suit suit, Rank rank);
+    bool removeCardFromRunDeck(uint32_t instanceId);
+    uint32_t duplicateCardInRunDeck(uint32_t instanceId);
+    Deck& roundDeck();
+    const Deck& roundDeck() const;
 
 private:
+    uint32_t makeNextCardInstanceId();
+
+    std::vector<Card> m_runDeckCards;
+    uint32_t m_nextCardInstanceId = 1;
+    Deck m_roundDeck;
     std::unordered_set<std::string> m_shopAvailableJokerIds;
 };

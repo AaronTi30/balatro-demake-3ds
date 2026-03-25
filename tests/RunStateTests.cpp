@@ -38,6 +38,15 @@ void expect(bool condition, const std::string& label) {
     }
 }
 
+void expectUniqueInstanceIds(const std::vector<Card>& cards, const std::string& label) {
+    std::unordered_set<uint32_t> ids;
+    for (const Card& card : cards) {
+        if (!ids.insert(card.instanceId).second) {
+            fail(label + ": duplicate instanceId " + std::to_string(card.instanceId));
+        }
+    }
+}
+
 void testNewRunStartsAtSmallBlind() {
     RunState run;
     run.startNewRun();
@@ -256,6 +265,58 @@ void testRerollCostResetsOnNewRun() {
     expectEqual(run.rerollCost, 5, "rerollCost should reset to 5 on startNewRun");
 }
 
+void testNewRunBuildsCanonicalDeckWithUniqueInstanceIds() {
+    RunState run;
+    run.startNewRun();
+
+    expectEqual(run.runDeckSize(), 52, "new run should create 52 canonical deck cards");
+    expectEqual(static_cast<int>(run.runDeckCards().size()), 52, "runDeckCards should expose full canonical deck");
+    expectUniqueInstanceIds(run.runDeckCards(), "canonical deck cards should have unique instance ids");
+}
+
+void testStartRoundLoadsLiveDeckWithoutMutatingCanonicalDeck() {
+    RunState run;
+    run.startNewRun();
+    const std::vector<Card> canonicalBefore = run.runDeckCards();
+
+    run.startRound();
+
+    expectEqual(run.runDeckSize(), 52, "canonical deck size should stay unchanged after startRound");
+    expectEqual(run.roundDeck().remaining(), 52, "live round deck should start with canonical deck size");
+    expectEqual(static_cast<int>(run.runDeckCards().size()), static_cast<int>(canonicalBefore.size()),
+                "canonical deck card count should remain stable");
+
+    run.roundDeck().draw();
+
+    expectEqual(run.roundDeck().remaining(), 51, "drawing should consume live round deck only");
+    expectEqual(run.runDeckSize(), 52, "drawing should not mutate canonical deck size");
+    expectEqual(static_cast<int>(run.runDeckCards().size()), 52,
+                "drawing should not mutate canonical deck contents");
+}
+
+void testDeckMutationApisAffectCanonicalDeckAndFutureRounds() {
+    RunState run;
+    run.startNewRun();
+
+    const uint32_t addedId = run.addCardToRunDeck(Suit::Hearts, Rank::Ace);
+    expectEqual(run.runDeckSize(), 53, "adding a card should grow the canonical deck");
+
+    run.startRound();
+    expectEqual(run.roundDeck().remaining(), 53, "live round deck should include newly added card");
+
+    const Card duplicatedSource = run.runDeckCards().front();
+    const uint32_t duplicateId = run.duplicateCardInRunDeck(duplicatedSource.instanceId);
+    expectEqual(run.runDeckSize(), 54, "duplicating a card should grow the canonical deck");
+    expect(duplicateId != duplicatedSource.instanceId, "duplicate should receive a fresh instance id");
+
+    const bool removed = run.removeCardFromRunDeck(addedId);
+    expect(removed, "removeCardFromRunDeck should remove the targeted instance");
+    expectEqual(run.runDeckSize(), 53, "removing one exact card should shrink canonical deck by one");
+
+    run.startRound();
+    expectEqual(run.roundDeck().remaining(), 53, "next round deck should reflect canonical mutations");
+}
+
 } // namespace
 
 int main() {
@@ -274,6 +335,9 @@ int main() {
         testRunScopedShopAvailability();
         testAwardBlindSkipAddsMoney();
         testRerollCostResetsOnNewRun();
+        testNewRunBuildsCanonicalDeckWithUniqueInstanceIds();
+        testStartRoundLoadsLiveDeckWithoutMutatingCanonicalDeck();
+        testDeckMutationApisAffectCanonicalDeckAndFutureRounds();
     } catch (const std::exception& ex) {
         std::cerr << ex.what() << '\n';
         return 1;
