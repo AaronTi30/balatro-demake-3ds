@@ -73,6 +73,8 @@ public:
     const char* currentBlindName() const;
     static const char* bossModifierName(BossBlindModifier modifier);
     static const char* bossModifierDescription(BossBlindModifier modifier, Suit blockedSuit);
+    static constexpr int kBlindSkipReward = 3;
+    void awardBlindSkip();
     BlindStage nextBlindStage() const;
     int nextBlindAnte() const;
     static int targetForAnte(int ante);

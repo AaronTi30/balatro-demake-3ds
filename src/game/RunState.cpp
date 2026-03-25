@@ -174,6 +174,10 @@ void RunState::awardRoundWin() {
     money += currentBlindReward();
 }
 
+void RunState::awardBlindSkip() {
+    money += kBlindSkipReward;
+}
+
 void RunState::rollNextBossModifier(std::mt19937& rng) {
     std::uniform_int_distribution<size_t> modifierDist(0, kBossBlindModifiers.size() - 1);
     nextBossModifier = kBossBlindModifiers[modifierDist(rng)];

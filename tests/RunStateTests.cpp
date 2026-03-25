@@ -237,6 +237,15 @@ void testRunScopedShopAvailability() {
            "owned joker ids should include plain joker");
 }
 
+void testAwardBlindSkipAddsMoney() {
+    RunState run;
+    run.startNewRun();
+    const int before = run.money;
+    run.awardBlindSkip();
+    expectEqual(run.money, before + RunState::kBlindSkipReward,
+                "awardBlindSkip should add kBlindSkipReward to money");
+}
+
 } // namespace
 
 int main() {
@@ -253,6 +262,7 @@ int main() {
         testLeavingBossBlindClearsCurrentModifier();
         testBossModifierDescriptionsMatchImplementedSemantics();
         testRunScopedShopAvailability();
+        testAwardBlindSkipAddsMoney();
     } catch (const std::exception& ex) {
         std::cerr << ex.what() << '\n';
         return 1;
