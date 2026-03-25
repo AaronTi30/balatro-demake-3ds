@@ -1,5 +1,6 @@
 #include "ShopOffer.h"
 
+#include "RunState.h"
 #include "Joker.h"
 
 #include <array>
@@ -131,17 +132,18 @@ bool applyShopOfferPurchase(RunState& runState, ShopSlot& slot) {
         return false;
     }
 
-    runState.money -= slot.offer.price;
-
     switch (slot.offer.kind) {
         case ShopOfferKind::Joker:
+            runState.money -= slot.offer.price;
             runState.jokers.push_back(slot.offer.joker);
             runState.markJokerRemovedFromShopPool(Joker::idFor(slot.offer.joker));
             break;
         case ShopOfferKind::DeckCard:
+            runState.money -= slot.offer.price;
             runState.addCardToRunDeck(slot.offer.card.suit, slot.offer.card.rank);
             break;
         case ShopOfferKind::HandUpgrade:
+            runState.money -= slot.offer.price;
             runState.levelUpHand(slot.offer.handType);
             break;
         default:

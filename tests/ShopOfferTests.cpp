@@ -25,6 +25,14 @@ void expectEqual(int actual, int expected, const std::string& label) {
     }
 }
 
+void expectEqual(const std::string& actual, const std::string& expected, const std::string& label) {
+    if (actual != expected) {
+        std::ostringstream oss;
+        oss << label << ": expected \"" << expected << "\", got \"" << actual << "\"";
+        fail(oss.str());
+    }
+}
+
 void testMixedOfferGenerationUsesFixedSlotKinds() {
     RunState run;
     run.startNewRun();
@@ -71,12 +79,51 @@ void testBuyingHandUpgradeOfferLevelsOnlyThatHand() {
     expectEqual(run.handLevel(HandType::Pair), 1, "other hands should stay at level one");
 }
 
+void testBuyingJokerOfferAddsOwnedJokerAndRemovesItFromPool() {
+    RunState run;
+    run.startNewRun();
+    run.money = 20;
+
+    ShopSlot slot;
+    slot.offer.kind = ShopOfferKind::Joker;
+    slot.offer.joker = Joker::plainJoker();
+    slot.offer.price = 4;
+
+    expect(applyShopOfferPurchase(run, slot), "joker offer should be purchasable");
+    expectEqual(run.money, 16, "joker offer should spend money");
+    expectEqual(static_cast<int>(run.jokers.size()), 1, "joker offer should add one owned joker");
+    expect(!run.isJokerShopAvailable(Joker::idFor(Joker::plainJoker())),
+           "bought joker should be removed from the shop pool");
+}
+
+void testShopOfferStringsDescribeNonJokerOffers() {
+    ShopOffer deckCardOffer;
+    deckCardOffer.kind = ShopOfferKind::DeckCard;
+    deckCardOffer.card = Card{Suit::Spades, Rank::Ace};
+
+    expectEqual(shopOfferTitle(deckCardOffer), std::string("Add AS"),
+                "deck-card title should use short rank and suit");
+    expectEqual(shopOfferDescription(deckCardOffer), std::string("Add Ace of Spades to your deck"),
+                "deck-card description should use full card names");
+
+    ShopOffer handUpgradeOffer;
+    handUpgradeOffer.kind = ShopOfferKind::HandUpgrade;
+    handUpgradeOffer.handType = HandType::Pair;
+
+    expectEqual(shopOfferTitle(handUpgradeOffer), std::string("Level Pair"),
+                "hand-upgrade title should name the leveled hand");
+    expectEqual(shopOfferDescription(handUpgradeOffer), std::string("Pair gains +10 chips and +1 mult"),
+                "hand-upgrade description should use the first-pass upgrade text");
+}
+
 } // namespace
 
 int main() {
     testMixedOfferGenerationUsesFixedSlotKinds();
     testBuyingDeckCardOfferAddsOneCardToRunDeck();
     testBuyingHandUpgradeOfferLevelsOnlyThatHand();
+    testBuyingJokerOfferAddsOwnedJokerAndRemovesItFromPool();
+    testShopOfferStringsDescribeNonJokerOffers();
     std::cout << "Shop offer tests passed\n";
     return 0;
 }
