@@ -73,7 +73,100 @@ void BlindSelectState::update(float dt) {
     }
 }
 
-void BlindSelectState::handleInput() {}
+void BlindSelectState::handleInput() {
+    if (m_inputDelay > 0.0f) {
+        return;
+    }
+
+#ifdef N3DS
+    hidScanInput();
+    u32 kDown = hidKeysDown();
+
+    if (kDown & (KEY_LEFT | KEY_DLEFT)) {
+        if (m_cursorIndex > 0) {
+            m_cursorIndex--;
+        }
+    }
+    if (kDown & (KEY_RIGHT | KEY_DRIGHT)) {
+        if (canSkip() && m_cursorIndex < 1) {
+            m_cursorIndex++;
+        }
+    }
+    if (kDown & KEY_A) {
+        confirmSelection();
+        return;
+    }
+    if (kDown & KEY_TOUCH) {
+        touchPosition touch;
+        hidTouchRead(&touch);
+        if (ptInBRect(playBtnRect(true), touch.px, touch.py)) {
+            m_cursorIndex = 0;
+            confirmSelection();
+        } else if (canSkip() && ptInBRect(skipBtnRect(true), touch.px, touch.py)) {
+            m_cursorIndex = 1;
+            confirmSelection();
+        }
+    }
+#else
+    const Uint8* keys = SDL_GetKeyboardState(nullptr);
+    static bool leftPressed = false;
+    static bool rightPressed = false;
+    static bool confirmPressed = false;
+
+    if (keys[SDL_SCANCODE_LEFT]) {
+        if (!leftPressed) {
+            leftPressed = true;
+            if (m_cursorIndex > 0) {
+                m_cursorIndex--;
+            }
+        }
+    } else {
+        leftPressed = false;
+    }
+
+    if (keys[SDL_SCANCODE_RIGHT]) {
+        if (!rightPressed) {
+            rightPressed = true;
+            if (canSkip() && m_cursorIndex < 1) {
+                m_cursorIndex++;
+            }
+        }
+    } else {
+        rightPressed = false;
+    }
+
+    if (keys[SDL_SCANCODE_RETURN] || keys[SDL_SCANCODE_SPACE]) {
+        if (!confirmPressed) {
+            confirmPressed = true;
+            confirmSelection();
+            return;
+        }
+    } else {
+        confirmPressed = false;
+    }
+
+    static bool mousePressed = false;
+    int mx;
+    int my;
+    uint32_t mouseState = SDL_GetMouseState(&mx, &my);
+    if (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+        if (!mousePressed) {
+            mousePressed = true;
+            if (mx >= 400) {
+                if (ptInBRect(playBtnRect(false), mx, my)) {
+                    m_cursorIndex = 0;
+                    confirmSelection();
+                } else if (canSkip() && ptInBRect(skipBtnRect(false), mx, my)) {
+                    m_cursorIndex = 1;
+                    confirmSelection();
+                }
+            }
+        }
+    } else {
+        mousePressed = false;
+    }
+#endif
+}
 
 void BlindSelectState::renderTopScreen(Application* app) {
     const BlindStage upcoming = m_runState->nextBlindStage();
