@@ -4,7 +4,6 @@
 #include "../core/StateMachine.h"
 #include "../core/Application.h"
 #include "../core/TextRenderer.h"
-#include <algorithm>
 #include <random>
 #include <utility>
 
@@ -71,41 +70,56 @@ void ShopState::update(float dt) {
 }
 
 void ShopState::generateItems() {
-    m_items = generateShopItems(m_rng);
+    const std::vector<ShopItem> items = generateShopItems(m_rng);
+    for (int i = 0; i < kVisibleShopSlots; ++i) {
+        m_slots[i].item = items[i];
+        m_slots[i].sold = false;
+    }
+    m_cursorIndex = nextSelectableShopSlot(0, +1, soldMask());
 }
 
 void ShopState::clearHeldInspect() {
     m_heldInspectIndex = -1;
 }
 
+std::array<bool, kVisibleShopSlots> ShopState::soldMask() const {
+    return { m_slots[0].sold, m_slots[1].sold };
+}
+
 bool ShopState::tryBuySelectedItem() {
-    if (m_cursorIndex < 0 || m_cursorIndex >= static_cast<int>(m_items.size())) return false;
-    if (m_runState->money < m_items[m_cursorIndex].price) return false;
+    if (!isSelectableShopSlot(m_cursorIndex, soldMask())) return false;
+    if (m_runState->money < m_slots[m_cursorIndex].item.price) return false;
     if (m_runState->jokers.size() >= static_cast<size_t>(m_runState->jokerLimit)) return false;
 
+    const int purchasedSlot = m_cursorIndex;
     clearHeldInspect();
-    m_runState->money -= m_items[m_cursorIndex].price;
-    m_runState->jokers.push_back(m_items[m_cursorIndex].joker);
-    m_items.erase(m_items.begin() + m_cursorIndex);
-    if (m_cursorIndex >= static_cast<int>(m_items.size()) && m_cursorIndex > 0) m_cursorIndex--;
+    m_runState->money -= m_slots[purchasedSlot].item.price;
+    m_runState->jokers.push_back(m_slots[purchasedSlot].item.joker);
+    m_slots[purchasedSlot].sold = true;
+    m_cursorIndex = nextSelectableShopSlot(purchasedSlot, +1, soldMask());
     return true;
 }
 
 void ShopState::handleInput() {
     if (m_inputDelay > 0.0f) return;
 
+    auto moveCursor = [&](int direction) {
+        const std::array<bool, kVisibleShopSlots> sold = soldMask();
+        const int candidate = m_cursorIndex + direction;
+        if (isSelectableShopSlot(candidate, sold)) {
+            m_cursorIndex = candidate;
+            clearHeldInspect();
+        }
+    };
+
 #ifdef N3DS
     hidScanInput();
     u32 kDown = hidKeysDown();
     
     if (kDown & KEY_DLEFT) {
-        m_cursorIndex--;
-        if (m_cursorIndex < 0) m_cursorIndex = 0;
-        clearHeldInspect();
+        moveCursor(-1);
     } else if (kDown & KEY_DRIGHT) {
-        m_cursorIndex++;
-        if (m_cursorIndex >= static_cast<int>(m_items.size())) m_cursorIndex = static_cast<int>(m_items.size()) - 1;
-        clearHeldInspect();
+        moveCursor(+1);
     }
 
     if (kDown & KEY_A) {
@@ -146,16 +160,14 @@ void ShopState::handleInput() {
 
     if (keys[SDL_SCANCODE_LEFT]) {
         if (!leftPressed) {
-            m_cursorIndex = std::max(0, m_cursorIndex - 1);
-            clearHeldInspect();
+            moveCursor(-1);
             leftPressed = true;
         }
     } else { leftPressed = false; }
 
     if (keys[SDL_SCANCODE_RIGHT]) {
         if (!rightPressed) {
-            m_cursorIndex = std::min(static_cast<int>(m_items.size()) - 1, m_cursorIndex + 1);
-            clearHeldInspect();
+            moveCursor(+1);
             rightPressed = true;
         }
     } else { rightPressed = false; }
@@ -181,10 +193,10 @@ void ShopState::handleInput() {
     // Hover — update cursor only when mouse moves so keyboard nav wins when mouse is stationary
     if (mx != m_lastMouseX || my != m_lastMouseY) {
         if (mx < 400) {
-            clearHeldInspect();
-            if (!m_items.empty()) {
-                int hit = hitShopCard(ShopPlatform::SDL, static_cast<int>(m_items.size()), mx, my);
-                if (hit >= 0) m_cursorIndex = hit;
+            const int hit = hitShopCard(ShopPlatform::SDL, kVisibleShopSlots, mx, my);
+            if (isSelectableShopSlot(hit, soldMask())) {
+                m_cursorIndex = hit;
+                clearHeldInspect();
             }
         }
     }
@@ -197,9 +209,12 @@ void ShopState::handleInput() {
             mousePressed = true;
 
             // Top Screen (card selection via click)
-            if (mx < 400 && !m_items.empty()) {
-                int hit = hitShopCard(ShopPlatform::SDL, static_cast<int>(m_items.size()), mx, my);
-                if (hit >= 0) m_cursorIndex = hit;
+            if (mx < 400) {
+                const int hit = hitShopCard(ShopPlatform::SDL, kVisibleShopSlots, mx, my);
+                if (isSelectableShopSlot(hit, soldMask())) {
+                    m_cursorIndex = hit;
+                    clearHeldInspect();
+                }
             }
             // Bottom screen
             else if (mx >= 400) {
@@ -261,37 +276,48 @@ void ShopState::renderTopScreen(Application* app) {
 #else
         ShopPlatform::SDL;
 #endif
-    const int itemCount = static_cast<int>(m_items.size());
+    const int itemCount = kVisibleShopSlots;
+    const std::array<bool, kVisibleShopSlots> sold = soldMask();
 
-    for (size_t i = 0; i < m_items.size(); ++i) {
+    for (size_t i = 0; i < m_slots.size(); ++i) {
         const int index = static_cast<int>(i);
         const ShopRect body = shopCardBodyRect(platform, itemCount, index);
         const ShopRect highlight = shopCardHighlightRect(platform, itemCount, index);
-        const ShopColor fillColor = jokerEffectColor(m_items[i].joker.effectType);
+        const bool selectable = isSelectableShopSlot(index, sold);
+        const ShopColor fillColor = selectable ? jokerEffectColor(m_slots[i].item.joker.effectType) : kEmptySlot;
+        const ShopColor borderColor = selectable ? kWhite : kDimBorder;
 
 #ifdef N3DS
-        if (i == m_cursorIndex) {
+        if (selectable && i == m_cursorIndex) {
             C2D_DrawRectSolid(highlight.x, highlight.y, 0.5f, highlight.w, highlight.h, toC2DColor(kSelectedBorder));
         }
 
         C2D_DrawRectSolid(body.x, body.y, 0.5f, body.w, body.h, toC2DColor(fillColor));
-        C2D_DrawRectSolid(body.x, body.y, 0.5f, body.w, 1, toC2DColor(kWhite));
-        C2D_DrawRectSolid(body.x, body.y + body.h - 1, 0.5f, body.w, 1, toC2DColor(kWhite));
-        C2D_DrawRectSolid(body.x, body.y, 0.5f, 1, body.h, toC2DColor(kWhite));
-        C2D_DrawRectSolid(body.x + body.w - 1, body.y, 0.5f, 1, body.h, toC2DColor(kWhite));
+        C2D_DrawRectSolid(body.x, body.y, 0.5f, body.w, 1, toC2DColor(borderColor));
+        C2D_DrawRectSolid(body.x, body.y + body.h - 1, 0.5f, body.w, 1, toC2DColor(borderColor));
+        C2D_DrawRectSolid(body.x, body.y, 0.5f, 1, body.h, toC2DColor(borderColor));
+        C2D_DrawRectSolid(body.x + body.w - 1, body.y, 0.5f, 1, body.h, toC2DColor(borderColor));
 
-        TextRenderer::drawText(m_items[i].joker.name, body.x + 5, body.y + 10, 0.45f, 0.45f, toC2DColor(kWhite));
-        TextRenderer::drawText("$" + std::to_string(m_items[i].price), body.x + 30, body.y + 50, 0.5f, 0.5f, C2D_Color32(255, 215, 0, 255));
+        if (selectable) {
+            TextRenderer::drawText(m_slots[i].item.joker.name, body.x + 5, body.y + 10, 0.45f, 0.45f, toC2DColor(kWhite));
+            TextRenderer::drawText("$" + std::to_string(m_slots[i].item.price), body.x + 30, body.y + 50, 0.5f, 0.5f, C2D_Color32(255, 215, 0, 255));
+        } else {
+            TextRenderer::drawText("SOLD", body.x + 20, body.y + 28, 0.5f, 0.5f, toC2DColor(kDimBorder));
+        }
 #else
-        if (i == m_cursorIndex) {
+        if (selectable && i == m_cursorIndex) {
             fillRect(renderer, highlight, kSelectedBorder);
         }
 
         fillRect(renderer, body, fillColor);
-        drawRect(renderer, body, kWhite);
+        drawRect(renderer, body, borderColor);
 
-        TextRenderer::drawText(renderer, m_items[i].joker.name, body.x + 5, body.y + 10, 0, 255, 255, 255);
-        TextRenderer::drawText(renderer, "$" + std::to_string(m_items[i].price), body.x + 35, body.y + 50, 1, 255, 215, 0);
+        if (selectable) {
+            TextRenderer::drawText(renderer, m_slots[i].item.joker.name, body.x + 5, body.y + 10, 0, 255, 255, 255);
+            TextRenderer::drawText(renderer, "$" + std::to_string(m_slots[i].item.price), body.x + 35, body.y + 50, 1, 255, 215, 0);
+        } else {
+            TextRenderer::drawText(renderer, "SOLD", body.x + 18, body.y + 28, 0, 150, 150, 150);
+        }
 #endif
     }
 }
@@ -305,15 +331,15 @@ void ShopState::renderBottomScreen(Application* app) {
     const InspectSelection sel = resolveInspectSelection(
         m_heldInspectIndex,
         static_cast<int>(m_runState->jokers.size()),
-        m_cursorIndex,
-        static_cast<int>(m_items.size())
+        isSelectableShopSlot(m_cursorIndex, soldMask()) ? m_cursorIndex : -1,
+        kVisibleShopSlots
     );
     if (sel.source == InspectSource::HeldJoker) {
         TextRenderer::drawText(m_runState->jokers[sel.index].name, 10, 20, 0.5f, 0.5f, C2D_Color32(255, 255, 255, 255));
         TextRenderer::drawText(m_runState->jokers[sel.index].description, 10, 45, 0.4f, 0.4f, C2D_Color32(180, 180, 180, 255));
     } else if (sel.source == InspectSource::ShopItem) {
-        TextRenderer::drawText(m_items[sel.index].joker.name, 10, 20, 0.5f, 0.5f, C2D_Color32(255, 255, 255, 255));
-        TextRenderer::drawText(m_items[sel.index].joker.description, 10, 45, 0.4f, 0.4f, C2D_Color32(180, 180, 180, 255));
+        TextRenderer::drawText(m_slots[sel.index].item.joker.name, 10, 20, 0.5f, 0.5f, C2D_Color32(255, 255, 255, 255));
+        TextRenderer::drawText(m_slots[sel.index].item.joker.description, 10, 45, 0.4f, 0.4f, C2D_Color32(180, 180, 180, 255));
     } else {
         TextRenderer::drawText("Use D-pad to inspect", 10, 20, 0.4f, 0.4f, C2D_Color32(150, 150, 150, 255));
     }
@@ -350,8 +376,8 @@ void ShopState::renderBottomScreen(Application* app) {
     C2D_DrawRectSolid(baseX + 20, 160, 0.5f, 120, 2, C2D_Color32(120, 240, 120, 255)); // highlight
     
     std::string buyText = "Buy Item";
-    if (m_cursorIndex >= 0 && m_cursorIndex < m_items.size()) {
-        buyText = "Buy ($" + std::to_string(m_items[m_cursorIndex].price) + ")";
+    if (isSelectableShopSlot(m_cursorIndex, soldMask())) {
+        buyText = "Buy ($" + std::to_string(m_slots[m_cursorIndex].item.price) + ")";
     }
     TextRenderer::drawText(buyText, baseX + 35, 175, 0.5f, 0.5f, C2D_Color32(0, 0, 0, 255));
     
@@ -375,15 +401,15 @@ void ShopState::renderBottomScreen(Application* app) {
     const InspectSelection sel = resolveInspectSelection(
         m_heldInspectIndex,
         static_cast<int>(m_runState->jokers.size()),
-        m_cursorIndex,
-        static_cast<int>(m_items.size())
+        isSelectableShopSlot(m_cursorIndex, soldMask()) ? m_cursorIndex : -1,
+        kVisibleShopSlots
     );
     if (sel.source == InspectSource::HeldJoker) {
         TextRenderer::drawText(renderer, m_runState->jokers[sel.index].name, baseX + 10, 20, 1, 255, 255, 255);
         TextRenderer::drawText(renderer, m_runState->jokers[sel.index].description, baseX + 10, 45, 0, 180, 180, 180);
     } else if (sel.source == InspectSource::ShopItem) {
-        TextRenderer::drawText(renderer, m_items[sel.index].joker.name, baseX + 10, 20, 1, 255, 255, 255);
-        TextRenderer::drawText(renderer, m_items[sel.index].joker.description, baseX + 10, 45, 0, 180, 180, 180);
+        TextRenderer::drawText(renderer, m_slots[sel.index].item.joker.name, baseX + 10, 20, 1, 255, 255, 255);
+        TextRenderer::drawText(renderer, m_slots[sel.index].item.joker.description, baseX + 10, 45, 0, 180, 180, 180);
     } else {
         TextRenderer::drawText(renderer, "Hover a card to inspect", baseX + 10, 20, 0, 150, 150, 150);
     }
@@ -419,8 +445,8 @@ void ShopState::renderBottomScreen(Application* app) {
     SDL_RenderFillRect(renderer, &buyRect);
     
     std::string buyText = "Buy Item";
-    if (m_cursorIndex >= 0 && m_cursorIndex < m_items.size()) {
-        buyText = "Buy ($" + std::to_string(m_items[m_cursorIndex].price) + ")";
+    if (isSelectableShopSlot(m_cursorIndex, soldMask())) {
+        buyText = "Buy ($" + std::to_string(m_slots[m_cursorIndex].item.price) + ")";
     }
     TextRenderer::drawText(renderer, buyText, baseX + 35, 175, 1, 0, 0, 0);
 

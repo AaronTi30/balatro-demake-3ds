@@ -3,6 +3,8 @@
 #include "../core/State.h"
 #include "../game/Joker.h"
 #include "../game/RunState.h"
+#include "states/ShopLayout.h"
+#include <array>
 #include <memory>
 #include <random>
 #include <vector>
@@ -10,6 +12,11 @@
 struct ShopItem {
     Joker joker;
     int price;
+};
+
+struct ShopSlot {
+    ShopItem item;
+    bool sold = false;
 };
 
 class ShopState : public State {
@@ -28,9 +35,10 @@ private:
     void generateItems();
     void clearHeldInspect();
     bool tryBuySelectedItem();
+    std::array<bool, kVisibleShopSlots> soldMask() const;
 
     std::shared_ptr<RunState> m_runState;
-    std::vector<ShopItem> m_items;
+    std::array<ShopSlot, kVisibleShopSlots> m_slots{};
     int m_cursorIndex = 0;
     int m_heldInspectIndex = -1;
     float m_inputDelay = 0.3f;
