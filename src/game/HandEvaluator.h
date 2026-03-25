@@ -1,25 +1,12 @@
 #pragma once
 
+#include "HandType.h"
 #include "RunState.h"
 #include "Card.h"
 #include "Joker.h"
 #include <algorithm>
 #include <string>
 #include <vector>
-
-// ── Poker Hand Types (ordered by Balatro's ranking) ──
-enum class HandType {
-    HighCard,
-    Pair,
-    TwoPair,
-    ThreeOfAKind,
-    Straight,
-    Flush,
-    FullHouse,
-    FourOfAKind,
-    StraightFlush,
-    RoyalFlush
-};
 
 // ── Result of evaluating a hand ──
 struct HandResult {
@@ -33,22 +20,6 @@ struct HandResult {
     int finalScore;
     bool scoreEquationExact;
 };
-
-inline const char* handTypeName(HandType t) {
-    switch (t) {
-        case HandType::HighCard:       return "High Card";
-        case HandType::Pair:           return "Pair";
-        case HandType::TwoPair:        return "Two Pair";
-        case HandType::ThreeOfAKind:   return "Three of a Kind";
-        case HandType::Straight:       return "Straight";
-        case HandType::Flush:          return "Flush";
-        case HandType::FullHouse:      return "Full House";
-        case HandType::FourOfAKind:    return "Four of a Kind";
-        case HandType::StraightFlush:  return "Straight Flush";
-        case HandType::RoyalFlush:     return "Royal Flush";
-        default:                       return "???";
-    }
-}
 
 class HandEvaluator {
 public:
