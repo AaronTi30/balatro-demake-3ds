@@ -191,6 +191,14 @@ void expectEqual(int actual, int expected, const std::string& label) {
     }
 }
 
+void expectEqual(const std::string& actual, const std::string& expected, const std::string& label) {
+    if (actual != expected) {
+        std::ostringstream oss;
+        oss << label << ": expected " << expected << ", got " << actual;
+        fail(oss.str());
+    }
+}
+
 void testTask2Assertions() {
     expectEqual(hitShopCard(ShopPlatform::SDL, 2, 90, 140), 0,
                 "SDL hover should use y=125..195");
@@ -248,6 +256,31 @@ void testShopSlotSaleKeepsItemAndAdvancesCursor() {
     expectEqual(cursor, -1, "cursor should become invalid after both slots are sold");
 }
 
+void testUnavailableShopSlotBlocksSelectionAndUsesDedicatedLabel() {
+    std::array<ShopSlot, kVisibleShopSlots> slots{};
+    slots[0].unavailable = true;
+    slots[1].sold = true;
+
+    const std::array<bool, kVisibleShopSlots> disabled = shop_state_helpers::disabledShopSlots(slots);
+    expect(!isSelectableShopSlot(0, disabled),
+           "unavailable slot should not be selectable");
+    expect(!isSelectableShopSlot(1, disabled),
+           "sold slot should remain non-selectable");
+    expectEqual(shop_state_helpers::blockedShopSlotLabel(slots[0]), std::string("UNAVAILABLE"),
+                "unavailable slot should use dedicated label text");
+    expectEqual(shop_state_helpers::blockedShopSlotLabel(slots[1]), std::string("SOLD"),
+                "sold slot should keep sold label text");
+}
+
+void testUnavailableShopSlotNavigationSkipsBlockedOffer() {
+    std::array<ShopSlot, kVisibleShopSlots> slots{};
+    slots[0].unavailable = true;
+
+    const std::array<bool, kVisibleShopSlots> disabled = shop_state_helpers::disabledShopSlots(slots);
+    expectEqual(nextSelectableShopSlot(0, +1, disabled), 1,
+                "cursor should skip unavailable slots when advancing");
+}
+
 } // namespace
 
 int main() {
@@ -267,6 +300,8 @@ int main() {
     testJokerEffectColors();
     testFixedShopSlotNavigation();
     testShopSlotSaleKeepsItemAndAdvancesCursor();
+    testUnavailableShopSlotBlocksSelectionAndUsesDedicatedLabel();
+    testUnavailableShopSlotNavigationSkipsBlockedOffer();
 
     std::cout << "ShopLayout tests passed\n";
     return 0;

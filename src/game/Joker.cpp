@@ -3,6 +3,8 @@
 #include "HandEvaluator.h"
 
 #include <random>
+#include <stdexcept>
+#include <unordered_set>
 #include <vector>
 
 namespace {
@@ -212,4 +214,47 @@ Joker Joker::drawWeightedFullPool(std::mt19937& rng) {
         return drawFromPool(mediumPool(), rng);
     }
     return drawFromPool(strongPool(), rng);
+}
+
+std::string Joker::idFor(const Joker& joker) {
+    return joker.name;
+}
+
+static std::vector<Joker> filteredPool(const std::vector<Joker>& pool,
+                                       const std::unordered_set<std::string>& excludedIds) {
+    std::vector<Joker> result;
+    result.reserve(pool.size());
+    for (const Joker& j : pool) {
+        if (excludedIds.find(Joker::idFor(j)) == excludedIds.end()) {
+            result.push_back(j);
+        }
+    }
+    return result;
+}
+
+std::vector<Joker> Joker::weakPoolFiltered(const std::unordered_set<std::string>& excludedIds) {
+    return filteredPool(weakPool(), excludedIds);
+}
+
+std::vector<Joker> Joker::mediumPoolFiltered(const std::unordered_set<std::string>& excludedIds) {
+    return filteredPool(mediumPool(), excludedIds);
+}
+
+std::vector<Joker> Joker::strongPoolFiltered(const std::unordered_set<std::string>& excludedIds) {
+    return filteredPool(strongPool(), excludedIds);
+}
+
+std::vector<Joker> Joker::weakOrMediumPoolFiltered(const std::unordered_set<std::string>& excludedIds) {
+    std::vector<Joker> result = weakPoolFiltered(excludedIds);
+    const std::vector<Joker> medium = mediumPoolFiltered(excludedIds);
+    result.insert(result.end(), medium.begin(), medium.end());
+    return result;
+}
+
+Joker Joker::drawFromCandidates(const std::vector<Joker>& candidates, std::mt19937& rng) {
+    if (candidates.empty()) {
+        throw std::runtime_error("drawFromCandidates: candidate list is empty");
+    }
+    std::uniform_int_distribution<size_t> distribution(0, candidates.size() - 1);
+    return candidates[distribution(rng)];
 }

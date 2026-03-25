@@ -4,6 +4,7 @@
 #include <functional>
 #include <random>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 enum class HandType;
@@ -62,4 +63,11 @@ struct Joker {
     static JokerTier tierForWeightedRoll(int roll);
     static Joker drawWeakOrMedium(std::mt19937& rng);
     static Joker drawWeightedFullPool(std::mt19937& rng);
+
+    static std::string idFor(const Joker& joker);
+    static std::vector<Joker> weakPoolFiltered(const std::unordered_set<std::string>& excludedIds);
+    static std::vector<Joker> mediumPoolFiltered(const std::unordered_set<std::string>& excludedIds);
+    static std::vector<Joker> strongPoolFiltered(const std::unordered_set<std::string>& excludedIds);
+    static std::vector<Joker> weakOrMediumPoolFiltered(const std::unordered_set<std::string>& excludedIds);
+    static Joker drawFromCandidates(const std::vector<Joker>& candidates, std::mt19937& rng);
 };

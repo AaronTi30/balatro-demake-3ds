@@ -3,6 +3,8 @@
 #include "Deck.h"
 #include "Joker.h"
 #include <random>
+#include <string>
+#include <unordered_set>
 #include <vector>
 
 struct BlindTargets {
@@ -76,4 +78,13 @@ public:
     static int targetForAnte(int ante);
     static int targetForBlind(int ante, BlindStage stage);
     static const char* blindStageName(BlindStage stage);
+
+    void resetShopJokerAvailability();
+    bool isJokerShopAvailable(const std::string& jokerId) const;
+    void markJokerRemovedFromShopPool(const std::string& jokerId);
+    void markJokerReturnedToShopPool(const std::string& jokerId);
+    std::unordered_set<std::string> currentOwnedJokerIds() const;
+
+private:
+    std::unordered_set<std::string> m_shopAvailableJokerIds;
 };
