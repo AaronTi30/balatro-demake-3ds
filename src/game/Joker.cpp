@@ -2,8 +2,8 @@
 
 #include "HandEvaluator.h"
 
-#include <cassert>
 #include <random>
+#include <stdexcept>
 #include <unordered_set>
 #include <vector>
 
@@ -225,7 +225,7 @@ static std::vector<Joker> filteredPool(const std::vector<Joker>& pool,
     std::vector<Joker> result;
     result.reserve(pool.size());
     for (const Joker& j : pool) {
-        if (excludedIds.find(j.name) == excludedIds.end()) {
+        if (excludedIds.find(Joker::idFor(j)) == excludedIds.end()) {
             result.push_back(j);
         }
     }
@@ -252,7 +252,9 @@ std::vector<Joker> Joker::weakOrMediumPoolFiltered(const std::unordered_set<std:
 }
 
 Joker Joker::drawFromCandidates(const std::vector<Joker>& candidates, std::mt19937& rng) {
-    assert(!candidates.empty() && "drawFromCandidates called with empty candidate list");
+    if (candidates.empty()) {
+        throw std::runtime_error("drawFromCandidates: candidate list is empty");
+    }
     std::uniform_int_distribution<size_t> distribution(0, candidates.size() - 1);
     return candidates[distribution(rng)];
 }
