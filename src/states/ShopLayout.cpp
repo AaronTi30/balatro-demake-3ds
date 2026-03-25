@@ -1,5 +1,14 @@
 #include "states/ShopLayout.h"
 
+namespace {
+
+bool pointInRect(const ShopRect& rect, int px, int py) {
+    return px >= rect.x && px < rect.x + rect.w &&
+           py >= rect.y && py < rect.y + rect.h;
+}
+
+} // namespace
+
 ShopCardLayout shopCardLayout(ShopPlatform platform, int itemCount) {
     const int screenWidth = (platform == ShopPlatform::ThreeDS) ? 320 : 400;
     return {
@@ -51,6 +60,32 @@ ShopRect heldJokerSlotRect(ShopPlatform platform, int index) {
         layout.cardWidth,
         layout.cardHeight
     };
+}
+
+ShopRect buyButtonRect(ShopPlatform platform) {
+    return {
+        (platform == ShopPlatform::ThreeDS) ? 20 : 420,
+        160,
+        120,
+        50
+    };
+}
+
+ShopRect nextBlindButtonRect(ShopPlatform platform) {
+    return {
+        (platform == ShopPlatform::ThreeDS) ? 160 : 560,
+        160,
+        120,
+        50
+    };
+}
+
+bool hitBuyButton(ShopPlatform platform, int px, int py) {
+    return pointInRect(buyButtonRect(platform), px, py);
+}
+
+bool hitNextBlindButton(ShopPlatform platform, int px, int py) {
+    return pointInRect(nextBlindButtonRect(platform), px, py);
 }
 
 ShopColor jokerEffectColor(JokerEffectType effectType) {

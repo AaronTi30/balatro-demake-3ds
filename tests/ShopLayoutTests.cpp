@@ -64,6 +64,56 @@ void testHeldJokerSlotRect() {
                     "SDL held joker row starts at x=412");
 }
 
+void testBuyButtonRect() {
+    expectRectEqual(buyButtonRect(ShopPlatform::SDL),
+                    ShopRect{420, 160, 120, 50},
+                    "SDL buy button rect");
+    expectRectEqual(buyButtonRect(ShopPlatform::ThreeDS),
+                    ShopRect{20, 160, 120, 50},
+                    "3DS buy button rect");
+}
+
+void testNextBlindButtonRect() {
+    expectRectEqual(nextBlindButtonRect(ShopPlatform::SDL),
+                    ShopRect{560, 160, 120, 50},
+                    "SDL next blind button rect");
+    expectRectEqual(nextBlindButtonRect(ShopPlatform::ThreeDS),
+                    ShopRect{160, 160, 120, 50},
+                    "3DS next blind button rect");
+}
+
+void testHitBuyButton() {
+    expect(hitBuyButton(ShopPlatform::SDL, 420, 160),
+           "SDL buy button should include top-left corner");
+    expect(hitBuyButton(ShopPlatform::SDL, 539, 209),
+           "SDL buy button should include the last pixel inside the rect");
+    expect(!hitBuyButton(ShopPlatform::SDL, 540, 160),
+           "SDL buy button should exclude the right edge");
+    expect(!hitBuyButton(ShopPlatform::SDL, 420, 210),
+           "SDL buy button should exclude the bottom edge");
+
+    expect(hitBuyButton(ShopPlatform::ThreeDS, 20, 160),
+           "3DS buy button should include top-left corner");
+    expect(!hitBuyButton(ShopPlatform::ThreeDS, 140, 160),
+           "3DS buy button should exclude the right edge");
+}
+
+void testHitNextBlindButton() {
+    expect(hitNextBlindButton(ShopPlatform::SDL, 560, 160),
+           "SDL next blind button should include top-left corner");
+    expect(hitNextBlindButton(ShopPlatform::SDL, 679, 209),
+           "SDL next blind button should include the last pixel inside the rect");
+    expect(!hitNextBlindButton(ShopPlatform::SDL, 680, 160),
+           "SDL next blind button should exclude the right edge");
+    expect(!hitNextBlindButton(ShopPlatform::SDL, 560, 210),
+           "SDL next blind button should exclude the bottom edge");
+
+    expect(hitNextBlindButton(ShopPlatform::ThreeDS, 160, 160),
+           "3DS next blind button should include top-left corner");
+    expect(!hitNextBlindButton(ShopPlatform::ThreeDS, 280, 160),
+           "3DS next blind button should exclude the right edge");
+}
+
 void testResolveInspectSelection() {
     // heldInspectIndex=2, heldCount=3 -> valid held joker (index 2 < 3)
     // cursorIndex=0, itemCount=2 -> would be ShopItem but HeldJoker takes precedence
@@ -107,6 +157,9 @@ void testHitShopCard() {
     // miss (above card y range)
     const int miss = hitShopCard(ShopPlatform::SDL, 2, 100, 100);
     expect(miss == -1, "click above card y range should miss");
+
+    const int rightEdgeMiss = hitShopCard(ShopPlatform::SDL, 2, 180, 150);
+    expect(rightEdgeMiss == -1, "shop card hit should exclude the body right edge");
 }
 
 void testHitHeldJoker() {
@@ -120,6 +173,9 @@ void testHitHeldJoker() {
     // slot 2 would be at x=532 but jokerCount=2 so index 2 is out of range
     const int miss = hitHeldJoker(ShopPlatform::SDL, 2, 540, 110);
     expect(miss == -1, "hit beyond jokerCount should miss");
+
+    const int bottomEdgeMiss = hitHeldJoker(ShopPlatform::SDL, 2, 430, 150);
+    expect(bottomEdgeMiss == -1, "held joker hit should exclude the body bottom edge");
 }
 
 void expectEqual(int actual, int expected, const std::string& label) {
@@ -164,6 +220,10 @@ int main() {
     testShopCardBodyRect();
     testShopCardHighlightRect();
     testHeldJokerSlotRect();
+    testBuyButtonRect();
+    testNextBlindButtonRect();
+    testHitBuyButton();
+    testHitNextBlindButton();
     testResolveInspectSelection();
     testResolveInspectSelectionShopItem();
     testResolveInspectSelectionPlaceholder();

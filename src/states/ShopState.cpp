@@ -130,12 +130,10 @@ void ShopState::handleInput() {
             }
         }
 
-        // Buy Button: x: 20 -> 140, y: 160 -> 210
-        if (touch.px >= 20 && touch.px <= 140 && touch.py >= 160 && touch.py <= 210) {
+        if (hitBuyButton(ShopPlatform::ThreeDS, touch.px, touch.py)) {
             tryBuySelectedItem();
         }
-        // Next Ante Button: x: 160 -> 280, y: 160 -> 210
-        else if (touch.px >= 160 && touch.px <= 280 && touch.py >= 160 && touch.py <= 210) {
+        else if (hitNextBlindButton(ShopPlatform::ThreeDS, touch.px, touch.py)) {
             advanceToNextBlindAndResume(m_stateMachine, m_runState);
         }
     }
@@ -206,12 +204,10 @@ void ShopState::handleInput() {
                 // Held joker inspect: check before Buy/Next Blind
                 int heldHit = hitHeldJoker(ShopPlatform::SDL, static_cast<int>(m_runState->jokers.size()), mx, my);
                 if (heldHit >= 0) m_heldInspectIndex = heldHit;
-                // Buy Button: x: 420 -> 540, y: 160 -> 210
-                if (mx >= 420 && mx <= 540 && my >= 160 && my <= 210) {
+                if (hitBuyButton(ShopPlatform::SDL, mx, my)) {
                     tryBuySelectedItem();
                 }
-                // Next Ante Button: x: 560 -> 680, y: 160 -> 210
-                else if (mx >= 560 && mx <= 680 && my >= 160 && my <= 210) {
+                else if (hitNextBlindButton(ShopPlatform::SDL, mx, my)) {
                     advanceToNextBlindAndResume(m_stateMachine, m_runState);
                 }
             }
