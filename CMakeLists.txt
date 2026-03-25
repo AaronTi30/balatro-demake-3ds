@@ -18,6 +18,7 @@ add_executable(balatro_demake
     src/states/TitleState.cpp
     src/states/GameplayState.cpp
     src/states/ShopLayout.cpp
+    src/states/BlindSelectState.cpp
     src/states/ShopState.cpp
     src/game/Deck.cpp
     src/game/RunState.cpp
