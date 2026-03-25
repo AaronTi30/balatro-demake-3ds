@@ -47,6 +47,8 @@ const ShopColor kWhite{ 255, 255, 255, 255 };
 const ShopColor kSelectedBorder{ 255, 255, 100, 255 };
 const ShopColor kEmptySlot{ 30, 30, 40, 255 };
 const ShopColor kDimBorder{ 80, 80, 100, 255 };
+const ShopColor kSoldFill{ 45, 45, 55, 255 };
+const ShopColor kSoldBorder{ 100, 100, 120, 255 };
 
 } // namespace
 
@@ -244,28 +246,28 @@ void ShopState::renderTopScreen(Application* app) {
     // ── HUD ──
 #ifdef N3DS
     C2D_DrawRectSolid(0, 0, 0.5f, 400, 240, C2D_Color32(20, 30, 40, 255)); // Background
-    TextRenderer::drawText("SHOP", 140, 15, 0.7f, 0.7f, C2D_Color32(255, 180, 80, 255));
-    TextRenderer::drawText("Money: $" + std::to_string(m_runState->money), 130, 45, 0.6f, 0.6f, C2D_Color32(255, 215, 0, 255));
+    TextRenderer::drawText("SHOP", 12, 14, 0.75f, 0.75f, C2D_Color32(255, 180, 80, 255));
+    TextRenderer::drawText("Money: $" + std::to_string(m_runState->money), 12, 39, 0.55f, 0.55f, C2D_Color32(255, 215, 0, 255));
     TextRenderer::drawText("Next: Ante " + std::to_string(m_runState->nextBlindAnte()) + " " + RunState::blindStageName(m_runState->nextBlindStage()),
-                           70, 65, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
+                           12, 59, 0.38f, 0.38f, C2D_Color32(200, 200, 220, 255));
     TextRenderer::drawText("Boss: " + std::string(RunState::bossModifierName(m_runState->nextBossModifier)),
-                           85, 83, 0.35f, 0.35f, C2D_Color32(255, 170, 120, 255));
+                           12, 78, 0.34f, 0.34f, C2D_Color32(255, 170, 120, 255));
     TextRenderer::drawText(RunState::bossModifierDescription(m_runState->nextBossModifier, m_runState->nextBlockedSuit),
-                           46, 99, 0.3f, 0.3f, C2D_Color32(220, 220, 220, 255));
+                           12, 96, 0.3f, 0.3f, C2D_Color32(220, 220, 220, 255));
 #else
     SDL_SetRenderDrawColor(renderer, 20, 30, 40, 255);
     SDL_Rect bgTop = { 0, 0, 400, 240 };
     SDL_RenderFillRect(renderer, &bgTop);
     
-    TextRenderer::drawText(renderer, "SHOP", 160, 15, 2, 255, 180, 80);
-    TextRenderer::drawText(renderer, "Money: $" + std::to_string(m_runState->money), 140, 45, 1, 255, 215, 0);
+    TextRenderer::drawText(renderer, "SHOP", 16, 14, 2, 255, 180, 80);
+    TextRenderer::drawText(renderer, "Money: $" + std::to_string(m_runState->money), 16, 42, 1, 255, 215, 0);
     TextRenderer::drawText(renderer, "Next: Ante " + std::to_string(m_runState->nextBlindAnte()) + " " + RunState::blindStageName(m_runState->nextBlindStage()),
-                           90, 70, 0, 200, 200, 220);
+                           16, 64, 0, 200, 200, 220);
     TextRenderer::drawText(renderer, "Boss: " + std::string(RunState::bossModifierName(m_runState->nextBossModifier)),
-                           110, 88, 0, 255, 170, 120);
+                           16, 84, 0, 255, 170, 120);
     TextRenderer::drawText(renderer,
                            RunState::bossModifierDescription(m_runState->nextBossModifier, m_runState->nextBlockedSuit),
-                           75, 106, 0, 220, 220, 220);
+                           16, 102, 0, 220, 220, 220);
 #endif
 
     // ── Items for Sale ──
@@ -275,16 +277,14 @@ void ShopState::renderTopScreen(Application* app) {
 #else
         ShopPlatform::SDL;
 #endif
-    const int itemCount = kVisibleShopSlots;
     const std::array<bool, kVisibleShopSlots> sold = soldMask();
 
-    for (size_t i = 0; i < m_slots.size(); ++i) {
-        const int index = static_cast<int>(i);
-        const ShopRect body = shopCardBodyRect(platform, itemCount, index);
-        const ShopRect highlight = shopCardHighlightRect(platform, itemCount, index);
-        const bool selectable = isSelectableShopSlot(index, sold);
-        const ShopColor fillColor = selectable ? jokerEffectColor(m_slots[i].item.joker.effectType) : kEmptySlot;
-        const ShopColor borderColor = selectable ? kWhite : kDimBorder;
+    for (int i = 0; i < kVisibleShopSlots; ++i) {
+        const ShopRect body = shopCardBodyRect(platform, kVisibleShopSlots, i);
+        const ShopRect highlight = shopCardHighlightRect(platform, kVisibleShopSlots, i);
+        const bool selectable = isSelectableShopSlot(i, sold);
+        const ShopColor fillColor = selectable ? jokerEffectColor(m_slots[i].item.joker.effectType) : kSoldFill;
+        const ShopColor borderColor = selectable ? kWhite : kSoldBorder;
 
 #ifdef N3DS
         if (selectable && i == m_cursorIndex) {
@@ -301,7 +301,7 @@ void ShopState::renderTopScreen(Application* app) {
             TextRenderer::drawText(m_slots[i].item.joker.name, body.x + 5, body.y + 10, 0.45f, 0.45f, toC2DColor(kWhite));
             TextRenderer::drawText("$" + std::to_string(m_slots[i].item.price), body.x + 30, body.y + 50, 0.5f, 0.5f, C2D_Color32(255, 215, 0, 255));
         } else {
-            TextRenderer::drawText("SOLD", body.x + 20, body.y + 28, 0.5f, 0.5f, toC2DColor(kDimBorder));
+            TextRenderer::drawText("SOLD", body.x + 15, body.y + 28, 0.5f, 0.5f, toC2DColor(kSoldBorder));
         }
 #else
         if (selectable && i == m_cursorIndex) {
@@ -315,7 +315,7 @@ void ShopState::renderTopScreen(Application* app) {
             TextRenderer::drawText(renderer, m_slots[i].item.joker.name, body.x + 5, body.y + 10, 0, 255, 255, 255);
             TextRenderer::drawText(renderer, "$" + std::to_string(m_slots[i].item.price), body.x + 35, body.y + 50, 1, 255, 215, 0);
         } else {
-            TextRenderer::drawText(renderer, "SOLD", body.x + 18, body.y + 28, 0, 150, 150, 150);
+            TextRenderer::drawText(renderer, "SOLD", body.x + 15, body.y + 28, 0, 100, 100, 120);
         }
 #endif
     }
@@ -344,7 +344,7 @@ void ShopState::renderBottomScreen(Application* app) {
     }
 
     TextRenderer::drawText("Your Jokers: " + std::to_string(m_runState->jokers.size()) + "/" + std::to_string(m_runState->jokerLimit),
-                           75, 80, 0.5f, 0.5f, C2D_Color32(200, 200, 200, 255));
+                           12, 72, 0.35f, 0.35f, C2D_Color32(200, 200, 200, 255));
 
     for (int i = 0; i < m_runState->jokerLimit; ++i) {
         const ShopRect slot = heldJokerSlotRect(ShopPlatform::ThreeDS, i);
@@ -374,7 +374,7 @@ void ShopState::renderBottomScreen(Application* app) {
     C2D_DrawRectSolid(baseX + 20, 160, 0.5f, 120, 50, C2D_Color32(80, 200, 80, 255));
     C2D_DrawRectSolid(baseX + 20, 160, 0.5f, 120, 2, C2D_Color32(120, 240, 120, 255)); // highlight
     
-    std::string buyText = "Buy Item";
+    std::string buyText = "Sold Out";
     if (isSelectableShopSlot(m_cursorIndex, soldMask())) {
         buyText = "Buy ($" + std::to_string(m_slots[m_cursorIndex].item.price) + ")";
     }
@@ -415,7 +415,7 @@ void ShopState::renderBottomScreen(Application* app) {
 
     TextRenderer::drawText(renderer,
                            "Your Jokers: " + std::to_string(m_runState->jokers.size()) + "/" + std::to_string(m_runState->jokerLimit),
-                           baseX + 80, 80, 1, 200, 200, 200);
+                           baseX + 10, 72, 0, 200, 200, 200);
 
     for (int i = 0; i < m_runState->jokerLimit; ++i) {
         const ShopRect slot = heldJokerSlotRect(ShopPlatform::SDL, i);
@@ -443,7 +443,7 @@ void ShopState::renderBottomScreen(Application* app) {
     SDL_Rect buyRect = { baseX + 20, 160, 120, 50 };
     SDL_RenderFillRect(renderer, &buyRect);
     
-    std::string buyText = "Buy Item";
+    std::string buyText = "Sold Out";
     if (isSelectableShopSlot(m_cursorIndex, soldMask())) {
         buyText = "Buy ($" + std::to_string(m_slots[m_cursorIndex].item.price) + ")";
     }
