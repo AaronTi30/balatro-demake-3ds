@@ -31,7 +31,18 @@ bool BlindSelectState::canSkip() const {
     return m_runState->nextBlindStage() != BlindStage::Boss;
 }
 
-void BlindSelectState::confirmSelection() {}
+void BlindSelectState::confirmSelection() {
+    if (m_cursorIndex == 1 && canSkip()) {
+        m_runState->awardBlindSkip();
+        m_runState->advanceBlind();
+        m_stateMachine->changeState(
+            std::make_shared<BlindSelectState>(m_stateMachine, m_runState));
+    } else {
+        m_runState->advanceBlind();
+        m_stateMachine->changeState(
+            std::make_shared<GameplayState>(m_stateMachine, m_runState));
+    }
+}
 
 void BlindSelectState::update(float dt) {
     if (m_inputDelay > 0.0f) {

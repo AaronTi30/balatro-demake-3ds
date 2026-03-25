@@ -1,4 +1,5 @@
 #include "ShopState.h"
+#include "BlindSelectState.h"
 #include "GameplayState.h"
 #include "states/ShopLayout.h"
 #include "../core/StateMachine.h"
@@ -17,8 +18,7 @@
 namespace {
 
 void advanceToNextBlindAndResume(StateMachine* machine, const std::shared_ptr<RunState>& runState) {
-    runState->advanceBlind();
-    machine->changeState(std::make_shared<GameplayState>(machine, runState));
+    machine->changeState(std::make_shared<BlindSelectState>(machine, runState));
 }
 
 #ifdef N3DS
