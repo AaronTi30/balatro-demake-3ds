@@ -301,7 +301,7 @@ void ShopState::renderTopScreen(Application* app) {
             TextRenderer::drawText(m_slots[i].item.joker.name, body.x + 5, body.y + 10, 0.45f, 0.45f, toC2DColor(kWhite));
             TextRenderer::drawText("$" + std::to_string(m_slots[i].item.price), body.x + 30, body.y + 50, 0.5f, 0.5f, C2D_Color32(255, 215, 0, 255));
         } else {
-            TextRenderer::drawText("SOLD", body.x + 15, body.y + 28, 0.5f, 0.5f, toC2DColor(kSoldBorder));
+            TextRenderer::drawText("SOLD", body.x + body.w / 2 - 8, body.y + body.h / 2 - 5, 0.5f, 0.5f, toC2DColor(kSoldBorder));
         }
 #else
         if (selectable && i == m_cursorIndex) {
@@ -315,7 +315,7 @@ void ShopState::renderTopScreen(Application* app) {
             TextRenderer::drawText(renderer, m_slots[i].item.joker.name, body.x + 5, body.y + 10, 0, 255, 255, 255);
             TextRenderer::drawText(renderer, "$" + std::to_string(m_slots[i].item.price), body.x + 35, body.y + 50, 1, 255, 215, 0);
         } else {
-            TextRenderer::drawText(renderer, "SOLD", body.x + 15, body.y + 28, 0, 100, 100, 120);
+            TextRenderer::drawText(renderer, "SOLD", body.x + body.w / 2 - 15, body.y + body.h / 2 - 5, 0, 100, 100, 120);
         }
 #endif
     }
