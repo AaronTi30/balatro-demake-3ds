@@ -80,8 +80,11 @@ if(NOT N3DS)
 
     add_executable(joker_tests
         tests/JokerTests.cpp
+        src/game/Deck.cpp
+        src/game/RunState.cpp
         src/game/Joker.cpp
         src/game/HandEvaluator.cpp
+        src/states/ShopLayout.cpp
     )
     target_include_directories(joker_tests PRIVATE src)
     add_test(NAME joker_tests COMMAND joker_tests)

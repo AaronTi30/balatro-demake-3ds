@@ -49,6 +49,8 @@ const ShopColor kEmptySlot{ 30, 30, 40, 255 };
 const ShopColor kDimBorder{ 80, 80, 100, 255 };
 const ShopColor kSoldFill{ 45, 45, 55, 255 };
 const ShopColor kSoldBorder{ 100, 100, 120, 255 };
+const ShopColor kUnavailableFill{ 55, 42, 32, 255 };
+const ShopColor kUnavailableBorder{ 165, 140, 105, 255 };
 
 } // namespace
 
@@ -72,32 +74,29 @@ void ShopState::update(float dt) {
 }
 
 void ShopState::generateItems() {
-    const std::vector<ShopItem> items = generateShopItems(m_rng);
+    m_slots = generateShopItems(m_rng, *m_runState);
     for (int i = 0; i < kVisibleShopSlots; ++i) {
-        m_slots[i].item = items[i];
         m_slots[i].sold = false;
     }
-    m_cursorIndex = nextSelectableShopSlot(0, +1, soldMask());
+    m_cursorIndex = nextSelectableShopSlot(0, +1, disabledMask());
 }
 
 void ShopState::clearHeldInspect() {
     m_heldInspectIndex = -1;
 }
 
-std::array<bool, kVisibleShopSlots> ShopState::soldMask() const {
-    return { m_slots[0].sold, m_slots[1].sold };
+std::array<bool, kVisibleShopSlots> ShopState::disabledMask() const {
+    return shop_state_helpers::disabledShopSlots(m_slots);
 }
 
 bool ShopState::tryBuySelectedItem() {
-    if (!isSelectableShopSlot(m_cursorIndex, soldMask())) return false;
+    if (!isSelectableShopSlot(m_cursorIndex, disabledMask())) return false;
     if (m_runState->money < m_slots[m_cursorIndex].item.price) return false;
     if (m_runState->jokers.size() >= static_cast<size_t>(m_runState->jokerLimit)) return false;
 
     const int purchasedSlot = m_cursorIndex;
     clearHeldInspect();
-    m_runState->money -= m_slots[purchasedSlot].item.price;
-    m_runState->jokers.push_back(m_slots[purchasedSlot].item.joker);
-    m_cursorIndex = shop_state_helpers::markShopSlotSoldAndAdvanceCursor(m_slots, purchasedSlot);
+    m_cursorIndex = shop_state_helpers::purchaseShopSlotAndAdvanceCursor(*m_runState, m_slots, purchasedSlot);
     return true;
 }
 
@@ -105,9 +104,9 @@ void ShopState::handleInput() {
     if (m_inputDelay > 0.0f) return;
 
     auto moveCursor = [&](int direction) {
-        const std::array<bool, kVisibleShopSlots> sold = soldMask();
+        const std::array<bool, kVisibleShopSlots> disabled = disabledMask();
         const int candidate = m_cursorIndex + direction;
-        if (isSelectableShopSlot(candidate, sold)) {
+        if (isSelectableShopSlot(candidate, disabled)) {
             m_cursorIndex = candidate;
             clearHeldInspect();
         }
@@ -193,7 +192,7 @@ void ShopState::handleInput() {
     if (mx != m_lastMouseX || my != m_lastMouseY) {
         if (mx < 400) {
             const int hit = hitShopCard(ShopPlatform::SDL, kVisibleShopSlots, mx, my);
-            if (isSelectableShopSlot(hit, soldMask())) {
+            if (isSelectableShopSlot(hit, disabledMask())) {
                 m_cursorIndex = hit;
                 clearHeldInspect();
             }
@@ -210,7 +209,7 @@ void ShopState::handleInput() {
             // Top Screen (card selection via click)
             if (mx < 400) {
                 const int hit = hitShopCard(ShopPlatform::SDL, kVisibleShopSlots, mx, my);
-                if (isSelectableShopSlot(hit, soldMask())) {
+                if (isSelectableShopSlot(hit, disabledMask())) {
                     m_cursorIndex = hit;
                     clearHeldInspect();
                 }
@@ -273,14 +272,19 @@ void ShopState::renderTopScreen(Application* app) {
 #else
         ShopPlatform::SDL;
 #endif
-    const std::array<bool, kVisibleShopSlots> sold = soldMask();
+    const std::array<bool, kVisibleShopSlots> disabled = disabledMask();
 
     for (int i = 0; i < kVisibleShopSlots; ++i) {
         const ShopRect body = shopCardBodyRect(platform, kVisibleShopSlots, i);
         const ShopRect highlight = shopCardHighlightRect(platform, kVisibleShopSlots, i);
-        const bool selectable = isSelectableShopSlot(i, sold);
-        const ShopColor fillColor = selectable ? jokerEffectColor(m_slots[i].item.joker.effectType) : kSoldFill;
-        const ShopColor borderColor = selectable ? kWhite : kSoldBorder;
+        const bool selectable = isSelectableShopSlot(i, disabled);
+        const bool unavailable = m_slots[i].unavailable;
+        const ShopColor fillColor = selectable
+            ? jokerEffectColor(m_slots[i].item.joker.effectType)
+            : (unavailable ? kUnavailableFill : kSoldFill);
+        const ShopColor borderColor = selectable
+            ? kWhite
+            : (unavailable ? kUnavailableBorder : kSoldBorder);
 
 #ifdef N3DS
         if (selectable && i == m_cursorIndex) {
@@ -297,7 +301,12 @@ void ShopState::renderTopScreen(Application* app) {
             TextRenderer::drawText(m_slots[i].item.joker.name, body.x + 5, body.y + 10, 0.45f, 0.45f, toC2DColor(kWhite));
             TextRenderer::drawText("$" + std::to_string(m_slots[i].item.price), body.x + 30, body.y + 50, 0.5f, 0.5f, C2D_Color32(255, 215, 0, 255));
         } else {
-            TextRenderer::drawText("SOLD", body.x + body.w / 2 - 8, body.y + body.h / 2 - 5, 0.5f, 0.5f, toC2DColor(kSoldBorder));
+            TextRenderer::drawText(shop_state_helpers::blockedShopSlotLabel(m_slots[i]),
+                                   body.x + (unavailable ? 6 : body.w / 2 - 8),
+                                   body.y + body.h / 2 - 5,
+                                   unavailable ? 0.3f : 0.5f,
+                                   unavailable ? 0.3f : 0.5f,
+                                   toC2DColor(borderColor));
         }
 #else
         if (selectable && i == m_cursorIndex) {
@@ -311,7 +320,14 @@ void ShopState::renderTopScreen(Application* app) {
             TextRenderer::drawText(renderer, m_slots[i].item.joker.name, body.x + 5, body.y + 10, 0, 255, 255, 255);
             TextRenderer::drawText(renderer, "$" + std::to_string(m_slots[i].item.price), body.x + 35, body.y + 50, 1, 255, 215, 0);
         } else {
-            TextRenderer::drawText(renderer, "SOLD", body.x + body.w / 2 - 15, body.y + body.h / 2 - 5, 0, 100, 100, 120);
+            TextRenderer::drawText(renderer,
+                                   shop_state_helpers::blockedShopSlotLabel(m_slots[i]),
+                                   body.x + (unavailable ? 8 : body.w / 2 - 15),
+                                   body.y + body.h / 2 - 5,
+                                   0,
+                                   borderColor.r,
+                                   borderColor.g,
+                                   borderColor.b);
         }
 #endif
     }
@@ -326,7 +342,7 @@ void ShopState::renderBottomScreen(Application* app) {
     const InspectSelection sel = resolveInspectSelection(
         m_heldInspectIndex,
         static_cast<int>(m_runState->jokers.size()),
-        isSelectableShopSlot(m_cursorIndex, soldMask()) ? m_cursorIndex : -1,
+        isSelectableShopSlot(m_cursorIndex, disabledMask()) ? m_cursorIndex : -1,
         kVisibleShopSlots
     );
     if (sel.source == InspectSource::HeldJoker) {
@@ -371,7 +387,7 @@ void ShopState::renderBottomScreen(Application* app) {
     C2D_DrawRectSolid(baseX + 20, 160, 0.5f, 120, 2, C2D_Color32(120, 240, 120, 255)); // highlight
     
     std::string buyText = "Sold Out";
-    if (isSelectableShopSlot(m_cursorIndex, soldMask())) {
+    if (isSelectableShopSlot(m_cursorIndex, disabledMask())) {
         buyText = "Buy ($" + std::to_string(m_slots[m_cursorIndex].item.price) + ")";
     }
     TextRenderer::drawText(buyText, baseX + 35, 175, 0.5f, 0.5f, C2D_Color32(0, 0, 0, 255));
@@ -396,7 +412,7 @@ void ShopState::renderBottomScreen(Application* app) {
     const InspectSelection sel = resolveInspectSelection(
         m_heldInspectIndex,
         static_cast<int>(m_runState->jokers.size()),
-        isSelectableShopSlot(m_cursorIndex, soldMask()) ? m_cursorIndex : -1,
+        isSelectableShopSlot(m_cursorIndex, disabledMask()) ? m_cursorIndex : -1,
         kVisibleShopSlots
     );
     if (sel.source == InspectSource::HeldJoker) {
@@ -440,7 +456,7 @@ void ShopState::renderBottomScreen(Application* app) {
     SDL_RenderFillRect(renderer, &buyRect);
     
     std::string buyText = "Sold Out";
-    if (isSelectableShopSlot(m_cursorIndex, soldMask())) {
+    if (isSelectableShopSlot(m_cursorIndex, disabledMask())) {
         buyText = "Buy ($" + std::to_string(m_slots[m_cursorIndex].item.price) + ")";
     }
     TextRenderer::drawText(renderer, buyText, baseX + 35, 175, 1, 0, 0, 0);
