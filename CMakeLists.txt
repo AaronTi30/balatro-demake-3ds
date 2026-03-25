@@ -58,6 +58,8 @@ if(NOT N3DS)
         tests/RunStateTests.cpp
         src/game/Deck.cpp
         src/game/RunState.cpp
+        src/game/Joker.cpp
+        src/game/HandEvaluator.cpp
     )
     target_include_directories(run_state_tests PRIVATE src)
     add_test(NAME run_state_tests COMMAND run_state_tests)

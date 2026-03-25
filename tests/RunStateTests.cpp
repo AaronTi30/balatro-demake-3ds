@@ -1,4 +1,5 @@
 #include "game/RunState.h"
+#include "game/Joker.h"
 
 #include <cstdlib>
 #include <exception>
@@ -6,6 +7,7 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 
 namespace {
 
@@ -192,6 +194,43 @@ void testBossModifierDescriptionsMatchImplementedSemantics() {
                 "face tax description should match post-joker semantics");
 }
 
+void testRunScopedShopAvailability() {
+    RunState runState;
+    runState.startNewRun();
+
+    // All catalog jokers are available after a fresh run
+    for (const Joker& j : Joker::weakPool()) {
+        expect(runState.isJokerShopAvailable(Joker::idFor(j)),
+               "all weak jokers should start available");
+    }
+    for (const Joker& j : Joker::mediumPool()) {
+        expect(runState.isJokerShopAvailable(Joker::idFor(j)),
+               "all medium jokers should start available");
+    }
+    for (const Joker& j : Joker::strongPool()) {
+        expect(runState.isJokerShopAvailable(Joker::idFor(j)),
+               "all strong jokers should start available");
+    }
+
+    // Remove a joker from the pool
+    const std::string plainId = Joker::idFor(Joker::plainJoker());
+    runState.markJokerRemovedFromShopPool(plainId);
+    expect(!runState.isJokerShopAvailable(plainId),
+           "removed joker should not be available");
+
+    // Re-add the joker to the pool
+    runState.markJokerReturnedToShopPool(plainId);
+    expect(runState.isJokerShopAvailable(plainId),
+           "returned joker should be available again");
+
+    // currentOwnedJokerIds reflects jokers vector
+    Joker plain = Joker::plainJoker();
+    runState.jokers.push_back(plain);
+    const std::unordered_set<std::string> owned = runState.currentOwnedJokerIds();
+    expect(owned.count(plainId) == 1,
+           "owned joker ids should include plain joker");
+}
+
 } // namespace
 
 int main() {
@@ -207,6 +246,7 @@ int main() {
         testAdvanceBlindActivatesStoredBossModifierAndRollsPreview();
         testLeavingBossBlindClearsCurrentModifier();
         testBossModifierDescriptionsMatchImplementedSemantics();
+        testRunScopedShopAvailability();
     } catch (const std::exception& ex) {
         std::cerr << ex.what() << '\n';
         return 1;

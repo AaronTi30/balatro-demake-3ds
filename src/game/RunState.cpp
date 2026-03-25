@@ -155,6 +155,7 @@ void RunState::startNewRun() {
 
     std::mt19937 rng = makeBossModifierRng();
     rollNextBossModifier(rng);
+    resetShopJokerAvailability();
 }
 
 void RunState::startRound() {
@@ -264,4 +265,37 @@ int RunState::nextBlindAnte() const {
     }
 
     return ante;
+}
+
+void RunState::resetShopJokerAvailability() {
+    m_shopAvailableJokerIds.clear();
+    for (const Joker& j : Joker::weakPool()) {
+        m_shopAvailableJokerIds.insert(Joker::idFor(j));
+    }
+    for (const Joker& j : Joker::mediumPool()) {
+        m_shopAvailableJokerIds.insert(Joker::idFor(j));
+    }
+    for (const Joker& j : Joker::strongPool()) {
+        m_shopAvailableJokerIds.insert(Joker::idFor(j));
+    }
+}
+
+bool RunState::isJokerShopAvailable(const std::string& jokerId) const {
+    return m_shopAvailableJokerIds.count(jokerId) > 0;
+}
+
+void RunState::markJokerRemovedFromShopPool(const std::string& jokerId) {
+    m_shopAvailableJokerIds.erase(jokerId);
+}
+
+void RunState::markJokerReturnedToShopPool(const std::string& jokerId) {
+    m_shopAvailableJokerIds.insert(jokerId);
+}
+
+std::unordered_set<std::string> RunState::currentOwnedJokerIds() const {
+    std::unordered_set<std::string> ids;
+    for (const Joker& j : jokers) {
+        ids.insert(Joker::idFor(j));
+    }
+    return ids;
 }
