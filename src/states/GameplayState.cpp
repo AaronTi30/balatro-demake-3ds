@@ -292,69 +292,61 @@ void GameplayState::renderTopScreen(Application* app) {
 #endif
 
     if (m_phase == RoundPhase::Playing) {
+        const auto topLayout = gameplay_state_helpers::compactTopScreenLayout();
+
         // ── HUD ──
 #ifdef N3DS
-        TextRenderer::drawText("Ante " + std::to_string(m_runState->ante), 10, 6, 0.4f, 0.4f,
+        TextRenderer::drawText("Ante " + std::to_string(m_runState->ante), topLayout.anteX, topLayout.anteY, 0.4f, 0.4f,
                                C2D_Color32(255, 200, 80, 255));
-        TextRenderer::drawText(m_runState->currentBlindName(), 10, 24, 0.35f, 0.35f,
-                               C2D_Color32(180, 180, 200, 255));
-        TextRenderer::drawText("Hands: " + std::to_string(m_runState->handsRemaining), 80, 6, 0.4f, 0.4f,
-                               C2D_Color32(100, 220, 100, 255));
-        TextRenderer::drawText("Discards: " + std::to_string(m_runState->discardsRemaining), 160, 6, 0.4f, 0.4f,
-                               C2D_Color32(240, 170, 60, 255));
-        TextRenderer::drawText("Deck: " + std::to_string(m_runState->roundDeck().remaining()), 340, 6, 0.35f, 0.35f,
+        TextRenderer::drawText(m_runState->currentBlindName(), topLayout.blindX, topLayout.blindY, 0.35f, 0.35f,
                                C2D_Color32(180, 180, 200, 255));
 #else
-        TextRenderer::drawText(renderer, "Ante " + std::to_string(m_runState->ante), 10, 6, 0, 255, 200, 80);
-        TextRenderer::drawText(renderer, m_runState->currentBlindName(), 10, 24, 0, 180, 180, 200);
-        TextRenderer::drawText(renderer, "Hands: " + std::to_string(m_runState->handsRemaining), 80, 6, 0, 100, 220, 100);
-        TextRenderer::drawText(renderer, "Discards: " + std::to_string(m_runState->discardsRemaining), 170, 6, 0, 240, 170, 60);
-        TextRenderer::drawText(renderer, "Deck: " + std::to_string(m_runState->roundDeck().remaining()), 340, 6, 0, 180, 180, 200);
+        TextRenderer::drawText(renderer, "Ante " + std::to_string(m_runState->ante), topLayout.anteX, topLayout.anteY, 0, 255, 200, 80);
+        TextRenderer::drawText(renderer, m_runState->currentBlindName(), topLayout.blindX, topLayout.blindY, 0, 180, 180, 200);
 #endif
         // ── Money display ──
 #ifdef N3DS
-        TextRenderer::drawText("$" + std::to_string(m_runState->money), 350, 42, 0.5f, 0.5f, C2D_Color32(255, 215, 0, 255));
+        TextRenderer::drawText("$" + std::to_string(m_runState->money), topLayout.moneyX, topLayout.moneyY, 0.5f, 0.5f, C2D_Color32(255, 215, 0, 255));
 #else
-        TextRenderer::drawText(renderer, "$" + std::to_string(m_runState->money), 360, 42, 1, 255, 215, 0);
+        TextRenderer::drawText(renderer, "$" + std::to_string(m_runState->money), topLayout.moneyX, topLayout.moneyY, 1, 255, 215, 0);
 #endif
 
         // ── Hand result banner ──
         if (m_showResult) {
 #ifdef N3DS
-            C2D_DrawRectSolid(80, 20, 0.5f, 240, 40, C2D_Color32(25, 25, 50, 230));
-            TextRenderer::drawText(handTypeName(m_lastHandType), 90, 22, 0.45f, 0.45f,
+            C2D_DrawRectSolid(topLayout.resultBannerX, topLayout.resultBannerY, 0.5f,
+                              topLayout.resultBannerW, topLayout.resultBannerH,
+                              C2D_Color32(25, 25, 50, 230));
+            TextRenderer::drawText(handTypeName(m_lastHandType), topLayout.resultBannerX + 10, topLayout.resultBannerY + 2,
+                                   0.35f, 0.35f,
                                    C2D_Color32(255, 255, 255, 255));
             std::string scoreStr = formatScoreLine(
                 m_lastChips,
                 m_lastMult,
                 m_lastScore,
                 m_lastScore == m_lastChips * m_lastMult);
-            TextRenderer::drawText(scoreStr, 90, 38, 0.5f, 0.5f, C2D_Color32(255, 220, 80, 255));
+            TextRenderer::drawText(scoreStr, topLayout.resultBannerX + 10, topLayout.resultBannerY + 11,
+                                   0.38f, 0.38f, C2D_Color32(255, 220, 80, 255));
 #else
             SDL_SetRenderDrawColor(renderer, 25, 25, 50, 230);
-            SDL_Rect bg = { 100, 20, 220, 45 };
+            SDL_Rect bg = { topLayout.resultBannerX, topLayout.resultBannerY, topLayout.resultBannerW, topLayout.resultBannerH };
             SDL_RenderFillRect(renderer, &bg);
-            TextRenderer::drawText(renderer, handTypeName(m_lastHandType), 110, 22, 1, 255, 255, 255);
+            TextRenderer::drawText(renderer, handTypeName(m_lastHandType), topLayout.resultBannerX + 10, topLayout.resultBannerY + 2, 1, 255, 255, 255);
             std::string scoreStr = formatScoreLine(
                 m_lastChips,
                 m_lastMult,
                 m_lastScore,
                 m_lastScore == m_lastChips * m_lastMult);
-            TextRenderer::drawText(renderer, scoreStr, 110, 42, 1, 255, 220, 80);
+            TextRenderer::drawText(renderer, scoreStr, topLayout.resultBannerX + 10, topLayout.resultBannerY + 11, 1, 255, 220, 80);
 #endif
         }
 
         if (m_runState->isBossBlind() && m_runState->currentBossModifier != BossBlindModifier::None) {
             const std::string bossLabel = "Boss: " + std::string(RunState::bossModifierName(m_runState->currentBossModifier));
-            const char* bossDescription = RunState::bossModifierDescription(
-                m_runState->currentBossModifier,
-                m_runState->currentBlockedSuit);
 #ifdef N3DS
-            TextRenderer::drawText(bossLabel, 10, 42, 0.32f, 0.32f, C2D_Color32(255, 170, 120, 255));
-            TextRenderer::drawText(bossDescription, 10, 56, 0.28f, 0.28f, C2D_Color32(220, 220, 220, 255));
+            TextRenderer::drawText(bossLabel, topLayout.blindX, topLayout.bossLabelY, 0.32f, 0.32f, C2D_Color32(255, 170, 120, 255));
 #else
-            TextRenderer::drawText(renderer, bossLabel, 10, 42, 0, 255, 170, 120);
-            TextRenderer::drawText(renderer, bossDescription, 10, 58, 0, 220, 220, 220);
+            TextRenderer::drawText(renderer, bossLabel, topLayout.blindX, topLayout.bossLabelY, 0, 255, 170, 120);
 #endif
         }
 
@@ -365,30 +357,30 @@ void GameplayState::renderTopScreen(Application* app) {
         // ── Jokers ──
         int numJokers = static_cast<int>(m_runState->jokers.size());
         if (numJokers > 0) {
-            // Draw Jokers at the top of the screen
-            int startX = 200 - (numJokers * 30) / 2; // Assuming ~30px per joker box
+            const int jokerStartX = gameplay_state_helpers::jokerStripStartX(numJokers, topLayout);
             
 #ifdef N3DS
             for (int i = 0; i < numJokers; ++i) {
-                int jx = startX + i * 32;
-                int jy = 25;
+                const int jx = jokerStartX + i * topLayout.jokerSpacing;
+                const int jy = topLayout.jokerStripY;
                 u32 color = C2D_Color32(100, 100, 100, 255);
                 if (m_runState->jokers[i].effectType == JokerEffectType::AddChips) color = C2D_Color32(80, 120, 220, 255);
                 else if (m_runState->jokers[i].effectType == JokerEffectType::AddMult) color = C2D_Color32(220, 60, 60, 255);
                 else if (m_runState->jokers[i].effectType == JokerEffectType::MulMult) color = C2D_Color32(180, 60, 220, 255);
 
-                C2D_DrawRectSolid(jx, jy, 0.5f, 30, 45, color);
-                C2D_DrawRectSolid(jx, jy, 0.5f, 30, 1, C2D_Color32(255, 255, 255, 255));
-                C2D_DrawRectSolid(jx, jy + 44, 0.5f, 30, 1, C2D_Color32(255, 255, 255, 255));
-                C2D_DrawRectSolid(jx, jy, 0.5f, 1, 45, C2D_Color32(255, 255, 255, 255));
-                C2D_DrawRectSolid(jx + 29, jy, 0.5f, 1, 45, C2D_Color32(255, 255, 255, 255));
+                C2D_DrawRectSolid(jx, jy, 0.5f, topLayout.jokerBoxW, topLayout.jokerBoxH, color);
+                C2D_DrawRectSolid(jx, jy, 0.5f, topLayout.jokerBoxW, 1, C2D_Color32(255, 255, 255, 255));
+                C2D_DrawRectSolid(jx, jy + topLayout.jokerBoxH - 1, 0.5f, topLayout.jokerBoxW, 1, C2D_Color32(255, 255, 255, 255));
+                C2D_DrawRectSolid(jx, jy, 0.5f, 1, topLayout.jokerBoxH, C2D_Color32(255, 255, 255, 255));
+                C2D_DrawRectSolid(jx + topLayout.jokerBoxW - 1, jy, 0.5f, 1, topLayout.jokerBoxH, C2D_Color32(255, 255, 255, 255));
                 
-                TextRenderer::drawText(m_runState->jokers[i].description, jx + 2, jy + 18, 0.3f, 0.3f, C2D_Color32(255, 255, 255, 255));
+                TextRenderer::drawText(gameplay_state_helpers::compactJokerLabel(m_runState->jokers[i].name),
+                                       jx + 2, jy + 12, 0.3f, 0.3f, C2D_Color32(255, 255, 255, 255));
             }
 #else
             for (int i = 0; i < numJokers; ++i) {
-                int jx = startX + i * 35;
-                int jy = 25;
+                const int jx = jokerStartX + i * topLayout.jokerSpacing;
+                const int jy = topLayout.jokerStripY;
                 
                 int r = 100, g = 100, b = 100;
                 if (m_runState->jokers[i].effectType == JokerEffectType::AddChips) { r = 80; g = 120; b = 220; }
@@ -396,13 +388,13 @@ void GameplayState::renderTopScreen(Application* app) {
                 else if (m_runState->jokers[i].effectType == JokerEffectType::MulMult) { r = 180; g = 60; b = 220; }
 
                 SDL_SetRenderDrawColor(renderer, r, g, b, 255);
-                SDL_Rect jbox = { jx, jy, 30, 45 };
+                SDL_Rect jbox = { jx, jy, topLayout.jokerBoxW, topLayout.jokerBoxH };
                 SDL_RenderFillRect(renderer, &jbox);
 
                 SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
                 SDL_RenderDrawRect(renderer, &jbox);
 
-                TextRenderer::drawText(renderer, m_runState->jokers[i].description, jx + 2, jy + 18, 0, 255, 255, 255);
+                TextRenderer::drawText(renderer, gameplay_state_helpers::compactJokerLabel(m_runState->jokers[i].name), jx + 2, jy + 12, 0, 255, 255, 255);
             }
 #endif
         }

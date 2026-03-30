@@ -6,6 +6,60 @@
 #include "../game/HandEvaluator.h"
 #include "../game/RunState.h"
 #include <memory>
+#include <string>
+
+namespace gameplay_state_helpers {
+
+struct CompactTopScreenLayout {
+    int anteX;
+    int anteY;
+    int blindX;
+    int blindY;
+    int moneyX;
+    int moneyY;
+    int jokerStripY;
+    int jokerBoxW;
+    int jokerBoxH;
+    int jokerSpacing;
+    int handCenterX;
+    int handY;
+    int bossLabelY;
+    int resultBannerX;
+    int resultBannerY;
+    int resultBannerW;
+    int resultBannerH;
+};
+
+inline CompactTopScreenLayout compactTopScreenLayout() {
+    return {
+        10, 6,
+        10, 22,
+        346, 6,
+        34,
+        24, 36,
+        28,
+        200, 96,
+        74,
+        100, 0, 220, 20
+    };
+}
+
+inline std::string compactJokerLabel(const std::string& name) {
+    return name.substr(0, 6);
+}
+
+inline int jokerStripWidth(int jokerCount, const CompactTopScreenLayout& layout) {
+    if (jokerCount <= 0) {
+        return 0;
+    }
+    return (jokerCount - 1) * layout.jokerSpacing + layout.jokerBoxW;
+}
+
+inline int jokerStripStartX(int jokerCount, const CompactTopScreenLayout& layout) {
+    return 200 - jokerStripWidth(jokerCount, layout) / 2;
+}
+
+} // namespace gameplay_state_helpers
 
 enum class RoundPhase {
     Playing,       // Normal card play

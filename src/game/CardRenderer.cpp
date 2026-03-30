@@ -84,9 +84,9 @@ int CardRenderer::handIndexAtX(int mouseX, int centerX, int cardCount, const Han
     int startX = handStartX(centerX, cardCount, layout);
     // Left of first card
     if (mouseX < startX) return -1;
-    // Right of the fully visible last card
-    int lastCardRightEdge = startX + (cardCount - 1) * layout.cardSpacing + layout.cardW;
-    if (mouseX > lastCardRightEdge) return -1;
+    // SDL/C2D rect widths are exclusive on the right edge, so x == lastX + cardW is already outside.
+    int lastCardRightEdgeExclusive = startX + (cardCount - 1) * layout.cardSpacing + layout.cardW;
+    if (mouseX >= lastCardRightEdgeExclusive) return -1;
     // For all but the last card, use spacing buckets
     int idx = (mouseX - startX) / layout.cardSpacing;
     if (idx >= cardCount) idx = cardCount - 1;

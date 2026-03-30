@@ -1,4 +1,5 @@
 #include "game/CardRenderer.h"
+#include "states/GameplayState.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -13,6 +14,14 @@ void fail(const std::string& message) {
 }
 
 void expectEqual(int actual, int expected, const std::string& label) {
+    if (actual != expected) {
+        std::ostringstream oss;
+        oss << label << ": expected " << expected << ", got " << actual;
+        fail(oss.str());
+    }
+}
+
+void expectEqual(const std::string& actual, const std::string& expected, const std::string& label) {
     if (actual != expected) {
         std::ostringstream oss;
         oss << label << ": expected " << expected << ", got " << actual;
@@ -154,12 +163,11 @@ void testHitTestOutsideHandLeftReturnsMinusOne() {
 
 void testHitTestOutsideHandRightReturnsMinusOne() {
     const CardRenderer::HandLayoutMetrics layout = CardRenderer::gameplayHandLayout();
-    // lastCardRightEdge = 76 + 7*28 + 52 = 76 + 196 + 52 = 324
-    // click at x=325 is right of right edge
+    // The rightmost visible pixel is x=323. x=324 is already outside the card rect.
     const int centerX = 200;
     const int cardCount = 8;
-    const int hitIdx = CardRenderer::handIndexAtX(325, centerX, cardCount, layout);
-    expectEqual(hitIdx, -1, "8-card hand: click right of hand (x=325) should return -1");
+    const int hitIdx = CardRenderer::handIndexAtX(324, centerX, cardCount, layout);
+    expectEqual(hitIdx, -1, "8-card hand: click right of hand (x=324) should return -1");
 }
 
 void testGameplayHandPlacementAssumptions() {
@@ -181,9 +189,41 @@ void testGameplayHandPlacementAssumptions() {
     const int selectedTopY = kGameplayHandY - layout.selectOffset;
     expect(selectedTopY >= 0, "gameplay placement: selected card top Y should be non-negative");
 
+    const auto topLayout = gameplay_state_helpers::compactTopScreenLayout();
+    const int jokerStripBottomY = topLayout.jokerStripY + topLayout.jokerBoxH;
+    expect(selectedTopY > jokerStripBottomY,
+           "gameplay placement: lifted cards should clear the compact joker/header strip");
+
     // Bottom bound fits within 240px screen height
     const int bottomBound = kGameplayHandY + layout.cardH + layout.cursorGap + layout.cursorH;
     expect(bottomBound <= 240, "gameplay placement: bottom hit-test bound should fit within 240px screen height");
+}
+
+void testGameplayTopScreenCompactLayoutContract() {
+    const auto layout = gameplay_state_helpers::compactTopScreenLayout();
+
+    expectEqual(layout.anteX, 10, "top layout anteX");
+    expectEqual(layout.anteY, 6, "top layout anteY");
+    expectEqual(layout.blindX, 10, "top layout blindX");
+    expectEqual(layout.blindY, 22, "top layout blindY");
+    expectEqual(layout.moneyX, 346, "top layout moneyX");
+    expectEqual(layout.moneyY, 6, "top layout moneyY");
+    expectEqual(layout.jokerStripY, 34, "top layout jokerStripY");
+    expectEqual(layout.jokerBoxW, 24, "top layout jokerBoxW");
+    expectEqual(layout.jokerBoxH, 36, "top layout jokerBoxH");
+    expectEqual(layout.jokerSpacing, 28, "top layout jokerSpacing");
+    expectEqual(layout.handCenterX, 200, "top layout handCenterX");
+    expectEqual(layout.handY, 96, "top layout handY");
+    expectEqual(layout.bossLabelY, 74, "top layout bossLabelY");
+
+    expectEqual(gameplay_state_helpers::compactJokerLabel("Blueprint"), std::string("Bluepr"),
+                "compact joker label should truncate to 6 chars");
+    expectEqual(gameplay_state_helpers::compactJokerLabel("N"), std::string("N"),
+                "compact joker label should keep short names intact");
+
+    const int resultBannerBottomY = layout.resultBannerY + layout.resultBannerH;
+    expect(resultBannerBottomY <= layout.jokerStripY,
+           "result banner should stay above the compact joker strip");
 }
 
 // Compile-level API stability check: verify that drawCard and drawHand accept an optional
@@ -225,6 +265,7 @@ int main() {
     testHitTestOutsideHandLeftReturnsMinusOne();
     testHitTestOutsideHandRightReturnsMinusOne();
     testGameplayHandPlacementAssumptions();
+    testGameplayTopScreenCompactLayoutContract();
     testDrawSignaturesAcceptLayoutParameter();
     std::cout << "CardRenderer sprite-sheet tests passed\n";
     return 0;
