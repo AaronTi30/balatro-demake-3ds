@@ -21,6 +21,16 @@ public:
         CardSpriteSourceRect overlaySource;
     };
 
+    struct HandLayoutMetrics {
+        int cardW;
+        int cardH;
+        int cardSpacing;
+        int selectOffset;
+        int cursorW;
+        int cursorH;
+        int cursorGap;
+    };
+
     // Card dimensions (3DS-friendly sizing)
     static constexpr int CARD_W = 40;
     static constexpr int CARD_H = 56;
@@ -28,6 +38,16 @@ public:
     static constexpr int SELECT_OFFSET = 12; // Y shift when selected
     static constexpr int SPRITE_SHEET_CELL_W = 71;
     static constexpr int SPRITE_SHEET_CELL_H = 95;
+
+    // Hand layout presets
+    static HandLayoutMetrics defaultHandLayout();
+    static HandLayoutMetrics gameplayHandLayout();
+
+    // Hand geometry helpers
+    static int handWidthForCount(int cardCount, const HandLayoutMetrics& layout);
+    static int handStartX(int centerX, int cardCount, const HandLayoutMetrics& layout);
+    static int handCardX(int centerX, int cardCount, int index, const HandLayoutMetrics& layout);
+    static int handIndexAtX(int mouseX, int centerX, int cardCount, const HandLayoutMetrics& layout);
 
     // Init texture assets
     static void init(Application* app);

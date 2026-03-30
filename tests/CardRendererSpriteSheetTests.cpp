@@ -66,10 +66,25 @@ void testSpriteSheetMappingUsesExplicitSuitAndRankOrder() {
                "spades king should use the fourth row and king column");
 }
 
+void testDefaultHandLayoutPreset() {
+    const CardRenderer::HandLayoutMetrics layout = CardRenderer::defaultHandLayout();
+    expectEqual(layout.cardW, 40, "default layout cardW");
+    expectEqual(layout.cardH, 56, "default layout cardH");
+    expectEqual(layout.cardSpacing, 36, "default layout cardSpacing");
+    expectEqual(layout.selectOffset, 12, "default layout selectOffset");
+    expectEqual(layout.cursorW, 8, "default layout cursorW");
+    expectEqual(layout.cursorH, 4, "default layout cursorH");
+    expectEqual(layout.cursorGap, 4, "default layout cursorGap");
+
+    const int totalWidth = CardRenderer::handWidthForCount(8, layout);
+    expectEqual(totalWidth, 7 * 36 + 40, "default layout total width for 8 cards");
+}
+
 } // namespace
 
 int main() {
     testSpriteSheetMappingUsesExplicitSuitAndRankOrder();
+    testDefaultHandLayoutPreset();
     std::cout << "CardRenderer sprite-sheet tests passed\n";
     return 0;
 }

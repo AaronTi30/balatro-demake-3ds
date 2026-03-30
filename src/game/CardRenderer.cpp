@@ -58,6 +58,41 @@ int spriteSheetColumn(Rank rank) {
 } // namespace
 #endif
 
+CardRenderer::HandLayoutMetrics CardRenderer::defaultHandLayout() {
+    return { CARD_W, CARD_H, CARD_SPACING, SELECT_OFFSET, 8, 4, 4 };
+}
+
+CardRenderer::HandLayoutMetrics CardRenderer::gameplayHandLayout() {
+    return { 52, 70, 28, 14, 10, 5, 5 };
+}
+
+int CardRenderer::handWidthForCount(int cardCount, const HandLayoutMetrics& layout) {
+    if (cardCount <= 0) return 0;
+    return (cardCount - 1) * layout.cardSpacing + layout.cardW;
+}
+
+int CardRenderer::handStartX(int centerX, int cardCount, const HandLayoutMetrics& layout) {
+    return centerX - handWidthForCount(cardCount, layout) / 2;
+}
+
+int CardRenderer::handCardX(int centerX, int cardCount, int index, const HandLayoutMetrics& layout) {
+    return handStartX(centerX, cardCount, layout) + index * layout.cardSpacing;
+}
+
+int CardRenderer::handIndexAtX(int mouseX, int centerX, int cardCount, const HandLayoutMetrics& layout) {
+    if (cardCount <= 0) return -1;
+    int startX = handStartX(centerX, cardCount, layout);
+    // Left of first card
+    if (mouseX < startX) return -1;
+    // Right of the fully visible last card
+    int lastCardRightEdge = startX + (cardCount - 1) * layout.cardSpacing + layout.cardW;
+    if (mouseX > lastCardRightEdge) return -1;
+    // For all but the last card, use spacing buckets
+    int idx = (mouseX - startX) / layout.cardSpacing;
+    if (idx >= cardCount) idx = cardCount - 1;
+    return idx;
+}
+
 void CardRenderer::init(Application* app) {
 #ifndef N3DS
     SDL_Renderer* renderer = app->getRenderer();
