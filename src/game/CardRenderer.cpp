@@ -12,25 +12,61 @@
 #include <math.h>
 
 #ifndef N3DS
-SDL_Texture* CardRenderer::t_base = nullptr;
-SDL_Texture* CardRenderer::t_spade = nullptr;
-SDL_Texture* CardRenderer::t_heart = nullptr;
-SDL_Texture* CardRenderer::t_club = nullptr;
-SDL_Texture* CardRenderer::t_diamond = nullptr;
+SDL_Texture* CardRenderer::t_cards = nullptr;
+
+namespace {
+
+int spriteSheetRow(Suit suit) {
+    switch (suit) {
+        case Suit::Hearts: return 0;
+        case Suit::Clubs: return 1;
+        case Suit::Diamonds: return 2;
+        case Suit::Spades: return 3;
+        default: return 0;
+    }
+}
+
+int spriteSheetColumn(Rank rank) {
+    switch (rank) {
+        case Rank::Two: return 0;
+        case Rank::Three: return 1;
+        case Rank::Four: return 2;
+        case Rank::Five: return 3;
+        case Rank::Six: return 4;
+        case Rank::Seven: return 5;
+        case Rank::Eight: return 6;
+        case Rank::Nine: return 7;
+        case Rank::Ten: return 8;
+        case Rank::Jack: return 9;
+        case Rank::Queen: return 10;
+        case Rank::King: return 11;
+        case Rank::Ace: return 12;
+        default: return 0;
+    }
+}
+
+} // namespace
 #endif
 
 void CardRenderer::init(Application* app) {
 #ifndef N3DS
     SDL_Renderer* renderer = app->getRenderer();
-    if (!t_base) {
-        t_base = sdlLoadTexture(renderer, "assets/textures/card_base.png");
-        t_spade = sdlLoadTexture(renderer, "assets/textures/spade.png");
-        t_heart = sdlLoadTexture(renderer, "assets/textures/heart.png");
-        t_club = sdlLoadTexture(renderer, "assets/textures/club.png");
-        t_diamond = sdlLoadTexture(renderer, "assets/textures/diamond.png");
+    if (!t_cards) {
+        t_cards = sdlLoadTexture(renderer, "assets/textures/8BitDeck.png");
     }
 #endif
 }
+
+#ifndef N3DS
+CardRenderer::CardSpriteSourceRect CardRenderer::spriteSheetSourceRect(const Card& card) {
+    return {
+        spriteSheetColumn(card.rank) * SPRITE_SHEET_CELL_W,
+        spriteSheetRow(card.suit) * SPRITE_SHEET_CELL_H,
+        SPRITE_SHEET_CELL_W,
+        SPRITE_SHEET_CELL_H
+    };
+}
+#endif
 
 void CardRenderer::drawCard(Application* app, const Card& card, int x, int y, bool selected) {
     init(app); // Lazy init textures
@@ -70,49 +106,22 @@ void CardRenderer::drawCard(Application* app, const Card& card, int x, int y, bo
     SDL_Renderer* renderer = app->getRenderer();
     SDL_Rect dstRect = { x, drawY, CARD_W, CARD_H };
 
-    // ── Base Card ──
-    if (t_base) {
-        SDL_RenderCopyEx(renderer, t_base, NULL, &dstRect, angle, NULL, SDL_FLIP_NONE);
+    if (t_cards) {
+        const CardSpriteSourceRect source = spriteSheetSourceRect(card);
+        SDL_Rect srcRect = { source.x, source.y, source.w, source.h };
+        SDL_RenderCopyEx(renderer, t_cards, &srcRect, &dstRect, angle, NULL, SDL_FLIP_NONE);
     } else {
         SDL_SetRenderDrawColor(renderer, 240, 240, 235, 255);
         SDL_RenderFillRect(renderer, &dstRect);
         SDL_SetRenderDrawColor(renderer, 160, 160, 160, 255);
         SDL_RenderDrawRect(renderer, &dstRect);
-    }
-
-    // ── Text colors ──
-    Uint8 tr = isRed ? 220 : 30;
-    Uint8 tg = isRed ? 50 : 30;
-    Uint8 tb = isRed ? 50 : 30;
-
-    // ── Rank text ──
-    // Note: Text rotation isn't easily supported by our TextRenderer right now, 
-    // so it will just wobble Y based on angle if we really wanted, but staying static is fine.
-    int textOfsY = selected ? static_cast<int>(sin(SDL_GetTicks() / 150.0f) * 2.0f) : 0;
-    TextRenderer::drawText(renderer, rankStr, x + 4, drawY + 2 + textOfsY, 0, tr, tg, tb);
-
-    // ── Suit Icon ──
-    SDL_Texture* t_suit = nullptr;
-    switch(card.suit) {
-        case Suit::Spades: t_suit = t_spade; break;
-        case Suit::Hearts: t_suit = t_heart; break;
-        case Suit::Clubs: t_suit = t_club; break;
-        case Suit::Diamonds: t_suit = t_diamond; break;
-    }
-
-    if (t_suit) {
-        int suitW = (card.suit == Suit::Diamonds) ? 21 : 20;
-        int suitH = (card.suit == Suit::Diamonds) ? 21 : 20;
-        SDL_Rect suitRect = { x + CARD_W/2 - suitW/2, drawY + CARD_H/2 - suitH/2, suitW, suitH };
-        SDL_RenderCopyEx(renderer, t_suit, NULL, &suitRect, angle, NULL, SDL_FLIP_NONE);
-        
-        // Small suit under rank
-        SDL_Rect thinRect = { x + 6, drawY + 16 + textOfsY, 8, 8 };
-        if (card.rank != Rank::Ten) {
-            SDL_RenderCopyEx(renderer, t_suit, NULL, &thinRect, angle, NULL, SDL_FLIP_NONE);
-        }
-    } else {
         const char* suitStr = suitToString(card.suit);
+        Uint8 tr = isRed ? 220 : 30;
+        Uint8 tg = isRed ? 50 : 30;
+        Uint8 tb = isRed ? 50 : 30;
+        int textOfsY = selected ? static_cast<int>(sin(SDL_GetTicks() / 150.0f) * 2.0f) : 0;
+
+        TextRenderer::drawText(renderer, rankStr, x + 4, drawY + 2 + textOfsY, 0, tr, tg, tb);
         TextRenderer::drawText(renderer, suitStr, x + CARD_W/2 - 5, drawY + CARD_H/2 - 8, 1, tr, tg, tb);
     }
 #endif

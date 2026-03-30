@@ -121,4 +121,18 @@ if(NOT N3DS)
     target_include_directories(asset_path_tests PRIVATE src ${SDL2_INCLUDE_DIR})
     target_link_libraries(asset_path_tests PRIVATE ${SDL2_LIBRARY})
     add_test(NAME asset_path_tests COMMAND asset_path_tests)
+
+    add_executable(card_renderer_sprite_sheet_tests
+        tests/CardRendererSpriteSheetTests.cpp
+        src/game/CardRenderer.cpp
+        src/game/Hand.cpp
+        src/core/AssetPath.cpp
+        src/core/TextRenderer.cpp
+    )
+    target_include_directories(card_renderer_sprite_sheet_tests PRIVATE src ${SDL2_INCLUDE_DIR})
+    target_link_libraries(card_renderer_sprite_sheet_tests PRIVATE ${SDL2_LIBRARY})
+    if(SDL2_TTF_LIB)
+        target_link_libraries(card_renderer_sprite_sheet_tests PRIVATE ${SDL2_TTF_LIB})
+    endif()
+    add_test(NAME card_renderer_sprite_sheet_tests COMMAND card_renderer_sprite_sheet_tests)
 endif()
