@@ -49,10 +49,10 @@ constexpr TitleRect kTopScreenRect{0, 0, 400, 240};
 constexpr TitleRect kBottomScreenRect{400, 0, 320, 240};
 constexpr TitleRect kLogoRect{80, 4, 240, 156};
 constexpr TitleRect kAceRect{160, 124, 80, 112};
-constexpr TitleRect kCollectionRect{412, 84, 140, 44};
-constexpr TitleRect kOptionsRect{568, 84, 140, 44};
-constexpr TitleRect kQuitRect{412, 144, 140, 44};
-constexpr TitleRect kPlayRect{568, 144, 140, 44};
+constexpr TitleRect kPlayRect{480, 74, 160, 44};
+constexpr TitleRect kOptionsRect{422, 134, 74, 34};
+constexpr TitleRect kQuitRect{604, 134, 74, 34};
+constexpr TitleRect kCollectionRect{480, 184, 160, 44};
 
 TitleRect buttonRect(TitleButton button) {
     switch (button) {
@@ -68,33 +68,33 @@ ButtonStyle buttonStyle(TitleButton button) {
     switch (button) {
         case TitleButton::Collection:
             return {
-                {90, 53, 17, 255},
-                {176, 122, 42, 255},
-                {224, 176, 84, 255},
-                {255, 248, 230, 255},
-                0
+                {14, 52, 28, 255},
+                {0x1E, 0x6B, 0x3A, 255},
+                {62, 144, 85, 255},
+                {255, 255, 255, 255},
+                1
             };
         case TitleButton::Options:
             return {
-                {26, 55, 88, 255},
-                {58, 103, 163, 255},
-                {111, 163, 219, 255},
+                {78, 35, 12, 255},
+                {0x9B, 0x4A, 0x1A, 255},
+                {197, 111, 56, 255},
                 {255, 255, 255, 255},
                 1
             };
         case TitleButton::Quit:
             return {
-                {80, 18, 24, 255},
-                {156, 49, 60, 255},
-                {209, 97, 108, 255},
+                {61, 12, 12, 255},
+                {0x8B, 0x20, 0x20, 255},
+                {183, 76, 76, 255},
                 {255, 245, 245, 255},
                 1
             };
         case TitleButton::Play:
             return {
-                {25, 78, 33, 255},
-                {54, 144, 74, 255},
-                {104, 208, 128, 255},
+                {22, 49, 81, 255},
+                {0x2B, 0x5F, 0x9E, 255},
+                {91, 138, 196, 255},
                 {255, 255, 255, 255},
                 1
             };
