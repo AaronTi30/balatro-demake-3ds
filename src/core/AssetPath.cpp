@@ -53,11 +53,21 @@ std::filesystem::path resolveAssetPath(const std::filesystem::path& relativePath
 }
 
 #ifndef N3DS
-SDL_Texture* sdlLoadTexture(SDL_Renderer* renderer, const std::filesystem::path& path) {
+SDL_Texture* sdlLoadTexture(SDL_Renderer* renderer, const std::filesystem::path& assetRelativePath) {
+    const std::filesystem::path currentDir = std::filesystem::current_path();
+    char* rawBasePath = SDL_GetBasePath();
+    const std::filesystem::path executableDir =
+        rawBasePath ? std::filesystem::path(rawBasePath) : currentDir;
+    if (rawBasePath) {
+        SDL_free(rawBasePath);
+    }
+
+    const std::filesystem::path resolvedPath =
+        resolveAssetPath(assetRelativePath, currentDir, executableDir);
     int width = 0;
     int height = 0;
     int channels = 0;
-    const std::string pathString = path.string();
+    const std::string pathString = resolvedPath.string();
     unsigned char* pixels = stbi_load(pathString.c_str(), &width, &height, &channels, 4);
     if (!pixels) {
         return nullptr;
