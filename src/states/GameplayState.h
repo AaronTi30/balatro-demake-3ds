@@ -6,6 +6,102 @@
 #include "../game/HandEvaluator.h"
 #include "../game/RunState.h"
 #include <memory>
+#include <string>
+
+namespace gameplay_state_helpers {
+
+struct CompactTopScreenLayout {
+    int anteX;
+    int anteY;
+    int blindX;
+    int blindY;
+    int moneyX;
+    int moneyY;
+    int jokerStripY;
+    int jokerBoxW;
+    int jokerBoxH;
+    int jokerSpacing;
+    int handCenterX;
+    int handY;
+    int bossLabelY;
+    int resultBannerX;
+    int resultBannerY;
+    int resultBannerW;
+    int resultBannerH;
+};
+
+struct CompactBottomScreenLayout {
+    int scoreHeaderX;
+    int scoreHeaderY;
+    int scoreValueX;
+    int scoreValueY;
+    int scoreTargetX;
+    int scoreTargetY;
+    int progressBarX;
+    int progressBarY;
+    int progressBarW;
+    int progressBarH;
+    int statusRowY;
+    int previewLabelY;
+    int previewTypeY;
+    int previewScoreY;
+    int bossDescriptionY;
+    int buttonX;
+    int buttonY;
+    int buttonW;
+    int buttonH;
+    int buttonGap;
+};
+
+inline CompactTopScreenLayout compactTopScreenLayout() {
+    return {
+        10, 6,
+        10, 22,
+        346, 6,
+        34,
+        24, 36,
+        28,
+        200, 96,
+        74,
+        100, 0, 220, 20
+    };
+}
+
+inline CompactBottomScreenLayout compactBottomScreenLayout() {
+    return {
+        20, 10,
+        80, 8,
+        140, 10,
+        20, 35, 280, 20,
+        62,
+        84, 100, 118,
+        136,
+        20, 160, 120, 50, 20
+    };
+}
+
+inline std::string compactJokerLabel(const std::string& name) {
+    return name.substr(0, 6);
+}
+
+inline std::string compactStatusLine(int handsRemaining, int discardsRemaining, int deckRemaining) {
+    return "Hands " + std::to_string(handsRemaining) +
+        "   Discards " + std::to_string(discardsRemaining) +
+        "   Deck " + std::to_string(deckRemaining);
+}
+
+inline int jokerStripWidth(int jokerCount, const CompactTopScreenLayout& layout) {
+    if (jokerCount <= 0) {
+        return 0;
+    }
+    return (jokerCount - 1) * layout.jokerSpacing + layout.jokerBoxW;
+}
+
+inline int jokerStripStartX(int jokerCount, const CompactTopScreenLayout& layout) {
+    return 200 - jokerStripWidth(jokerCount, layout) / 2;
+}
+
+} // namespace gameplay_state_helpers
 
 enum class RoundPhase {
     Playing,       // Normal card play
