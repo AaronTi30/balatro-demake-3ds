@@ -34,6 +34,7 @@ public:
 
 #ifndef N3DS
     static CardSpriteSourceRect spriteSheetSourceRect(const Card& card);
+    static SDL_Texture* getCardsTexture() { return t_cards; }
 #endif
 
 private:

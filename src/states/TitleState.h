@@ -1,13 +1,15 @@
 #pragma once
 
 #include "../core/State.h"
-#include "../game/Hand.h"
-#include <string>
+
+#ifndef N3DS
+struct SDL_Texture;
+#endif
 
 class TitleState : public State {
 public:
     TitleState(StateMachine* machine);
-    ~TitleState() override = default;
+    ~TitleState() override;
 
     void enter() override;
     void exit() override;
@@ -17,6 +19,13 @@ public:
     void renderBottomScreen(Application* app) override;
 
 private:
-    std::string m_titleText;
-    Hand m_sampleHand;
+    void startRun();
+
+#ifndef N3DS
+    void ensureDesktopAssets(Application* app);
+    void destroyDesktopAssets();
+
+    SDL_Texture* m_logoTex;
+    bool m_mouseWasPressed;
+#endif
 };
