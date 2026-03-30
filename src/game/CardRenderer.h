@@ -15,6 +15,12 @@ public:
         int h;
     };
 
+    struct DesktopCardRenderPlan {
+        bool drawBaseTexture;
+        CardSpriteSourceRect baseSource;
+        CardSpriteSourceRect overlaySource;
+    };
+
     // Card dimensions (3DS-friendly sizing)
     static constexpr int CARD_W = 40;
     static constexpr int CARD_H = 56;
@@ -34,11 +40,14 @@ public:
 
 #ifndef N3DS
     static CardSpriteSourceRect spriteSheetSourceRect(const Card& card);
+    static DesktopCardRenderPlan desktopRenderPlan(const Card& card);
     static SDL_Texture* getCardsTexture() { return t_cards; }
+    static SDL_Texture* getCardBaseTexture() { return t_base; }
 #endif
 
 private:
 #ifndef N3DS
+    static SDL_Texture* t_base;
     static SDL_Texture* t_cards;
 #endif
 };

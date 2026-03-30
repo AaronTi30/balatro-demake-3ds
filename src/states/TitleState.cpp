@@ -253,12 +253,29 @@ void TitleState::renderTopScreen(Application* app) {
     }
 
     CardRenderer::init(app);
+    const auto renderPlan = CardRenderer::desktopRenderPlan({ Suit::Spades, Rank::Ace });
+    SDL_Texture* cardBaseTexture = CardRenderer::getCardBaseTexture();
     SDL_Texture* cardsTexture = CardRenderer::getCardsTexture();
+    const SDL_Rect dstRect = { kAceRect.x, kAceRect.y, kAceRect.w, kAceRect.h };
+
+    if (cardBaseTexture) {
+        SDL_Rect baseSrcRect = {
+            renderPlan.baseSource.x,
+            renderPlan.baseSource.y,
+            renderPlan.baseSource.w,
+            renderPlan.baseSource.h
+        };
+        SDL_RenderCopy(renderer, cardBaseTexture, &baseSrcRect, &dstRect);
+    } else {
+        SDL_SetRenderDrawColor(renderer, 240, 240, 235, 255);
+        SDL_RenderFillRect(renderer, &dstRect);
+        SDL_SetRenderDrawColor(renderer, 160, 160, 160, 255);
+        SDL_RenderDrawRect(renderer, &dstRect);
+    }
+
     if (cardsTexture) {
-        const Card aceOfSpades{ Suit::Spades, Rank::Ace };
-        const auto source = CardRenderer::spriteSheetSourceRect(aceOfSpades);
+        const auto source = renderPlan.overlaySource;
         SDL_Rect srcRect = { source.x, source.y, source.w, source.h };
-        SDL_Rect dstRect = { kAceRect.x, kAceRect.y, kAceRect.w, kAceRect.h };
         SDL_RenderCopy(renderer, cardsTexture, &srcRect, &dstRect);
     }
 #endif

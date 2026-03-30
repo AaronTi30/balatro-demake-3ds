@@ -12,9 +12,19 @@
 #include <math.h>
 
 #ifndef N3DS
+SDL_Texture* CardRenderer::t_base = nullptr;
 SDL_Texture* CardRenderer::t_cards = nullptr;
 
 namespace {
+
+CardRenderer::CardSpriteSourceRect defaultBaseSourceRect() {
+    return {
+        CardRenderer::SPRITE_SHEET_CELL_W,
+        0,
+        CardRenderer::SPRITE_SHEET_CELL_W,
+        CardRenderer::SPRITE_SHEET_CELL_H
+    };
+}
 
 int spriteSheetRow(Suit suit) {
     switch (suit) {
@@ -51,6 +61,9 @@ int spriteSheetColumn(Rank rank) {
 void CardRenderer::init(Application* app) {
 #ifndef N3DS
     SDL_Renderer* renderer = app->getRenderer();
+    if (!t_base) {
+        t_base = sdlLoadTexture(renderer, "assets/textures/Enhancers.png");
+    }
     if (!t_cards) {
         t_cards = sdlLoadTexture(renderer, "assets/textures/8BitDeck.png");
     }
@@ -64,6 +77,14 @@ CardRenderer::CardSpriteSourceRect CardRenderer::spriteSheetSourceRect(const Car
         spriteSheetRow(card.suit) * SPRITE_SHEET_CELL_H,
         SPRITE_SHEET_CELL_W,
         SPRITE_SHEET_CELL_H
+    };
+}
+
+CardRenderer::DesktopCardRenderPlan CardRenderer::desktopRenderPlan(const Card& card) {
+    return {
+        true,
+        defaultBaseSourceRect(),
+        spriteSheetSourceRect(card)
     };
 }
 #endif
@@ -105,16 +126,34 @@ void CardRenderer::drawCard(Application* app, const Card& card, int x, int y, bo
 #else
     SDL_Renderer* renderer = app->getRenderer();
     SDL_Rect dstRect = { x, drawY, CARD_W, CARD_H };
+    const DesktopCardRenderPlan plan = desktopRenderPlan(card);
+
+    if (plan.drawBaseTexture) {
+        if (t_base) {
+            SDL_Rect baseSrcRect = {
+                plan.baseSource.x,
+                plan.baseSource.y,
+                plan.baseSource.w,
+                plan.baseSource.h
+            };
+            SDL_RenderCopyEx(renderer, t_base, &baseSrcRect, &dstRect, angle, NULL, SDL_FLIP_NONE);
+        } else {
+            SDL_SetRenderDrawColor(renderer, 240, 240, 235, 255);
+            SDL_RenderFillRect(renderer, &dstRect);
+            SDL_SetRenderDrawColor(renderer, 160, 160, 160, 255);
+            SDL_RenderDrawRect(renderer, &dstRect);
+        }
+    }
 
     if (t_cards) {
-        const CardSpriteSourceRect source = spriteSheetSourceRect(card);
-        SDL_Rect srcRect = { source.x, source.y, source.w, source.h };
+        SDL_Rect srcRect = {
+            plan.overlaySource.x,
+            plan.overlaySource.y,
+            plan.overlaySource.w,
+            plan.overlaySource.h
+        };
         SDL_RenderCopyEx(renderer, t_cards, &srcRect, &dstRect, angle, NULL, SDL_FLIP_NONE);
     } else {
-        SDL_SetRenderDrawColor(renderer, 240, 240, 235, 255);
-        SDL_RenderFillRect(renderer, &dstRect);
-        SDL_SetRenderDrawColor(renderer, 160, 160, 160, 255);
-        SDL_RenderDrawRect(renderer, &dstRect);
         const char* suitStr = suitToString(card.suit);
         Uint8 tr = isRed ? 220 : 30;
         Uint8 tg = isRed ? 50 : 30;

@@ -20,6 +20,12 @@ void expectEqual(int actual, int expected, const std::string& label) {
     }
 }
 
+void expect(bool condition, const std::string& label) {
+    if (!condition) {
+        fail(label);
+    }
+}
+
 void expectRect(const CardRenderer::CardSpriteSourceRect& actual,
                 int expectedX,
                 int expectedY,
@@ -31,22 +37,30 @@ void expectRect(const CardRenderer::CardSpriteSourceRect& actual,
 }
 
 void testSpriteSheetMappingUsesExplicitSuitAndRankOrder() {
-    expectRect(CardRenderer::spriteSheetSourceRect({ Suit::Hearts, Rank::Two }),
+    const CardRenderer::DesktopCardRenderPlan heartsTwoPlan =
+        CardRenderer::desktopRenderPlan({ Suit::Hearts, Rank::Two });
+    expect(heartsTwoPlan.drawBaseTexture,
+           "desktop renderer should keep drawing the opaque base texture under sprite art");
+    expectRect(heartsTwoPlan.baseSource,
+               CardRenderer::SPRITE_SHEET_CELL_W,
+               0,
+               "desktop renderer should use the Balatro default base card cell from Enhancers.png");
+    expectRect(heartsTwoPlan.overlaySource,
                0,
                0,
                "hearts two should map to the top-left cell");
 
-    expectRect(CardRenderer::spriteSheetSourceRect({ Suit::Clubs, Rank::Two }),
+    expectRect(CardRenderer::desktopRenderPlan({ Suit::Clubs, Rank::Two }).overlaySource,
                0,
                CardRenderer::SPRITE_SHEET_CELL_H,
                "clubs should use the second row even though its enum ordinal differs");
 
-    expectRect(CardRenderer::spriteSheetSourceRect({ Suit::Diamonds, Rank::Ace }),
+    expectRect(CardRenderer::desktopRenderPlan({ Suit::Diamonds, Rank::Ace }).overlaySource,
                12 * CardRenderer::SPRITE_SHEET_CELL_W,
                2 * CardRenderer::SPRITE_SHEET_CELL_H,
                "diamonds ace should use the explicit row and final column");
 
-    expectRect(CardRenderer::spriteSheetSourceRect({ Suit::Spades, Rank::King }),
+    expectRect(CardRenderer::desktopRenderPlan({ Suit::Spades, Rank::King }).overlaySource,
                11 * CardRenderer::SPRITE_SHEET_CELL_W,
                3 * CardRenderer::SPRITE_SHEET_CELL_H,
                "spades king should use the fourth row and king column");
