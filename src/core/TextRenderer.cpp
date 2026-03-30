@@ -1,5 +1,10 @@
 #include "TextRenderer.h"
+
+#include "AssetPath.h"
+
+#include <filesystem>
 #include <iostream>
+#include <string>
 
 bool TextRenderer::s_initialized = false;
 
@@ -24,7 +29,39 @@ bool TextRenderer::init() {
         return false;
     }
 
-    // Try several font paths (macOS system fonts)
+    const std::filesystem::path currentDir = std::filesystem::current_path();
+    char* rawBasePath = SDL_GetBasePath();
+    const std::filesystem::path executableDir =
+        rawBasePath ? std::filesystem::path(rawBasePath) : currentDir;
+    if (rawBasePath) {
+        SDL_free(rawBasePath);
+    }
+
+    const std::filesystem::path bundledFont = resolveAssetPath(
+        "assets/fonts/m6x11plus.ttf",
+        currentDir,
+        executableDir
+    );
+
+    auto canOpenFont = [](const std::string& path) {
+        TTF_Font* test = TTF_OpenFont(path.c_str(), 12);
+        if (!test) {
+            return false;
+        }
+
+        TTF_CloseFont(test);
+        return true;
+    };
+
+    std::string chosenFont;
+    if (!bundledFont.empty() && std::filesystem::exists(bundledFont)) {
+        const std::string bundledFontString = bundledFont.string();
+        if (canOpenFont(bundledFontString)) {
+            chosenFont = bundledFontString;
+        }
+    }
+
+    // Fall back to several system font paths when the bundled font is unavailable.
     const char* fontPaths[] = {
         "/System/Library/Fonts/Courier.ttc",
         "/System/Library/Fonts/Geneva.ttf",
@@ -33,24 +70,23 @@ bool TextRenderer::init() {
         nullptr
     };
 
-    const char* chosenFont = nullptr;
-    for (int i = 0; fontPaths[i] != nullptr; ++i) {
-        TTF_Font* test = TTF_OpenFont(fontPaths[i], 12);
-        if (test) {
-            TTF_CloseFont(test);
-            chosenFont = fontPaths[i];
-            break;
+    if (chosenFont.empty()) {
+        for (int i = 0; fontPaths[i] != nullptr; ++i) {
+            if (canOpenFont(fontPaths[i])) {
+                chosenFont = fontPaths[i];
+                break;
+            }
         }
     }
 
-    if (!chosenFont) {
-        std::cerr << "TextRenderer: Could not find any system font!" << std::endl;
+    if (chosenFont.empty()) {
+        std::cerr << "TextRenderer: Could not find a bundled or system font!" << std::endl;
         return false;
     }
 
-    s_fontSmall  = TTF_OpenFont(chosenFont, 10);
-    s_fontMedium = TTF_OpenFont(chosenFont, 16);
-    s_fontLarge  = TTF_OpenFont(chosenFont, 24);
+    s_fontSmall  = TTF_OpenFont(chosenFont.c_str(), 10);
+    s_fontMedium = TTF_OpenFont(chosenFont.c_str(), 16);
+    s_fontLarge  = TTF_OpenFont(chosenFont.c_str(), 24);
 
     if (!s_fontSmall || !s_fontMedium || !s_fontLarge) {
         std::cerr << "TextRenderer: Failed to load font at sizes: " << TTF_GetError() << std::endl;

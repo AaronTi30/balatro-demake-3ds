@@ -70,11 +70,32 @@ void testResolveAssetPathFindsAssetsFromBuildDirectory() {
                 "resolver should find assets when launched from build directory");
 }
 
+void testResolveAssetPathFindsBundledBalatroFont() {
+    const std::filesystem::path buildDir = std::filesystem::current_path();
+    const std::filesystem::path repoRoot = buildDir.parent_path();
+    const std::filesystem::path expected = std::filesystem::weakly_canonical(
+        repoRoot / "assets/fonts/m6x11plus.ttf"
+    );
+
+    expect(std::filesystem::exists(expected),
+           "test fixture requires assets/fonts/m6x11plus.ttf in repo root");
+
+    const std::filesystem::path resolved = resolveAssetPath(
+        "assets/fonts/m6x11plus.ttf",
+        buildDir,
+        buildDir
+    );
+
+    expectEqual(resolved, expected,
+                "resolver should find the bundled Balatro font from the build directory");
+}
+
 } // namespace
 
 int main() {
     testResolveAssetPathFindsAssetsFromRepoRoot();
     testResolveAssetPathFindsAssetsFromBuildDirectory();
+    testResolveAssetPathFindsBundledBalatroFont();
 
     std::cout << "AssetPath tests passed\n";
     return 0;
