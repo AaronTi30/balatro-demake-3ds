@@ -1,6 +1,13 @@
 #include "AssetPath.h"
 
 #include <array>
+#include <string>
+
+#ifndef N3DS
+#include <SDL.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+#endif
 
 namespace {
 
@@ -44,3 +51,29 @@ std::filesystem::path resolveAssetPath(const std::filesystem::path& relativePath
 
     return relativePath;
 }
+
+#ifndef N3DS
+SDL_Texture* sdlLoadTexture(SDL_Renderer* renderer, const std::filesystem::path& path) {
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+    const std::string pathString = path.string();
+    unsigned char* pixels = stbi_load(pathString.c_str(), &width, &height, &channels, 4);
+    if (!pixels) {
+        return nullptr;
+    }
+
+    SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(
+        pixels, width, height, 32, 4 * width, SDL_PIXELFORMAT_RGBA32
+    );
+    if (!surface) {
+        stbi_image_free(pixels);
+        return nullptr;
+    }
+
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+    stbi_image_free(pixels);
+    return texture;
+}
+#endif

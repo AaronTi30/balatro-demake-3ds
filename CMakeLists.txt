@@ -118,6 +118,7 @@ if(NOT N3DS)
         tests/AssetPathTests.cpp
         src/core/AssetPath.cpp
     )
-    target_include_directories(asset_path_tests PRIVATE src)
+    target_include_directories(asset_path_tests PRIVATE src ${SDL2_INCLUDE_DIR})
+    target_link_libraries(asset_path_tests PRIVATE ${SDL2_LIBRARY})
     add_test(NAME asset_path_tests COMMAND asset_path_tests)
 endif()

@@ -7,8 +7,6 @@
 #include <citro2d.h>
 #else
 #include <SDL.h>
-#define STB_IMAGE_IMPLEMENTATION
-#include "../core/stb_image.h"
 #endif
 
 #include <math.h>
@@ -20,18 +18,6 @@ SDL_Texture* CardRenderer::t_spade = nullptr;
 SDL_Texture* CardRenderer::t_heart = nullptr;
 SDL_Texture* CardRenderer::t_club = nullptr;
 SDL_Texture* CardRenderer::t_diamond = nullptr;
-
-static SDL_Texture* loadTexture(SDL_Renderer* renderer, const char* path) {
-    int w, h, channels;
-    unsigned char* pixels = stbi_load(path, &w, &h, &channels, 4);
-    if (!pixels) return nullptr;
-    
-    SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(pixels, w, h, 32, 4 * w, SDL_PIXELFORMAT_RGBA32);
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_FreeSurface(surface);
-    stbi_image_free(pixels);
-    return tex;
-}
 #endif
 
 void CardRenderer::init(Application* app) {
@@ -46,11 +32,11 @@ void CardRenderer::init(Application* app) {
             SDL_free(rawBasePath);
         }
 
-        t_base = loadTexture(renderer, resolveAssetPath("assets/textures/card_base.png", currentDir, executableDir).string().c_str());
-        t_spade = loadTexture(renderer, resolveAssetPath("assets/textures/spade.png", currentDir, executableDir).string().c_str());
-        t_heart = loadTexture(renderer, resolveAssetPath("assets/textures/heart.png", currentDir, executableDir).string().c_str());
-        t_club = loadTexture(renderer, resolveAssetPath("assets/textures/club.png", currentDir, executableDir).string().c_str());
-        t_diamond = loadTexture(renderer, resolveAssetPath("assets/textures/diamond.png", currentDir, executableDir).string().c_str());
+        t_base = sdlLoadTexture(renderer, resolveAssetPath("assets/textures/card_base.png", currentDir, executableDir));
+        t_spade = sdlLoadTexture(renderer, resolveAssetPath("assets/textures/spade.png", currentDir, executableDir));
+        t_heart = sdlLoadTexture(renderer, resolveAssetPath("assets/textures/heart.png", currentDir, executableDir));
+        t_club = sdlLoadTexture(renderer, resolveAssetPath("assets/textures/club.png", currentDir, executableDir));
+        t_diamond = sdlLoadTexture(renderer, resolveAssetPath("assets/textures/diamond.png", currentDir, executableDir));
     }
 #endif
 }
