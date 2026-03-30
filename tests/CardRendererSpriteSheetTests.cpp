@@ -224,6 +224,10 @@ void testGameplayTopScreenCompactLayoutContract() {
     const int resultBannerBottomY = layout.resultBannerY + layout.resultBannerH;
     expect(resultBannerBottomY <= layout.jokerStripY,
            "result banner should stay above the compact joker strip");
+
+    const int centeredStripStartX = gameplay_state_helpers::jokerStripStartX(3, layout);
+    expectEqual(centeredStripStartX, layout.handCenterX - gameplay_state_helpers::jokerStripWidth(3, layout) / 2,
+                "joker strip centering should use the shared hand center");
 }
 
 void testGameplayBottomScreenUtilityLayoutContract() {
@@ -251,6 +255,37 @@ void testGameplayBottomScreenUtilityLayoutContract() {
 
     expectEqual(gameplay_state_helpers::compactStatusLine(4, 3, 11), std::string("Hands 4   Discards 3   Deck 11"),
                 "bottom status line should reflect current round counts");
+}
+
+void testGameplayInputHelpersUseSharedLayoutContract() {
+    const auto topLayout = gameplay_state_helpers::compactTopScreenLayout();
+    const auto bottomLayout = gameplay_state_helpers::compactBottomScreenLayout();
+    const auto handLayout = CardRenderer::gameplayHandLayout();
+
+    expectEqual(gameplay_state_helpers::gameplayHandHitTop(topLayout, handLayout),
+                topLayout.handY - handLayout.selectOffset,
+                "top hand hit bound should derive from shared hand Y");
+    expectEqual(gameplay_state_helpers::gameplayHandHitBottom(topLayout, handLayout),
+                topLayout.handY + handLayout.cardH + handLayout.cursorGap + handLayout.cursorH,
+                "bottom hand hit bound should derive from shared hand Y");
+
+    const int cardIndex = gameplay_state_helpers::gameplayHandIndexAtPoint(
+        topLayout.handCenterX, topLayout.handY, 8, topLayout, handLayout);
+    expectEqual(cardIndex, 4,
+                "hand point hit-test should use the shared top layout center for card selection");
+
+    const auto play3DS = gameplay_state_helpers::bottomPlayButtonRect(bottomLayout);
+    expectEqual(play3DS.x, bottomLayout.buttonX, "3DS play button rect x");
+    expectEqual(play3DS.y, bottomLayout.buttonY, "3DS play button rect y");
+    expectEqual(play3DS.w, bottomLayout.buttonW, "3DS play button rect w");
+    expectEqual(play3DS.h, bottomLayout.buttonH, "3DS play button rect h");
+
+    const auto discardDesktop = gameplay_state_helpers::bottomDiscardButtonRect(bottomLayout, 400);
+    expectEqual(discardDesktop.x, 400 + bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap,
+                "desktop discard button rect x should include desktop base offset");
+    expectEqual(discardDesktop.y, bottomLayout.buttonY, "desktop discard button rect y");
+    expectEqual(discardDesktop.w, bottomLayout.buttonW, "desktop discard button rect w");
+    expectEqual(discardDesktop.h, bottomLayout.buttonH, "desktop discard button rect h");
 }
 
 // Compile-level API stability check: verify that drawCard and drawHand accept an optional
@@ -294,6 +329,7 @@ int main() {
     testGameplayHandPlacementAssumptions();
     testGameplayTopScreenCompactLayoutContract();
     testGameplayBottomScreenUtilityLayoutContract();
+    testGameplayInputHelpersUseSharedLayoutContract();
     testDrawSignaturesAcceptLayoutParameter();
     std::cout << "CardRenderer sprite-sheet tests passed\n";
     return 0;

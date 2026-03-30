@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../core/State.h"
+#include "../game/CardRenderer.h"
 #include "../game/Hand.h"
 #include "../game/HandType.h"
 #include "../game/HandEvaluator.h"
@@ -53,6 +54,13 @@ struct CompactBottomScreenLayout {
     int buttonGap;
 };
 
+struct ScreenRect {
+    int x;
+    int y;
+    int w;
+    int h;
+};
+
 inline CompactTopScreenLayout compactTopScreenLayout() {
     return {
         10, 6,
@@ -98,7 +106,47 @@ inline int jokerStripWidth(int jokerCount, const CompactTopScreenLayout& layout)
 }
 
 inline int jokerStripStartX(int jokerCount, const CompactTopScreenLayout& layout) {
-    return 200 - jokerStripWidth(jokerCount, layout) / 2;
+    return layout.handCenterX - jokerStripWidth(jokerCount, layout) / 2;
+}
+
+inline int gameplayHandHitTop(const CompactTopScreenLayout& topLayout,
+                              const CardRenderer::HandLayoutMetrics& handLayout) {
+    return topLayout.handY - handLayout.selectOffset;
+}
+
+inline int gameplayHandHitBottom(const CompactTopScreenLayout& topLayout,
+                                 const CardRenderer::HandLayoutMetrics& handLayout) {
+    return topLayout.handY + handLayout.cardH + handLayout.cursorGap + handLayout.cursorH;
+}
+
+inline int gameplayHandIndexAtPoint(int px,
+                                    int py,
+                                    int cardCount,
+                                    const CompactTopScreenLayout& topLayout,
+                                    const CardRenderer::HandLayoutMetrics& handLayout) {
+    if (py < gameplayHandHitTop(topLayout, handLayout) || py > gameplayHandHitBottom(topLayout, handLayout)) {
+        return -1;
+    }
+
+    return CardRenderer::handIndexAtX(px, topLayout.handCenterX, cardCount, handLayout);
+}
+
+inline ScreenRect bottomPlayButtonRect(const CompactBottomScreenLayout& layout, int baseX = 0) {
+    return { baseX + layout.buttonX, layout.buttonY, layout.buttonW, layout.buttonH };
+}
+
+inline ScreenRect bottomDiscardButtonRect(const CompactBottomScreenLayout& layout, int baseX = 0) {
+    return {
+        baseX + layout.buttonX + layout.buttonW + layout.buttonGap,
+        layout.buttonY,
+        layout.buttonW,
+        layout.buttonH
+    };
+}
+
+inline bool pointInRect(int px, int py, const ScreenRect& rect) {
+    return px >= rect.x && px <= rect.x + rect.w &&
+        py >= rect.y && py <= rect.y + rect.h;
 }
 
 } // namespace gameplay_state_helpers

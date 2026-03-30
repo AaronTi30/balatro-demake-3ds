@@ -19,8 +19,6 @@
 
 namespace {
 
-constexpr int kGameplayHandCenterX = 200;
-constexpr int kGameplayHandY = 96;
 constexpr int kBottomScreenBaseXDesktop = 400;
 
 std::string formatScoreLine(int chips, int mult, int score, bool scoreEquationExact) {
@@ -132,6 +130,7 @@ void GameplayState::handleInput() {
 #ifdef N3DS
     hidScanInput();
     u32 kDown = hidKeysDown();
+    const auto topLayout = gameplay_state_helpers::compactTopScreenLayout();
     const auto bottomLayout = gameplay_state_helpers::compactBottomScreenLayout();
     
     if (m_phase == RoundPhase::Playing) {
@@ -155,16 +154,13 @@ void GameplayState::handleInput() {
         if (kDown & KEY_TOUCH) {
             touchPosition touch;
             hidTouchRead(&touch);
-            
-            // Play Button
-            if (touch.px >= bottomLayout.buttonX && touch.px <= bottomLayout.buttonX + bottomLayout.buttonW &&
-                touch.py >= bottomLayout.buttonY && touch.py <= bottomLayout.buttonY + bottomLayout.buttonH) {
+            const auto playButton = gameplay_state_helpers::bottomPlayButtonRect(bottomLayout);
+            const auto discardButton = gameplay_state_helpers::bottomDiscardButtonRect(bottomLayout);
+
+            if (gameplay_state_helpers::pointInRect(touch.px, touch.py, playButton)) {
                 playHand();
             }
-            // Discard Button
-            else if (touch.px >= bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap &&
-                     touch.px <= bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap + bottomLayout.buttonW &&
-                     touch.py >= bottomLayout.buttonY && touch.py <= bottomLayout.buttonY + bottomLayout.buttonH) {
+            else if (gameplay_state_helpers::pointInRect(touch.px, touch.py, discardButton)) {
                 discardSelected();
             }
         }
@@ -184,6 +180,7 @@ void GameplayState::handleInput() {
     }
 #else
     const Uint8* keys = SDL_GetKeyboardState(nullptr);
+    const auto topLayout = gameplay_state_helpers::compactTopScreenLayout();
     const auto bottomLayout = gameplay_state_helpers::compactBottomScreenLayout();
     
     static int leftCD = 0, rightCD = 0, selectCD = 0, playCD = 0, discardCD = 0, confirmCD = 0;
@@ -228,26 +225,20 @@ void GameplayState::handleInput() {
                 if (mx < 400) {
                     int numCards = static_cast<int>(m_hand.size());
                     const auto hitLayout = CardRenderer::gameplayHandLayout();
-                    const int yTop = kGameplayHandY - hitLayout.selectOffset;
-                    const int yBottom = kGameplayHandY + hitLayout.cardH + hitLayout.cursorGap + hitLayout.cursorH;
-                    if (my >= yTop && my <= yBottom) {
-                        int cardIndex = CardRenderer::handIndexAtX(mx, kGameplayHandCenterX, numCards, hitLayout);
-                        if (cardIndex >= 0 && cardIndex < numCards) {
-                            m_cursorIndex = cardIndex;
-                            m_hand.toggleSelect(m_cursorIndex);
-                        }
+                    int cardIndex = gameplay_state_helpers::gameplayHandIndexAtPoint(
+                        mx, my, numCards, topLayout, hitLayout);
+                    if (cardIndex >= 0 && cardIndex < numCards) {
+                        m_cursorIndex = cardIndex;
+                        m_hand.toggleSelect(m_cursorIndex);
                     }
                 }
-                
-                const int playButtonX = kBottomScreenBaseXDesktop + bottomLayout.buttonX;
-                const int discardButtonX = playButtonX + bottomLayout.buttonW + bottomLayout.buttonGap;
+                const auto playButton = gameplay_state_helpers::bottomPlayButtonRect(bottomLayout, kBottomScreenBaseXDesktop);
+                const auto discardButton = gameplay_state_helpers::bottomDiscardButtonRect(bottomLayout, kBottomScreenBaseXDesktop);
 
-                if (mx >= playButtonX && mx <= playButtonX + bottomLayout.buttonW &&
-                    my >= bottomLayout.buttonY && my <= bottomLayout.buttonY + bottomLayout.buttonH) {
+                if (gameplay_state_helpers::pointInRect(mx, my, playButton)) {
                     playHand();
                 }
-                else if (mx >= discardButtonX && mx <= discardButtonX + bottomLayout.buttonW &&
-                         my >= bottomLayout.buttonY && my <= bottomLayout.buttonY + bottomLayout.buttonH) {
+                else if (gameplay_state_helpers::pointInRect(mx, my, discardButton)) {
                     discardSelected();
                 }
             }
@@ -360,7 +351,7 @@ void GameplayState::renderTopScreen(Application* app) {
 
         // ── Cards ──
         const auto layout = CardRenderer::gameplayHandLayout();
-        CardRenderer::drawHand(app, m_hand, kGameplayHandCenterX, kGameplayHandY, m_cursorIndex, layout);
+        CardRenderer::drawHand(app, m_hand, topLayout.handCenterX, topLayout.handY, m_cursorIndex, layout);
 
         // ── Jokers ──
         int numJokers = static_cast<int>(m_runState->jokers.size());
