@@ -21,6 +21,7 @@ namespace {
 
 constexpr int kGameplayHandCenterX = 200;
 constexpr int kGameplayHandY = 96;
+constexpr int kBottomScreenBaseXDesktop = 400;
 
 std::string formatScoreLine(int chips, int mult, int score, bool scoreEquationExact) {
     if (!scoreEquationExact) {
@@ -131,6 +132,7 @@ void GameplayState::handleInput() {
 #ifdef N3DS
     hidScanInput();
     u32 kDown = hidKeysDown();
+    const auto bottomLayout = gameplay_state_helpers::compactBottomScreenLayout();
     
     if (m_phase == RoundPhase::Playing) {
         if (kDown & KEY_LEFT) {
@@ -154,12 +156,15 @@ void GameplayState::handleInput() {
             touchPosition touch;
             hidTouchRead(&touch);
             
-            // Play Button: x: 20 -> 140, y: 160 -> 210
-            if (touch.px >= 20 && touch.px <= 140 && touch.py >= 160 && touch.py <= 210) {
+            // Play Button
+            if (touch.px >= bottomLayout.buttonX && touch.px <= bottomLayout.buttonX + bottomLayout.buttonW &&
+                touch.py >= bottomLayout.buttonY && touch.py <= bottomLayout.buttonY + bottomLayout.buttonH) {
                 playHand();
             }
-            // Discard Button: x: 160 -> 280, y: 160 -> 210
-            else if (touch.px >= 160 && touch.px <= 280 && touch.py >= 160 && touch.py <= 210) {
+            // Discard Button
+            else if (touch.px >= bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap &&
+                     touch.px <= bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap + bottomLayout.buttonW &&
+                     touch.py >= bottomLayout.buttonY && touch.py <= bottomLayout.buttonY + bottomLayout.buttonH) {
                 discardSelected();
             }
         }
@@ -179,6 +184,7 @@ void GameplayState::handleInput() {
     }
 #else
     const Uint8* keys = SDL_GetKeyboardState(nullptr);
+    const auto bottomLayout = gameplay_state_helpers::compactBottomScreenLayout();
     
     static int leftCD = 0, rightCD = 0, selectCD = 0, playCD = 0, discardCD = 0, confirmCD = 0;
     if (leftCD > 0) leftCD--;
@@ -233,13 +239,15 @@ void GameplayState::handleInput() {
                     }
                 }
                 
-                // Bottom screen offset is baseX = 400
-                // Play Button: x: 420 -> 540, y: 160 -> 210
-                if (mx >= 420 && mx <= 540 && my >= 160 && my <= 210) {
+                const int playButtonX = kBottomScreenBaseXDesktop + bottomLayout.buttonX;
+                const int discardButtonX = playButtonX + bottomLayout.buttonW + bottomLayout.buttonGap;
+
+                if (mx >= playButtonX && mx <= playButtonX + bottomLayout.buttonW &&
+                    my >= bottomLayout.buttonY && my <= bottomLayout.buttonY + bottomLayout.buttonH) {
                     playHand();
                 }
-                // Discard Button: x: 560 -> 680, y: 160 -> 210
-                else if (mx >= 560 && mx <= 680 && my >= 160 && my <= 210) {
+                else if (mx >= discardButtonX && mx <= discardButtonX + bottomLayout.buttonW &&
+                         my >= bottomLayout.buttonY && my <= bottomLayout.buttonY + bottomLayout.buttonH) {
                     discardSelected();
                 }
             }
@@ -485,31 +493,39 @@ void GameplayState::renderBottomScreen(Application* app) {
 #endif
 
     if (m_phase == RoundPhase::Playing) {
+        const auto bottomLayout = gameplay_state_helpers::compactBottomScreenLayout();
+
         // ── Score section ──
 #ifdef N3DS
-        TextRenderer::drawText("SCORE", baseX + 20, 10, 0.45f, 0.45f, C2D_Color32(200, 200, 220, 255));
-        TextRenderer::drawText(std::to_string(m_runState->roundScore), baseX + 80, 8, 0.55f, 0.55f,
+        TextRenderer::drawText("SCORE", baseX + bottomLayout.scoreHeaderX, bottomLayout.scoreHeaderY, 0.45f, 0.45f, C2D_Color32(200, 200, 220, 255));
+        TextRenderer::drawText(std::to_string(m_runState->roundScore), baseX + bottomLayout.scoreValueX, bottomLayout.scoreValueY, 0.55f, 0.55f,
                                C2D_Color32(255, 255, 255, 255));
-        TextRenderer::drawText("/ " + std::to_string(m_runState->roundTarget), baseX + 140, 10, 0.4f, 0.4f,
+        TextRenderer::drawText("/ " + std::to_string(m_runState->roundTarget), baseX + bottomLayout.scoreTargetX, bottomLayout.scoreTargetY, 0.4f, 0.4f,
                                C2D_Color32(180, 180, 200, 255));
 #else
-        TextRenderer::drawText(renderer, "SCORE", baseX + 20, 10, 1, 200, 200, 220);
-        TextRenderer::drawText(renderer, std::to_string(m_runState->roundScore), baseX + 80, 8, 2, 255, 255, 255);
-        TextRenderer::drawText(renderer, "/ " + std::to_string(m_runState->roundTarget), baseX + 140, 12, 1, 180, 180, 200);
+        TextRenderer::drawText(renderer, "SCORE", baseX + bottomLayout.scoreHeaderX, bottomLayout.scoreHeaderY, 1, 200, 200, 220);
+        TextRenderer::drawText(renderer, std::to_string(m_runState->roundScore), baseX + bottomLayout.scoreValueX, bottomLayout.scoreValueY, 2, 255, 255, 255);
+        TextRenderer::drawText(renderer, "/ " + std::to_string(m_runState->roundTarget), baseX + bottomLayout.scoreTargetX, bottomLayout.scoreTargetY, 1, 180, 180, 200);
 #endif
 
         // ── Score progress bar ──
 #ifdef N3DS
-        C2D_DrawRectSolid(baseX + 20, 35, 0.5f, 280, 20, C2D_Color32(40, 40, 60, 255));
+        C2D_DrawRectSolid(baseX + bottomLayout.progressBarX, bottomLayout.progressBarY, 0.5f,
+                          bottomLayout.progressBarW, bottomLayout.progressBarH,
+                          C2D_Color32(40, 40, 60, 255));
         int fillW = m_runState->roundTarget > 0 ? (m_runState->roundScore * 260) / m_runState->roundTarget : 0;
         if (fillW > 260) fillW = 260;
         u32 fillColor = m_runState->isRoundWon()
             ? C2D_Color32(80, 220, 80, 255)
             : C2D_Color32(80, 140, 255, 255);
-        if (fillW > 0) C2D_DrawRectSolid(baseX + 30, 38, 0.5f, fillW, 14, fillColor);
+        if (fillW > 0) {
+            C2D_DrawRectSolid(baseX + bottomLayout.progressBarX + 10, bottomLayout.progressBarY + 3, 0.5f,
+                              fillW, 14, fillColor);
+        }
 #else
         SDL_SetRenderDrawColor(renderer, 40, 40, 60, 255);
-        SDL_Rect bgBar = { baseX + 20, 35, 280, 20 };
+        SDL_Rect bgBar = { baseX + bottomLayout.progressBarX, bottomLayout.progressBarY,
+                           bottomLayout.progressBarW, bottomLayout.progressBarH };
         SDL_RenderFillRect(renderer, &bgBar);
 
         int fillW = m_runState->roundTarget > 0 ? (m_runState->roundScore * 260) / m_runState->roundTarget : 0;
@@ -519,7 +535,7 @@ void GameplayState::renderBottomScreen(Application* app) {
         else
             SDL_SetRenderDrawColor(renderer, 80, 140, 255, 255);
         if (fillW > 0) {
-            SDL_Rect fillBar = { baseX + 30, 38, fillW, 14 };
+            SDL_Rect fillBar = { baseX + bottomLayout.progressBarX + 10, bottomLayout.progressBarY + 3, fillW, 14 };
             SDL_RenderFillRect(renderer, &fillBar);
         }
 #endif
@@ -530,7 +546,13 @@ void GameplayState::renderBottomScreen(Application* app) {
         std::string selStr = "Selected: " + std::to_string(numSelected) + "/5";
 
 #ifdef N3DS
-        TextRenderer::drawText(selStr, baseX + 20, 70, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
+        TextRenderer::drawText(gameplay_state_helpers::compactStatusLine(
+                                   m_runState->handsRemaining,
+                                   m_runState->discardsRemaining,
+                                   m_runState->roundDeck().remaining()),
+                               baseX + bottomLayout.scoreHeaderX, bottomLayout.statusRowY,
+                               0.34f, 0.34f, C2D_Color32(200, 200, 220, 255));
+        TextRenderer::drawText(selStr, baseX + bottomLayout.scoreHeaderX, bottomLayout.previewLabelY, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
         if (numSelected >= 1 && numSelected <= 5) {
             HandResult preview = HandEvaluator::evaluate(
                 selected,
@@ -538,17 +560,22 @@ void GameplayState::renderBottomScreen(Application* app) {
                 m_runState->currentBossModifier,
                 m_runState->currentBlockedSuit,
                 m_runState.get());
-            TextRenderer::drawText(handTypeName(preview.detectedHand), baseX + 20, 86, 0.45f, 0.45f,
+            TextRenderer::drawText(handTypeName(preview.detectedHand), baseX + bottomLayout.scoreHeaderX, bottomLayout.previewTypeY, 0.45f, 0.45f,
                                    C2D_Color32(255, 255, 180, 255));
             std::string ps = formatScoreLine(
                 preview.finalChips,
                 preview.finalMult,
                 preview.finalScore,
                 preview.scoreEquationExact);
-            TextRenderer::drawText(ps, baseX + 20, 102, 0.4f, 0.4f, C2D_Color32(200, 200, 255, 255));
+            TextRenderer::drawText(ps, baseX + bottomLayout.scoreHeaderX, bottomLayout.previewScoreY, 0.4f, 0.4f, C2D_Color32(200, 200, 255, 255));
         }
 #else
-        TextRenderer::drawText(renderer, selStr, baseX + 20, 70, 0, 200, 200, 220);
+        TextRenderer::drawText(renderer, gameplay_state_helpers::compactStatusLine(
+                                   m_runState->handsRemaining,
+                                   m_runState->discardsRemaining,
+                                   m_runState->roundDeck().remaining()),
+                               baseX + bottomLayout.scoreHeaderX, bottomLayout.statusRowY, 0, 200, 200, 220);
+        TextRenderer::drawText(renderer, selStr, baseX + bottomLayout.scoreHeaderX, bottomLayout.previewLabelY, 0, 200, 200, 220);
         if (numSelected >= 1 && numSelected <= 5) {
             HandResult preview = HandEvaluator::evaluate(
                 selected,
@@ -556,27 +583,46 @@ void GameplayState::renderBottomScreen(Application* app) {
                 m_runState->currentBossModifier,
                 m_runState->currentBlockedSuit,
                 m_runState.get());
-            TextRenderer::drawText(renderer, handTypeName(preview.detectedHand), baseX + 20, 86, 1, 255, 255, 180);
+            TextRenderer::drawText(renderer, handTypeName(preview.detectedHand), baseX + bottomLayout.scoreHeaderX, bottomLayout.previewTypeY, 1, 255, 255, 180);
             std::string ps = formatScoreLine(
                 preview.finalChips,
                 preview.finalMult,
                 preview.finalScore,
                 preview.scoreEquationExact);
-            TextRenderer::drawText(renderer, ps, baseX + 20, 106, 0, 200, 200, 255);
+            TextRenderer::drawText(renderer, ps, baseX + bottomLayout.scoreHeaderX, bottomLayout.previewScoreY, 0, 200, 200, 255);
         }
 #endif
+
+        if (m_runState->isBossBlind() && m_runState->currentBossModifier != BossBlindModifier::None) {
+            const std::string bossDescription = RunState::bossModifierDescription(
+                m_runState->currentBossModifier,
+                m_runState->currentBlockedSuit);
+#ifdef N3DS
+            TextRenderer::drawText(bossDescription, baseX + bottomLayout.scoreHeaderX, bottomLayout.bossDescriptionY,
+                                   0.31f, 0.31f, C2D_Color32(220, 220, 220, 255));
+#else
+            TextRenderer::drawText(renderer, bossDescription, baseX + bottomLayout.scoreHeaderX, bottomLayout.bossDescriptionY,
+                                   0, 220, 220, 220);
+#endif
+        }
 
         // ── Controls ──
 #ifdef N3DS
         // Play Button (Green)
-        C2D_DrawRectSolid(baseX + 20, 160, 0.5f, 120, 50, C2D_Color32(80, 200, 80, 255));
-        C2D_DrawRectSolid(baseX + 20, 160, 0.5f, 120, 2, C2D_Color32(120, 240, 120, 255)); // highlight
-        TextRenderer::drawText("Play Hand", baseX + 35, 175, 0.5f, 0.5f, C2D_Color32(0, 0, 0, 255));
+        C2D_DrawRectSolid(baseX + bottomLayout.buttonX, bottomLayout.buttonY, 0.5f, bottomLayout.buttonW, bottomLayout.buttonH, C2D_Color32(80, 200, 80, 255));
+        C2D_DrawRectSolid(baseX + bottomLayout.buttonX, bottomLayout.buttonY, 0.5f, bottomLayout.buttonW, 2, C2D_Color32(120, 240, 120, 255)); // highlight
+        TextRenderer::drawText("Play Hand", baseX + bottomLayout.buttonX + 15, bottomLayout.buttonY + 15, 0.5f, 0.5f, C2D_Color32(0, 0, 0, 255));
         
         // Discard Button (Orange)
-        C2D_DrawRectSolid(baseX + 160, 160, 0.5f, 120, 50, C2D_Color32(200, 100, 40, 255));
-        C2D_DrawRectSolid(baseX + 160, 160, 0.5f, 120, 2, C2D_Color32(240, 140, 80, 255)); // highlight
-        TextRenderer::drawText("Discard", baseX + 185, 175, 0.5f, 0.5f, C2D_Color32(0, 0, 0, 255));
+        C2D_DrawRectSolid(baseX + bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap,
+                          bottomLayout.buttonY, 0.5f, bottomLayout.buttonW, bottomLayout.buttonH,
+                          C2D_Color32(200, 100, 40, 255));
+        C2D_DrawRectSolid(baseX + bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap,
+                          bottomLayout.buttonY, 0.5f, bottomLayout.buttonW, 2,
+                          C2D_Color32(240, 140, 80, 255)); // highlight
+        TextRenderer::drawText("Discard",
+                               baseX + bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap + 25,
+                               bottomLayout.buttonY + 15, 0.5f, 0.5f, C2D_Color32(0, 0, 0, 255));
         
         // Hints
         TextRenderer::drawText("[X]", baseX + 75, 215, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
@@ -584,15 +630,22 @@ void GameplayState::renderBottomScreen(Application* app) {
 #else
         // Play Button (Green)
         SDL_SetRenderDrawColor(renderer, 80, 200, 80, 255);
-        SDL_Rect playRect = { baseX + 20, 160, 120, 50 };
+        SDL_Rect playRect = { baseX + bottomLayout.buttonX, bottomLayout.buttonY, bottomLayout.buttonW, bottomLayout.buttonH };
         SDL_RenderFillRect(renderer, &playRect);
-        TextRenderer::drawText(renderer, "Play Hand", baseX + 35, 175, 1, 0, 0, 0);
+        TextRenderer::drawText(renderer, "Play Hand", baseX + bottomLayout.buttonX + 15, bottomLayout.buttonY + 15, 1, 0, 0, 0);
 
         // Discard Button (Orange)
         SDL_SetRenderDrawColor(renderer, 200, 100, 40, 255);
-        SDL_Rect discRect = { baseX + 160, 160, 120, 50 };
+        SDL_Rect discRect = {
+            baseX + bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap,
+            bottomLayout.buttonY,
+            bottomLayout.buttonW,
+            bottomLayout.buttonH
+        };
         SDL_RenderFillRect(renderer, &discRect);
-        TextRenderer::drawText(renderer, "Discard", baseX + 185, 175, 1, 0, 0, 0);
+        TextRenderer::drawText(renderer, "Discard",
+                               baseX + bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap + 25,
+                               bottomLayout.buttonY + 15, 1, 0, 0, 0);
         
         // Hints
         TextRenderer::drawText(renderer, "[Enter]", baseX + 65, 215, 0, 200, 200, 220);

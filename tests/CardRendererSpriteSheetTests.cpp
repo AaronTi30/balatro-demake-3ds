@@ -226,6 +226,33 @@ void testGameplayTopScreenCompactLayoutContract() {
            "result banner should stay above the compact joker strip");
 }
 
+void testGameplayBottomScreenUtilityLayoutContract() {
+    const auto layout = gameplay_state_helpers::compactBottomScreenLayout();
+
+    expectEqual(layout.scoreHeaderX, 20, "bottom layout scoreHeaderX");
+    expectEqual(layout.scoreHeaderY, 10, "bottom layout scoreHeaderY");
+    expectEqual(layout.scoreValueX, 80, "bottom layout scoreValueX");
+    expectEqual(layout.scoreValueY, 8, "bottom layout scoreValueY");
+    expectEqual(layout.scoreTargetX, 140, "bottom layout scoreTargetX");
+    expectEqual(layout.scoreTargetY, 10, "bottom layout scoreTargetY");
+    expectEqual(layout.progressBarX, 20, "bottom layout progressBarX");
+    expectEqual(layout.progressBarY, 35, "bottom layout progressBarY");
+    expectEqual(layout.progressBarW, 280, "bottom layout progressBarW");
+    expectEqual(layout.progressBarH, 20, "bottom layout progressBarH");
+    expectEqual(layout.statusRowY, 62, "bottom layout statusRowY");
+    expectEqual(layout.previewLabelY, 84, "bottom layout previewLabelY");
+    expectEqual(layout.previewTypeY, 100, "bottom layout previewTypeY");
+    expectEqual(layout.previewScoreY, 118, "bottom layout previewScoreY");
+    expectEqual(layout.bossDescriptionY, 136, "bottom layout bossDescriptionY");
+    expectEqual(layout.buttonY, 160, "bottom layout buttonY");
+    expectEqual(layout.buttonW, 120, "bottom layout buttonW");
+    expectEqual(layout.buttonH, 50, "bottom layout buttonH");
+    expectEqual(layout.buttonGap, 20, "bottom layout buttonGap");
+
+    expectEqual(gameplay_state_helpers::compactStatusLine(4, 3, 11), std::string("Hands 4   Discards 3   Deck 11"),
+                "bottom status line should reflect current round counts");
+}
+
 // Compile-level API stability check: verify that drawCard and drawHand accept an optional
 // HandLayoutMetrics parameter. This test never runs (the lambda is never called), but it will
 // fail to compile if the signatures are missing the layout overload.
@@ -266,6 +293,7 @@ int main() {
     testHitTestOutsideHandRightReturnsMinusOne();
     testGameplayHandPlacementAssumptions();
     testGameplayTopScreenCompactLayoutContract();
+    testGameplayBottomScreenUtilityLayoutContract();
     testDrawSignaturesAcceptLayoutParameter();
     std::cout << "CardRenderer sprite-sheet tests passed\n";
     return 0;
