@@ -162,6 +162,30 @@ void testHitTestOutsideHandRightReturnsMinusOne() {
     expectEqual(hitIdx, -1, "8-card hand: click right of hand (x=325) should return -1");
 }
 
+void testGameplayHandPlacementAssumptions() {
+    // These encode the intended gameplay layout constants:
+    //   kGameplayHandCenterX = 200, kGameplayHandY = 96
+    constexpr int kGameplayHandCenterX = 200;
+    constexpr int kGameplayHandY = 96;
+    constexpr int kMaxCards = 8;
+
+    const CardRenderer::HandLayoutMetrics layout = CardRenderer::gameplayHandLayout();
+
+    // 8-card gameplay layout fits within the 400px top screen
+    const int startX = CardRenderer::handStartX(kGameplayHandCenterX, kMaxCards, layout);
+    expect(startX >= 0, "gameplay placement: hand startX should be >= 0 for 8 cards at centerX=200");
+    const int endX = startX + (kMaxCards - 1) * layout.cardSpacing + layout.cardW;
+    expect(endX <= 400, "gameplay placement: hand right edge should fit within 400px top screen");
+
+    // Selected lift of 14 still leaves room above (no negative Y)
+    const int selectedTopY = kGameplayHandY - layout.selectOffset;
+    expect(selectedTopY >= 0, "gameplay placement: selected card top Y should be non-negative");
+
+    // Bottom bound fits within 240px screen height
+    const int bottomBound = kGameplayHandY + layout.cardH + layout.cursorGap + layout.cursorH;
+    expect(bottomBound <= 240, "gameplay placement: bottom hit-test bound should fit within 240px screen height");
+}
+
 // Compile-level API stability check: verify that drawCard and drawHand accept an optional
 // HandLayoutMetrics parameter. This test never runs (the lambda is never called), but it will
 // fail to compile if the signatures are missing the layout overload.
@@ -200,6 +224,7 @@ int main() {
     testHitTestEightCardHandLastCard();
     testHitTestOutsideHandLeftReturnsMinusOne();
     testHitTestOutsideHandRightReturnsMinusOne();
+    testGameplayHandPlacementAssumptions();
     testDrawSignaturesAcceptLayoutParameter();
     std::cout << "CardRenderer sprite-sheet tests passed\n";
     return 0;

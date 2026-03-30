@@ -19,6 +19,9 @@
 
 namespace {
 
+constexpr int kGameplayHandCenterX = 200;
+constexpr int kGameplayHandY = 96;
+
 std::string formatScoreLine(int chips, int mult, int score, bool scoreEquationExact) {
     if (!scoreEquationExact) {
         return "Score: " + std::to_string(score);
@@ -215,14 +218,14 @@ void GameplayState::handleInput() {
             if (!mousePressed) {
                 mousePressed = true;
                 
-                // Top Screen offset is baseX = 0 (x < 400). Cards start at x=200, stride=35, y=85, height=100
+                // Top Screen offset is baseX = 0 (x < 400). Cards rendered at kGameplayHandCenterX, kGameplayHandY.
                 if (mx < 400) {
                     int numCards = static_cast<int>(m_hand.size());
-                    int startX = 200 - (numCards * 35) / 2;
-                    if (mx >= startX && mx <= startX + numCards * 35 + 35 && my >= 80 && my <= 190) {
-                        // Clicked inside the card area
-                        int cardIndex = (mx - startX) / 35;
-                        if (cardIndex >= numCards) cardIndex = numCards - 1; // Last card is fully visible
+                    const auto hitLayout = CardRenderer::gameplayHandLayout();
+                    const int yTop = kGameplayHandY - hitLayout.selectOffset;
+                    const int yBottom = kGameplayHandY + hitLayout.cardH + hitLayout.cursorGap + hitLayout.cursorH;
+                    if (my >= yTop && my <= yBottom) {
+                        int cardIndex = CardRenderer::handIndexAtX(mx, kGameplayHandCenterX, numCards, hitLayout);
                         if (cardIndex >= 0 && cardIndex < numCards) {
                             m_cursorIndex = cardIndex;
                             m_hand.toggleSelect(m_cursorIndex);
@@ -356,7 +359,8 @@ void GameplayState::renderTopScreen(Application* app) {
         }
 
         // ── Cards ──
-        CardRenderer::drawHand(app, m_hand, 200, 85, m_cursorIndex);
+        const auto layout = CardRenderer::gameplayHandLayout();
+        CardRenderer::drawHand(app, m_hand, kGameplayHandCenterX, kGameplayHandY, m_cursorIndex, layout);
 
         // ── Jokers ──
         int numJokers = static_cast<int>(m_runState->jokers.size());
