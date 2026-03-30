@@ -162,6 +162,32 @@ void testHitTestOutsideHandRightReturnsMinusOne() {
     expectEqual(hitIdx, -1, "8-card hand: click right of hand (x=325) should return -1");
 }
 
+// Compile-level API stability check: verify that drawCard and drawHand accept an optional
+// HandLayoutMetrics parameter. This test never runs (the lambda is never called), but it will
+// fail to compile if the signatures are missing the layout overload.
+void testDrawSignaturesAcceptLayoutParameter() {
+    // Verify that drawCard signature accepts layout as an optional trailing parameter.
+    // We only check that the call is well-formed; we pass nullptr for app since this is
+    // a compile-time check and will never execute at runtime.
+    auto checkDrawCard = [](const CardRenderer::HandLayoutMetrics& layout) {
+        Card c{Suit::Hearts, Rank::Ace};
+        // Must compile: drawCard with explicit layout
+        CardRenderer::drawCard(nullptr, c, 0, 0, false, layout);
+        // Must compile: drawCard with default layout (omitting layout param)
+        CardRenderer::drawCard(nullptr, c, 0, 0);
+    };
+    (void)checkDrawCard;
+
+    auto checkDrawHand = [](const CardRenderer::HandLayoutMetrics& layout) {
+        Hand h;
+        // Must compile: drawHand with explicit layout
+        CardRenderer::drawHand(nullptr, h, 200, 85, -1, layout);
+        // Must compile: drawHand with default layout (omitting layout param)
+        CardRenderer::drawHand(nullptr, h, 200, 85);
+    };
+    (void)checkDrawHand;
+}
+
 } // namespace
 
 int main() {
@@ -174,6 +200,7 @@ int main() {
     testHitTestEightCardHandLastCard();
     testHitTestOutsideHandLeftReturnsMinusOne();
     testHitTestOutsideHandRightReturnsMinusOne();
+    testDrawSignaturesAcceptLayoutParameter();
     std::cout << "CardRenderer sprite-sheet tests passed\n";
     return 0;
 }
