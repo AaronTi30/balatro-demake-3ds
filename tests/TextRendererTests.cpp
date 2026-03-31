@@ -40,6 +40,13 @@ struct RenderStats {
     int maxAlpha = 0;
 };
 
+int drawnHeight(const RenderStats& stats) {
+    if (stats.maxY < stats.minY) {
+        return 0;
+    }
+    return stats.maxY - stats.minY + 1;
+}
+
 RenderStats captureRenderStats(SDL_Renderer* renderer, SDL_Surface* surface) {
     RenderStats stats;
     stats.width = surface->w;
@@ -108,28 +115,27 @@ void testSharedDesktopDrawTextUsesThresholdMapping() {
 
     clearRenderer(renderer);
     TextRenderer::drawText("H", 4.0f, 4.0f, 0.44f, 255, 255, 255);
-    expectEqual(TextRenderer::lastResolvedFontSizeForTests(), 0, "0.44f should map to the small tier");
     const RenderStats small = captureRenderStats(renderer, surface);
 
     clearRenderer(renderer);
     TextRenderer::drawText("H", 4.0f, 4.0f, 0.45f, 255, 255, 255);
-    expectEqual(TextRenderer::lastResolvedFontSizeForTests(), 1, "0.45f should map to the medium tier");
     const RenderStats mediumLower = captureRenderStats(renderer, surface);
 
     clearRenderer(renderer);
     TextRenderer::drawText("H", 4.0f, 4.0f, 0.62f, 255, 255, 255);
-    expectEqual(TextRenderer::lastResolvedFontSizeForTests(), 1, "0.62f should map to the medium tier");
     const RenderStats mediumUpper = captureRenderStats(renderer, surface);
 
     clearRenderer(renderer);
     TextRenderer::drawText("H", 4.0f, 4.0f, 0.63f, 255, 255, 255);
-    expectEqual(TextRenderer::lastResolvedFontSizeForTests(), 2, "0.63f should map to the large tier");
     const RenderStats large = captureRenderStats(renderer, surface);
 
     expect(small.drawnPixels > 0, "small shared drawText should render");
     expect(mediumLower.drawnPixels > 0, "medium lower bound shared drawText should render");
     expect(mediumUpper.drawnPixels > 0, "medium upper bound shared drawText should render");
     expect(large.drawnPixels > 0, "large shared drawText should render");
+    expect(drawnHeight(small) < drawnHeight(mediumLower), "0.44f should map to the smaller font tier");
+    expect(drawnHeight(mediumLower) == drawnHeight(mediumUpper), "0.45f and 0.62f should map to the same medium tier");
+    expect(drawnHeight(mediumUpper) < drawnHeight(large), "0.63f should map to the larger font tier");
 
     TextRenderer::shutdown();
     SDL_DestroyRenderer(renderer);
