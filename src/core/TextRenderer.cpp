@@ -115,6 +115,10 @@ void TextRenderer::shutdown() {
 }
 
 #ifdef N3DS
+void TextRenderer::drawText(const std::string& text, float x, float y, float scale, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+    drawText(text, x, y, scale, scale, C2D_Color32(r, g, b, a));
+}
+
 void TextRenderer::drawText(const std::string& text, float x, float y, float scaleX, float scaleY, u32 color) {
     if (!s_initialized) return;
     C2D_TextBufClear(s_textBuf);
@@ -124,8 +128,23 @@ void TextRenderer::drawText(const std::string& text, float x, float y, float sca
     C2D_DrawText(&c2dText, C2D_WithColor, x, y, 0.5f, scaleX, scaleY, color);
 }
 #else
+int TextRenderer::fontSizeForScaleForTests(float scale) {
+    if (scale < 0.45f) {
+        return 0;
+    }
+    if (scale < 0.63f) {
+        return 1;
+    }
+    return 2;
+}
+
+void TextRenderer::drawText(const std::string& text, float x, float y, float scale, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+    (void)a;
+    drawText(nullptr, text, static_cast<int>(x), static_cast<int>(y), fontSizeForScaleForTests(scale), r, g, b);
+}
+
 void TextRenderer::drawText(SDL_Renderer* renderer, const std::string& text, int x, int y, int size, Uint8 r, Uint8 g, Uint8 b) {
-    if (!s_initialized || text.empty()) return;
+    if (!s_initialized || text.empty() || !renderer) return;
 
     TTF_Font* font = nullptr;
     switch (size) {

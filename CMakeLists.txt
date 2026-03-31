@@ -135,4 +135,16 @@ if(NOT N3DS)
         target_link_libraries(card_renderer_sprite_sheet_tests PRIVATE ${SDL2_TTF_LIB})
     endif()
     add_test(NAME card_renderer_sprite_sheet_tests COMMAND card_renderer_sprite_sheet_tests)
+
+    add_executable(text_renderer_tests
+        tests/TextRendererTests.cpp
+        src/core/AssetPath.cpp
+        src/core/TextRenderer.cpp
+    )
+    target_include_directories(text_renderer_tests PRIVATE src ${SDL2_INCLUDE_DIR})
+    target_link_libraries(text_renderer_tests PRIVATE ${SDL2_LIBRARY})
+    if(SDL2_TTF_LIB)
+        target_link_libraries(text_renderer_tests PRIVATE ${SDL2_TTF_LIB})
+    endif()
+    add_test(NAME text_renderer_tests COMMAND text_renderer_tests)
 endif()

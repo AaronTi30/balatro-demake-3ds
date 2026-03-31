@@ -12,6 +12,7 @@
 #include <SDL_ttf.h>
 #endif
 
+#include <cstdint>
 #include <string>
 
 class TextRenderer {
@@ -22,8 +23,11 @@ public:
     // Draw text at (x, y) with the given color (r, g, b)
     // size: 0 = small (card pip), 1 = medium (UI), 2 = large (title)
 #ifdef N3DS
+    static void drawText(const std::string& text, float x, float y, float scale, uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255);
     static void drawText(const std::string& text, float x, float y, float scaleX, float scaleY, u32 color);
 #else
+    static void drawText(const std::string& text, float x, float y, float scale, uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255);
+    static int fontSizeForScaleForTests(float scale);
     static void drawText(SDL_Renderer* renderer, const std::string& text, int x, int y, int size, Uint8 r, Uint8 g, Uint8 b);
 #endif
 
