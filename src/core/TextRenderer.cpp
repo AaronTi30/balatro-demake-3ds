@@ -11,6 +11,7 @@ bool TextRenderer::s_initialized = false;
 #ifdef N3DS
 C2D_TextBuf TextRenderer::s_textBuf = nullptr;
 #else
+SDL_Renderer* TextRenderer::s_renderer = nullptr;
 TTF_Font* TextRenderer::s_fontSmall = nullptr;
 TTF_Font* TextRenderer::s_fontMedium = nullptr;
 TTF_Font* TextRenderer::s_fontLarge = nullptr;
@@ -106,6 +107,7 @@ void TextRenderer::shutdown() {
         s_textBuf = nullptr;
     }
 #else
+    s_renderer = nullptr;
     if (s_fontSmall)  { TTF_CloseFont(s_fontSmall);  s_fontSmall = nullptr; }
     if (s_fontMedium) { TTF_CloseFont(s_fontMedium); s_fontMedium = nullptr; }
     if (s_fontLarge)  { TTF_CloseFont(s_fontLarge);  s_fontLarge = nullptr; }
@@ -128,6 +130,10 @@ void TextRenderer::drawText(const std::string& text, float x, float y, float sca
     C2D_DrawText(&c2dText, C2D_WithColor, x, y, 0.5f, scaleX, scaleY, color);
 }
 #else
+void TextRenderer::setRenderer(SDL_Renderer* renderer) {
+    s_renderer = renderer;
+}
+
 int TextRenderer::fontSizeForScaleForTests(float scale) {
     if (scale < 0.45f) {
         return 0;
@@ -140,11 +146,12 @@ int TextRenderer::fontSizeForScaleForTests(float scale) {
 
 void TextRenderer::drawText(const std::string& text, float x, float y, float scale, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     (void)a;
-    drawText(nullptr, text, static_cast<int>(x), static_cast<int>(y), fontSizeForScaleForTests(scale), r, g, b);
+    drawText(s_renderer, text, static_cast<int>(x), static_cast<int>(y), fontSizeForScaleForTests(scale), r, g, b);
 }
 
 void TextRenderer::drawText(SDL_Renderer* renderer, const std::string& text, int x, int y, int size, Uint8 r, Uint8 g, Uint8 b) {
     if (!s_initialized || text.empty() || !renderer) return;
+    s_renderer = renderer;
 
     TTF_Font* font = nullptr;
     switch (size) {
