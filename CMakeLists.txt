@@ -29,6 +29,7 @@ add_executable(balatro_demake
     src/game/Joker.cpp
     src/game/ShopOffer.cpp
     src/core/TextRenderer.cpp
+    src/core/ScreenRenderer.cpp
 )
 
 if(N3DS)

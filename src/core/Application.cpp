@@ -1,4 +1,5 @@
 #include "Application.h"
+#include "ScreenRenderer.h"
 #include "TextRenderer.h"
 #include "../states/TitleState.h"
 #include "StateMachine.h"
@@ -126,19 +127,24 @@ void Application::update(float dt) {
 void Application::render() {
 #ifdef N3DS
     C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+    ScreenRenderer topR;
+    ScreenRenderer botR;
 
     // Top Screen Content
     C2D_TargetClear(m_topScreen, C2D_Color32(40, 50, 40, 255));
     C2D_SceneBegin(m_topScreen);
-    if (m_stateMachine) m_stateMachine->renderTopScreen(this);
+    if (m_stateMachine) m_stateMachine->renderTopScreen(this, topR);
 
     // Bottom Screen Content
     C2D_TargetClear(m_bottomScreen, C2D_Color32(30, 40, 30, 255));
     C2D_SceneBegin(m_bottomScreen);
-    if (m_stateMachine) m_stateMachine->renderBottomScreen(this);
+    if (m_stateMachine) m_stateMachine->renderBottomScreen(this, botR);
 
     C3D_FrameEnd(0);
 #else
+    ScreenRenderer topR(m_renderer, 0);
+    ScreenRenderer botR(m_renderer, 400);
+
     // Clear screen to a dark grey
     SDL_SetRenderDrawColor(m_renderer, 50, 60, 50, 255);
     SDL_RenderClear(m_renderer);
@@ -146,12 +152,12 @@ void Application::render() {
     // Render "Top Screen" content through state machine
     // We'll use a viewport/clipping approach or just pass the renderer
     // For now, let's keep it simple and draw relative to 0,0
-    if (m_stateMachine) m_stateMachine->renderTopScreen(this);
+    if (m_stateMachine) m_stateMachine->renderTopScreen(this, topR);
 
     // The bottom screen is shifted right by 400 in our PC proxy
     // We'll need a way for the state to know its offset or handle it here
     // For now, let's just use a simple offset in the state's render call if we can
-    if (m_stateMachine) m_stateMachine->renderBottomScreen(this);
+    if (m_stateMachine) m_stateMachine->renderBottomScreen(this, botR);
 
     // Update screen
     SDL_RenderPresent(m_renderer);

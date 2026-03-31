@@ -18,8 +18,8 @@ public:
     // Call through to the active state
     void handleInput();
     void update(float dt);
-    void renderTopScreen(Application* app);
-    void renderBottomScreen(Application* app);
+    void renderTopScreen(Application* app, ScreenRenderer& r);
+    void renderBottomScreen(Application* app, ScreenRenderer& r);
 
 private:
     std::vector<std::shared_ptr<State>> m_states;
