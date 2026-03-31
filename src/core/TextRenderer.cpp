@@ -12,6 +12,7 @@ bool TextRenderer::s_initialized = false;
 C2D_TextBuf TextRenderer::s_textBuf = nullptr;
 #else
 SDL_Renderer* TextRenderer::s_renderer = nullptr;
+int TextRenderer::s_lastResolvedFontSizeForTests = -1;
 TTF_Font* TextRenderer::s_fontSmall = nullptr;
 TTF_Font* TextRenderer::s_fontMedium = nullptr;
 TTF_Font* TextRenderer::s_fontLarge = nullptr;
@@ -108,6 +109,7 @@ void TextRenderer::shutdown() {
     }
 #else
     s_renderer = nullptr;
+    s_lastResolvedFontSizeForTests = -1;
     if (s_fontSmall)  { TTF_CloseFont(s_fontSmall);  s_fontSmall = nullptr; }
     if (s_fontMedium) { TTF_CloseFont(s_fontMedium); s_fontMedium = nullptr; }
     if (s_fontLarge)  { TTF_CloseFont(s_fontLarge);  s_fontLarge = nullptr; }
@@ -144,14 +146,17 @@ int TextRenderer::fontSizeForScaleForTests(float scale) {
     return 2;
 }
 
-void TextRenderer::drawText(const std::string& text, float x, float y, float scale, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
-    (void)a;
-    drawText(s_renderer, text, static_cast<int>(x), static_cast<int>(y), fontSizeForScaleForTests(scale), r, g, b);
+int TextRenderer::lastResolvedFontSizeForTests() {
+    return s_lastResolvedFontSizeForTests;
 }
 
-void TextRenderer::drawText(SDL_Renderer* renderer, const std::string& text, int x, int y, int size, Uint8 r, Uint8 g, Uint8 b) {
+void TextRenderer::drawText(const std::string& text, float x, float y, float scale, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+    s_lastResolvedFontSizeForTests = fontSizeForScaleForTests(scale);
+    drawText(s_renderer, text, static_cast<int>(x), static_cast<int>(y), s_lastResolvedFontSizeForTests, r, g, b, a);
+}
+
+void TextRenderer::drawText(SDL_Renderer* renderer, const std::string& text, int x, int y, int size, Uint8 r, Uint8 g, Uint8 b, Uint8 a) {
     if (!s_initialized || text.empty() || !renderer) return;
-    s_renderer = renderer;
 
     TTF_Font* font = nullptr;
     switch (size) {
@@ -161,7 +166,7 @@ void TextRenderer::drawText(SDL_Renderer* renderer, const std::string& text, int
         default: font = s_fontSmall; break;
     }
 
-    SDL_Color color = { r, g, b, 255 };
+    SDL_Color color = { r, g, b, a };
     SDL_Surface* surface = TTF_RenderText_Blended(font, text.c_str(), color);
     if (!surface) return;
 
@@ -171,10 +176,17 @@ void TextRenderer::drawText(SDL_Renderer* renderer, const std::string& text, int
         return;
     }
 
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureAlphaMod(texture, a);
+
     SDL_Rect dst = { x, y, surface->w, surface->h };
     SDL_RenderCopy(renderer, texture, nullptr, &dst);
 
     SDL_DestroyTexture(texture);
     SDL_FreeSurface(surface);
+}
+
+void TextRenderer::drawText(SDL_Renderer* renderer, const std::string& text, int x, int y, int size, Uint8 r, Uint8 g, Uint8 b) {
+    drawText(renderer, text, x, y, size, r, g, b, 255);
 }
 #endif
