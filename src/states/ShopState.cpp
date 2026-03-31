@@ -385,7 +385,11 @@ void ShopState::renderBottomScreen(Application* app, ScreenRenderer& r) {
         r.drawText(shopOfferTitle(m_slots[sel.index].offer), 10.0f, 20.0f, 0.50f, 255, 255, 255);
         r.drawText(shopOfferDescription(m_slots[sel.index].offer), 10.0f, 45.0f, 0.40f, 180, 180, 180);
     } else {
-        r.drawText("Select a card or joker to inspect", 10.0f, 20.0f, 0.40f, 150, 150, 150);
+#ifdef N3DS
+        r.drawText("Use D-pad to inspect", 10.0f, 20.0f, 0.40f, 150, 150, 150);
+#else
+        r.drawText("Hover a card to inspect", 10.0f, 20.0f, 0.40f, 150, 150, 150);
+#endif
     }
 
     r.drawText("Your Jokers: " + std::to_string(m_runState->jokers.size()) + "/" +
@@ -466,8 +470,12 @@ void ShopState::renderBottomScreen(Application* app, ScreenRenderer& r) {
         r.drawText("Next Blind", nRect.x + 8.0f, nRect.y + 18.0f, 0.42f, 0, 0, 0);
     }
 
-    r.drawText("Inspect", 34.0f, 215.0f, 0.40f, 200, 200, 220);
-    r.drawText("Buy / Sell", 120.0f, 215.0f, 0.40f, 200, 200, 220);
-    r.drawText("Reroll", 220.0f, 215.0f, 0.40f, 200, 200, 220);
-    r.drawText("Next Blind", 274.0f, 215.0f, 0.40f, 200, 200, 220);
+#ifdef N3DS
+    r.drawText("[A]", 70.0f, 215.0f, 0.40f, 200, 200, 220);
+    r.drawText("[Start]", 200.0f, 215.0f, 0.40f, 200, 200, 220);
+#else
+    r.drawText("[Space]", 60.0f, 215.0f, 0.40f, 200, 200, 220);
+    r.drawText("[R]", 145.0f, 215.0f, 0.40f, 200, 200, 220);
+    r.drawText("[Enter]", 220.0f, 215.0f, 0.40f, 200, 200, 220);
+#endif
 }
