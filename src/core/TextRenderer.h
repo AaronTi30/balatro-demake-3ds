@@ -23,6 +23,7 @@ public:
     // Draw text at (x, y) with the given color (r, g, b)
     // size: 0 = small (card pip), 1 = medium (UI), 2 = large (title)
 #ifdef N3DS
+    static void beginFrame();
     static void drawText(const std::string& text, float x, float y, float scale, uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255);
     static void drawText(const std::string& text, float x, float y, float scaleX, float scaleY, u32 color);
 #else

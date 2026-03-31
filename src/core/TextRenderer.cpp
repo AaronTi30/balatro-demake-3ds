@@ -117,13 +117,20 @@ void TextRenderer::shutdown() {
 }
 
 #ifdef N3DS
+void TextRenderer::beginFrame() {
+    if (!s_initialized || !s_textBuf) {
+        return;
+    }
+
+    C2D_TextBufClear(s_textBuf);
+}
+
 void TextRenderer::drawText(const std::string& text, float x, float y, float scale, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     drawText(text, x, y, scale, scale, C2D_Color32(r, g, b, a));
 }
 
 void TextRenderer::drawText(const std::string& text, float x, float y, float scaleX, float scaleY, u32 color) {
     if (!s_initialized) return;
-    C2D_TextBufClear(s_textBuf);
     C2D_Text c2dText;
     C2D_TextParse(&c2dText, s_textBuf, text.c_str());
     C2D_TextOptimize(&c2dText);
