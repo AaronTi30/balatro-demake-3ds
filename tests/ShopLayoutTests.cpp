@@ -56,6 +56,27 @@ void expectColorEqual(const ShopColor& actual, const ShopColor& expected, const 
     }
 }
 
+bool isSlotDisabledForTest(const ShopSlot& slot) {
+    return slot.sold || slot.unavailable;
+}
+
+const char* blockedShopSlotLabelForTest(const ShopSlot& slot) {
+    return slot.unavailable ? "UNAVAILABLE" : "SOLD";
+}
+
+std::array<bool, kVisibleShopSlots> disabledShopSlotsForTest(const std::array<ShopSlot, kVisibleShopSlots>& slots) {
+    std::array<bool, kVisibleShopSlots> disabled{};
+    for (std::size_t i = 0; i < slots.size(); ++i) {
+        disabled[i] = isSlotDisabledForTest(slots[i]);
+    }
+    return disabled;
+}
+
+int markShopSlotSoldAndAdvanceCursorForTest(std::array<ShopSlot, kVisibleShopSlots>& slots, int purchasedSlot) {
+    slots[purchasedSlot].sold = true;
+    return nextSelectableShopSlot(purchasedSlot, +1, disabledShopSlotsForTest(slots));
+}
+
 void testShopCardBodyRect() {
     expectRectEqual(shopCardBodyRect(3, 0),
                     ShopRect{15, 125, 80, 70},
@@ -122,6 +143,10 @@ void testHitRerollButton() {
            "center should hit reroll");
     expect(!hitRerollButton(129, 185),
            "one pixel left of reroll should miss");
+    expect(!hitRerollButton(205, 185),
+           "right edge should be exclusive");
+    expect(!hitRerollButton(130, 210),
+           "bottom edge should be exclusive");
 }
 
 void testResolveInspectSelection() {
@@ -177,6 +202,9 @@ void testHitHeldJoker() {
 
     const int bottomEdgeMiss = hitHeldJoker(2, 30, 150);
     expect(bottomEdgeMiss == -1, "held joker hit should exclude the body bottom edge");
+
+    const int rightEdgeMiss = hitHeldJoker(2, 67, 110);
+    expect(rightEdgeMiss == -1, "held joker hit should exclude the body right edge");
 }
 
 void testTask2Assertions() {
@@ -224,19 +252,19 @@ void testShopSlotSaleKeepsItemAndAdvancesCursor() {
     slots[2].offer.price = 8;
     slots[2].offer.joker.name = "Gamma";
 
-    int cursor = shop_layout_helpers::markShopSlotSoldAndAdvanceCursor(slots, 0);
+    int cursor = markShopSlotSoldAndAdvanceCursorForTest(slots, 0);
     expect(slots[0].sold, "sold slot should be marked sold");
     expectEqual(slots[0].offer.price, 4, "sold slot should keep its item data");
     expect(!isSelectableShopSlot(0, std::array<bool, kVisibleShopSlots>{slots[0].sold, slots[1].sold, slots[2].sold}),
            "sold slot should no longer be selectable");
     expectEqual(cursor, 1, "cursor should retarget to the remaining live slot");
 
-    cursor = shop_layout_helpers::markShopSlotSoldAndAdvanceCursor(slots, cursor);
+    cursor = markShopSlotSoldAndAdvanceCursorForTest(slots, cursor);
     expect(slots[1].sold, "second sold slot should be marked sold");
     expectEqual(slots[1].offer.price, 6, "second sold slot should keep its item data");
     expectEqual(cursor, 2, "cursor should retarget to the final live slot");
 
-    cursor = shop_layout_helpers::markShopSlotSoldAndAdvanceCursor(slots, cursor);
+    cursor = markShopSlotSoldAndAdvanceCursorForTest(slots, cursor);
     expect(slots[2].sold, "third sold slot should be marked sold");
     expectEqual(slots[2].offer.price, 8, "third sold slot should keep its item data");
     expectEqual(cursor, -1, "cursor should become invalid after all slots are sold");
@@ -247,16 +275,16 @@ void testUnavailableShopSlotBlocksSelectionAndUsesDedicatedLabel() {
     slots[0].unavailable = true;
     slots[1].sold = true;
 
-    const std::array<bool, kVisibleShopSlots> disabled = shop_layout_helpers::disabledShopSlots(slots);
+    const std::array<bool, kVisibleShopSlots> disabled = disabledShopSlotsForTest(slots);
     expect(!isSelectableShopSlot(0, disabled),
            "unavailable slot should not be selectable");
     expect(!isSelectableShopSlot(1, disabled),
            "sold slot should remain non-selectable");
     expect(isSelectableShopSlot(2, disabled),
            "remaining live slot should stay selectable");
-    expectEqual(shop_layout_helpers::blockedShopSlotLabel(slots[0]), std::string("UNAVAILABLE"),
+    expectEqual(blockedShopSlotLabelForTest(slots[0]), std::string("UNAVAILABLE"),
                 "unavailable slot should use dedicated label text");
-    expectEqual(shop_layout_helpers::blockedShopSlotLabel(slots[1]), std::string("SOLD"),
+    expectEqual(blockedShopSlotLabelForTest(slots[1]), std::string("SOLD"),
                 "sold slot should keep sold label text");
 }
 
@@ -265,7 +293,7 @@ void testUnavailableShopSlotNavigationSkipsBlockedOffer() {
     slots[0].unavailable = true;
     slots[1].sold = true;
 
-    const std::array<bool, kVisibleShopSlots> disabled = shop_layout_helpers::disabledShopSlots(slots);
+    const std::array<bool, kVisibleShopSlots> disabled = disabledShopSlotsForTest(slots);
     expectEqual(nextSelectableShopSlot(0, +1, disabled), 2,
                 "cursor should skip blocked slots when advancing");
 }

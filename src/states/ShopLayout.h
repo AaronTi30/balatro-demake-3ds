@@ -45,10 +45,3 @@ int nextSelectableShopSlot(int currentSlot, int direction,
 
 InspectSelection resolveInspectSelection(int heldInspectIndex, int heldCount,
                                          int cursorIndex, int itemCount);
-
-namespace shop_layout_helpers {
-bool isSlotDisabled(const ShopSlot& slot);
-const char* blockedShopSlotLabel(const ShopSlot& slot);
-std::array<bool, kVisibleShopSlots> disabledShopSlots(const std::array<ShopSlot, kVisibleShopSlots>& slots);
-int markShopSlotSoldAndAdvanceCursor(std::array<ShopSlot, kVisibleShopSlots>& slots, int purchasedSlot);
-} // namespace shop_layout_helpers

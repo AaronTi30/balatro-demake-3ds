@@ -170,28 +170,3 @@ InspectSelection resolveInspectSelection(int heldInspectIndex, int heldCount,
     }
     return {InspectSource::Placeholder, -1};
 }
-
-namespace shop_layout_helpers {
-
-bool isSlotDisabled(const ShopSlot& slot) {
-    return slot.sold || slot.unavailable;
-}
-
-const char* blockedShopSlotLabel(const ShopSlot& slot) {
-    return slot.unavailable ? "UNAVAILABLE" : "SOLD";
-}
-
-std::array<bool, kVisibleShopSlots> disabledShopSlots(const std::array<ShopSlot, kVisibleShopSlots>& slots) {
-    std::array<bool, kVisibleShopSlots> disabled{};
-    for (std::size_t i = 0; i < slots.size(); ++i) {
-        disabled[i] = isSlotDisabled(slots[i]);
-    }
-    return disabled;
-}
-
-int markShopSlotSoldAndAdvanceCursor(std::array<ShopSlot, kVisibleShopSlots>& slots, int purchasedSlot) {
-    slots[purchasedSlot].sold = true;
-    return nextSelectableShopSlot(purchasedSlot, +1, disabledShopSlots(slots));
-}
-
-} // namespace shop_layout_helpers
