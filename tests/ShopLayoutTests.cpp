@@ -1,5 +1,4 @@
 #include "states/ShopLayout.h"
-#include "states/ShopState.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -58,103 +57,71 @@ void expectColorEqual(const ShopColor& actual, const ShopColor& expected, const 
 }
 
 void testShopCardBodyRect() {
-    expectRectEqual(shopCardBodyRect(ShopPlatform::SDL, 3, 0),
-                    ShopRect{35, 125, 90, 70},
-                    "SDL slot 0 body rect");
-    expectRectEqual(shopCardBodyRect(ShopPlatform::SDL, 3, 2),
-                    ShopRect{255, 125, 90, 70},
-                    "SDL slot 2 body rect");
-
-    expectRectEqual(shopCardBodyRect(ShopPlatform::ThreeDS, 3, 0),
+    expectRectEqual(shopCardBodyRect(3, 0),
                     ShopRect{15, 125, 80, 70},
-                    "3DS slot 0 body rect");
-    expectRectEqual(shopCardBodyRect(ShopPlatform::ThreeDS, 3, 2),
+                    "slot 0 body rect");
+    expectRectEqual(shopCardBodyRect(3, 2),
                     ShopRect{215, 125, 80, 70},
-                    "3DS slot 2 body rect");
+                    "slot 2 body rect");
 }
 
 void testShopCardHighlightRect() {
-    expectRectEqual(shopCardHighlightRect(ShopPlatform::ThreeDS, 3, 1),
+    expectRectEqual(shopCardHighlightRect(3, 1),
                     ShopRect{110, 120, 90, 80},
-                    "3DS highlight rect keeps 5px padding");
+                    "highlight rect keeps 5px padding");
 }
 
 void testHeldJokerSlotRect() {
-    // SDL: startX=412, index=0: x=412+0*60=412, y=90, w=55, h=60
-    expectRectEqual(heldJokerSlotRect(ShopPlatform::SDL, 0),
-                    ShopRect{412, 90, 55, 60},
-                    "SDL held joker row starts at x=412");
+    expectRectEqual(heldJokerSlotRect(0),
+                    ShopRect{12, 90, 55, 60},
+                    "held joker row starts at x=12");
 }
 
 void testBuyButtonRect() {
-    expectRectEqual(buyButtonRect(ShopPlatform::SDL),
-                    ShopRect{420, 160, 100, 50},
-                    "SDL buy button rect");
-    expectRectEqual(buyButtonRect(ShopPlatform::ThreeDS),
+    expectRectEqual(buyButtonRect(),
                     ShopRect{20, 160, 100, 50},
-                    "3DS buy button rect");
+                    "buy button rect");
 }
 
 void testNextBlindButtonRect() {
-    expectRectEqual(nextBlindButtonRect(ShopPlatform::SDL),
-                    ShopRect{615, 160, 120, 50},
-                    "SDL next blind button rect");
-    expectRectEqual(nextBlindButtonRect(ShopPlatform::ThreeDS),
+    expectRectEqual(nextBlindButtonRect(),
                     ShopRect{215, 160, 95, 50},
-                    "3DS next blind button rect");
+                    "next blind button rect");
 }
 
 void testHitBuyButton() {
-    expect(hitBuyButton(ShopPlatform::SDL, 420, 160),
-           "SDL buy button should include top-left corner");
-    expect(hitBuyButton(ShopPlatform::SDL, 519, 209),
-           "SDL buy button should include the last pixel inside the rect");
-    expect(!hitBuyButton(ShopPlatform::SDL, 520, 160),
-           "SDL buy button should exclude the right edge");
-    expect(!hitBuyButton(ShopPlatform::SDL, 420, 210),
-           "SDL buy button should exclude the bottom edge");
-
-    expect(hitBuyButton(ShopPlatform::ThreeDS, 20, 160),
-           "3DS buy button should include top-left corner");
-    expect(!hitBuyButton(ShopPlatform::ThreeDS, 120, 160),
-           "3DS buy button should exclude the right edge");
+    expect(hitBuyButton(20, 160),
+           "buy button should include top-left corner");
+    expect(hitBuyButton(119, 209),
+           "buy button should include the last pixel inside the rect");
+    expect(!hitBuyButton(120, 160),
+           "buy button should exclude the right edge");
+    expect(!hitBuyButton(20, 210),
+           "buy button should exclude the bottom edge");
 }
 
 void testHitNextBlindButton() {
-    expect(hitNextBlindButton(ShopPlatform::SDL, 615, 160),
-           "SDL next blind button should include top-left corner");
-    expect(hitNextBlindButton(ShopPlatform::SDL, 734, 209),
-           "SDL next blind button should include the last pixel inside the rect");
-    expect(!hitNextBlindButton(ShopPlatform::SDL, 735, 160),
-           "SDL next blind button should exclude the right edge");
-    expect(!hitNextBlindButton(ShopPlatform::SDL, 615, 210),
-           "SDL next blind button should exclude the bottom edge");
-
-    expect(hitNextBlindButton(ShopPlatform::ThreeDS, 215, 160),
-           "3DS next blind button should include top-left corner");
-    expect(!hitNextBlindButton(ShopPlatform::ThreeDS, 310, 160),
-           "3DS next blind button should exclude the right edge");
+    expect(hitNextBlindButton(215, 160),
+           "next blind button should include top-left corner");
+    expect(hitNextBlindButton(309, 209),
+           "next blind button should include the last pixel inside the rect");
+    expect(!hitNextBlindButton(310, 160),
+           "next blind button should exclude the right edge");
+    expect(!hitNextBlindButton(215, 210),
+           "next blind button should exclude the bottom edge");
 }
 
 void testRerollButtonRects() {
-    expectRectEqual(rerollButtonRect(ShopPlatform::ThreeDS),
+    expectRectEqual(rerollButtonRect(),
                     ShopRect{130, 160, 75, 50},
-                    "3DS reroll button rect");
-    expectRectEqual(rerollButtonRect(ShopPlatform::SDL),
-                    ShopRect{530, 160, 75, 50},
-                    "SDL reroll button rect");
+                    "reroll button rect");
 }
 
 void testHitRerollButton() {
-    expect(hitRerollButton(ShopPlatform::ThreeDS, 167, 185),
-           "3DS: center should hit reroll");
-    expect(!hitRerollButton(ShopPlatform::ThreeDS, 129, 185),
-           "3DS: one pixel left of reroll should miss");
-
-    expect(hitRerollButton(ShopPlatform::SDL, 567, 185),
-           "SDL: center should hit reroll");
-    expect(!hitRerollButton(ShopPlatform::SDL, 529, 185),
-           "SDL: one pixel left of reroll should miss");
+    expect(hitRerollButton(167, 185),
+           "center should hit reroll");
+    expect(!hitRerollButton(129, 185),
+           "one pixel left of reroll should miss");
 }
 
 void testResolveInspectSelection() {
@@ -179,53 +146,49 @@ void testResolveInspectSelectionPlaceholder() {
 }
 
 void testHitShopCard() {
-    const int hit0 = hitShopCard(ShopPlatform::SDL, 3, 100, 150);
+    const int hit0 = hitShopCard(3, 50, 150);
     std::ostringstream oss0;
     oss0 << "hit inside card 0: expected 0, got " << hit0;
     expect(hit0 == 0, oss0.str());
 
-    const int hit1 = hitShopCard(ShopPlatform::SDL, 3, 150, 150);
+    const int hit1 = hitShopCard(3, 150, 150);
     std::ostringstream oss1;
     oss1 << "hit inside card 1: expected 1, got " << hit1;
     expect(hit1 == 1, oss1.str());
 
-    expectEqual(hitShopCard(ShopPlatform::SDL, 3, 280, 150), 2,
-                "third SDL shop slot should be hittable");
+    expectEqual(hitShopCard(3, 250, 150), 2,
+                "third shop slot should be hittable");
 
-    const int miss = hitShopCard(ShopPlatform::SDL, 3, 100, 100);
+    const int miss = hitShopCard(3, 50, 100);
     expect(miss == -1, "click above card y range should miss");
 
-    const int rightEdgeMiss = hitShopCard(ShopPlatform::SDL, 3, 125, 150);
+    const int rightEdgeMiss = hitShopCard(3, 95, 150);
     expect(rightEdgeMiss == -1, "shop card hit should exclude the body right edge");
 }
 
 void testHitHeldJoker() {
-    // SDL, 2 jokers: startX=412, stride=60, w=55, y=90, h=60
-    // slot 0: x=412..467, slot 1: x=472..527
-    const int hit0 = hitHeldJoker(ShopPlatform::SDL, 2, 430, 110);
+    const int hit0 = hitHeldJoker(2, 30, 110);
     std::ostringstream oss0;
     oss0 << "hit held joker 0: expected 0, got " << hit0;
     expect(hit0 == 0, oss0.str());
 
-    // slot 2 would be at x=532 but jokerCount=2 so index 2 is out of range
-    const int miss = hitHeldJoker(ShopPlatform::SDL, 2, 540, 110);
+    const int miss = hitHeldJoker(2, 140, 110);
     expect(miss == -1, "hit beyond jokerCount should miss");
 
-    const int bottomEdgeMiss = hitHeldJoker(ShopPlatform::SDL, 2, 430, 150);
+    const int bottomEdgeMiss = hitHeldJoker(2, 30, 150);
     expect(bottomEdgeMiss == -1, "held joker hit should exclude the body bottom edge");
 }
 
 void testTask2Assertions() {
-    expectEqual(hitShopCard(ShopPlatform::SDL, 3, 90, 140), 0,
-                "SDL hover should use y=125..195");
-    expectEqual(hitShopCard(ShopPlatform::SDL, 3, 90, 110), -1,
+    expectEqual(hitShopCard(3, 50, 140), 0,
+                "hover should use y=125..195");
+    expectEqual(hitShopCard(3, 50, 110), -1,
                 "old y=105 card band should no longer hit");
 
-    expectEqual(hitHeldJoker(ShopPlatform::ThreeDS, 3, 12, 90), 0,
-                "3DS first held joker slot");
-    // N3DS: startX=12, stride=60 -> slot 2 body is x=132..187; use 150 (mid-slot)
-    expectEqual(hitHeldJoker(ShopPlatform::ThreeDS, 3, 150, 100), 2,
-                "3DS third held joker slot uses 60px stride");
+    expectEqual(hitHeldJoker(3, 12, 90), 0,
+                "first held joker slot");
+    expectEqual(hitHeldJoker(3, 150, 100), 2,
+                "third held joker slot uses 60px stride");
 
     expect(resolveInspectSelection(-1, 3, -1, 0).source == InspectSource::Placeholder,
            "placeholder should show only when neither held nor shop selection is valid");
@@ -261,19 +224,19 @@ void testShopSlotSaleKeepsItemAndAdvancesCursor() {
     slots[2].offer.price = 8;
     slots[2].offer.joker.name = "Gamma";
 
-    int cursor = shop_state_helpers::markShopSlotSoldAndAdvanceCursor(slots, 0);
+    int cursor = shop_layout_helpers::markShopSlotSoldAndAdvanceCursor(slots, 0);
     expect(slots[0].sold, "sold slot should be marked sold");
     expectEqual(slots[0].offer.price, 4, "sold slot should keep its item data");
     expect(!isSelectableShopSlot(0, std::array<bool, kVisibleShopSlots>{slots[0].sold, slots[1].sold, slots[2].sold}),
            "sold slot should no longer be selectable");
     expectEqual(cursor, 1, "cursor should retarget to the remaining live slot");
 
-    cursor = shop_state_helpers::markShopSlotSoldAndAdvanceCursor(slots, cursor);
+    cursor = shop_layout_helpers::markShopSlotSoldAndAdvanceCursor(slots, cursor);
     expect(slots[1].sold, "second sold slot should be marked sold");
     expectEqual(slots[1].offer.price, 6, "second sold slot should keep its item data");
     expectEqual(cursor, 2, "cursor should retarget to the final live slot");
 
-    cursor = shop_state_helpers::markShopSlotSoldAndAdvanceCursor(slots, cursor);
+    cursor = shop_layout_helpers::markShopSlotSoldAndAdvanceCursor(slots, cursor);
     expect(slots[2].sold, "third sold slot should be marked sold");
     expectEqual(slots[2].offer.price, 8, "third sold slot should keep its item data");
     expectEqual(cursor, -1, "cursor should become invalid after all slots are sold");
@@ -284,16 +247,16 @@ void testUnavailableShopSlotBlocksSelectionAndUsesDedicatedLabel() {
     slots[0].unavailable = true;
     slots[1].sold = true;
 
-    const std::array<bool, kVisibleShopSlots> disabled = shop_state_helpers::disabledShopSlots(slots);
+    const std::array<bool, kVisibleShopSlots> disabled = shop_layout_helpers::disabledShopSlots(slots);
     expect(!isSelectableShopSlot(0, disabled),
            "unavailable slot should not be selectable");
     expect(!isSelectableShopSlot(1, disabled),
            "sold slot should remain non-selectable");
     expect(isSelectableShopSlot(2, disabled),
            "remaining live slot should stay selectable");
-    expectEqual(shop_state_helpers::blockedShopSlotLabel(slots[0]), std::string("UNAVAILABLE"),
+    expectEqual(shop_layout_helpers::blockedShopSlotLabel(slots[0]), std::string("UNAVAILABLE"),
                 "unavailable slot should use dedicated label text");
-    expectEqual(shop_state_helpers::blockedShopSlotLabel(slots[1]), std::string("SOLD"),
+    expectEqual(shop_layout_helpers::blockedShopSlotLabel(slots[1]), std::string("SOLD"),
                 "sold slot should keep sold label text");
 }
 
@@ -302,7 +265,7 @@ void testUnavailableShopSlotNavigationSkipsBlockedOffer() {
     slots[0].unavailable = true;
     slots[1].sold = true;
 
-    const std::array<bool, kVisibleShopSlots> disabled = shop_state_helpers::disabledShopSlots(slots);
+    const std::array<bool, kVisibleShopSlots> disabled = shop_layout_helpers::disabledShopSlots(slots);
     expectEqual(nextSelectableShopSlot(0, +1, disabled), 2,
                 "cursor should skip blocked slots when advancing");
 }
