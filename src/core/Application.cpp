@@ -129,29 +129,27 @@ void Application::render() {
     C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
     TextRenderer::beginFrame();
 
-    ScreenRenderer topR;
-    ScreenRenderer botR;
-#else
-    ScreenRenderer topR(m_renderer, 0);
-    ScreenRenderer botR(m_renderer, 400);
-
-    SDL_SetRenderDrawColor(m_renderer, 50, 60, 50, 255);
-    SDL_RenderClear(m_renderer);
-#endif
-
-#ifdef N3DS
     C2D_TargetClear(m_topScreen, C2D_Color32(40, 50, 40, 255));
     C2D_SceneBegin(m_topScreen);
+    ScreenRenderer topR;
+    if (m_stateMachine) m_stateMachine->renderTopScreen(this, topR);
+
     C2D_TargetClear(m_bottomScreen, C2D_Color32(30, 40, 30, 255));
     C2D_SceneBegin(m_bottomScreen);
-#endif
-
-    if (m_stateMachine) m_stateMachine->renderTopScreen(this, topR);
+    ScreenRenderer botR;
     if (m_stateMachine) m_stateMachine->renderBottomScreen(this, botR);
 
-#ifdef N3DS
     C3D_FrameEnd(0);
 #else
+    SDL_SetRenderDrawColor(m_renderer, 50, 60, 50, 255);
+    SDL_RenderClear(m_renderer);
+
+    ScreenRenderer topR(m_renderer, 0);
+    if (m_stateMachine) m_stateMachine->renderTopScreen(this, topR);
+
+    ScreenRenderer botR(m_renderer, 400);
+    if (m_stateMachine) m_stateMachine->renderBottomScreen(this, botR);
+
     SDL_RenderPresent(m_renderer);
 #endif
 }

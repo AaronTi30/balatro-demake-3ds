@@ -7,7 +7,6 @@
 
 ScreenRenderer::ScreenRenderer(SDL_Renderer* renderer, int xOffset)
     : m_renderer(renderer), m_xOffset(xOffset) {
-    TextRenderer::setRenderer(renderer);
 }
 #endif
 
@@ -51,6 +50,7 @@ void ScreenRenderer::drawText(const std::string& text, float x, float y, float s
 #ifdef N3DS
     TextRenderer::drawText(text, x, y, scale, r, g, b, a);
 #else
+    TextRenderer::setRenderer(m_renderer);
     TextRenderer::drawText(text, x + static_cast<float>(m_xOffset), y, scale, r, g, b, a);
 #endif
 }
