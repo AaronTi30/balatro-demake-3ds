@@ -167,8 +167,8 @@ public:
     void exit() override;
     void handleInput() override;
     void update(float dt) override;
-    void renderTopScreen(Application* app) override;
-    void renderBottomScreen(Application* app) override;
+    void renderTopScreen(Application* app, ScreenRenderer& r) override;
+    void renderBottomScreen(Application* app, ScreenRenderer& r) override;
 
 private:
     void playHand();

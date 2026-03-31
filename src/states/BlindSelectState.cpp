@@ -80,7 +80,6 @@ void BlindSelectState::handleInput() {
     }
 
 #ifdef N3DS
-    hidScanInput();
     u32 kDown = hidKeysDown();
 
     if (kDown & (KEY_LEFT | KEY_DLEFT)) {

@@ -1,6 +1,7 @@
 #include "GameplayState.h"
 #include "../core/StateMachine.h"
 #include "../core/Application.h"
+#include "../core/ScreenRenderer.h"
 #include "../core/TextRenderer.h"
 #include "../game/CardRenderer.h"
 #include "../game/HandEvaluator.h"
@@ -128,7 +129,6 @@ void GameplayState::handleInput() {
     if (m_inputDelay > 0.0f) return;
 
 #ifdef N3DS
-    hidScanInput();
     u32 kDown = hidKeysDown();
     const auto topLayout = gameplay_state_helpers::compactTopScreenLayout();
     const auto bottomLayout = gameplay_state_helpers::compactBottomScreenLayout();
@@ -285,68 +285,32 @@ void GameplayState::update(float dt) {
 //  RENDERING
 // ═══════════════════════════════════════════════════════
 
-void GameplayState::renderTopScreen(Application* app) {
-#ifndef N3DS
-    SDL_Renderer* renderer = app->getRenderer();
-#endif
-
+void GameplayState::renderTopScreen(Application* app, ScreenRenderer& r) {
     if (m_phase == RoundPhase::Playing) {
         const auto topLayout = gameplay_state_helpers::compactTopScreenLayout();
 
         // ── HUD ──
-#ifdef N3DS
-        TextRenderer::drawText("Ante " + std::to_string(m_runState->ante), topLayout.anteX, topLayout.anteY, 0.4f, 0.4f,
-                               C2D_Color32(255, 200, 80, 255));
-        TextRenderer::drawText(m_runState->currentBlindName(), topLayout.blindX, topLayout.blindY, 0.35f, 0.35f,
-                               C2D_Color32(180, 180, 200, 255));
-#else
-        TextRenderer::drawText(renderer, "Ante " + std::to_string(m_runState->ante), topLayout.anteX, topLayout.anteY, 0, 255, 200, 80);
-        TextRenderer::drawText(renderer, m_runState->currentBlindName(), topLayout.blindX, topLayout.blindY, 0, 180, 180, 200);
-#endif
-        // ── Money display ──
-#ifdef N3DS
-        TextRenderer::drawText("$" + std::to_string(m_runState->money), topLayout.moneyX, topLayout.moneyY, 0.5f, 0.5f, C2D_Color32(255, 215, 0, 255));
-#else
-        TextRenderer::drawText(renderer, "$" + std::to_string(m_runState->money), topLayout.moneyX, topLayout.moneyY, 1, 255, 215, 0);
-#endif
+        r.drawText("Ante " + std::to_string(m_runState->ante), topLayout.anteX, topLayout.anteY, 0.4f, 255, 200, 80);
+        r.drawText(m_runState->currentBlindName(), topLayout.blindX, topLayout.blindY, 0.35f, 180, 180, 200);
+        r.drawText("$" + std::to_string(m_runState->money), topLayout.moneyX, topLayout.moneyY, 0.5f, 255, 215, 0);
 
         // ── Hand result banner ──
         if (m_showResult) {
-#ifdef N3DS
-            C2D_DrawRectSolid(topLayout.resultBannerX, topLayout.resultBannerY, 0.5f,
-                              topLayout.resultBannerW, topLayout.resultBannerH,
-                              C2D_Color32(25, 25, 50, 230));
-            TextRenderer::drawText(handTypeName(m_lastHandType), topLayout.resultBannerX + 10, topLayout.resultBannerY + 2,
-                                   0.35f, 0.35f,
-                                   C2D_Color32(255, 255, 255, 255));
-            std::string scoreStr = formatScoreLine(
-                m_lastChips,
-                m_lastMult,
-                m_lastScore,
-                m_lastScore == m_lastChips * m_lastMult);
-            TextRenderer::drawText(scoreStr, topLayout.resultBannerX + 10, topLayout.resultBannerY + 11,
-                                   0.38f, 0.38f, C2D_Color32(255, 220, 80, 255));
-#else
-            SDL_SetRenderDrawColor(renderer, 25, 25, 50, 230);
-            SDL_Rect bg = { topLayout.resultBannerX, topLayout.resultBannerY, topLayout.resultBannerW, topLayout.resultBannerH };
-            SDL_RenderFillRect(renderer, &bg);
-            TextRenderer::drawText(renderer, handTypeName(m_lastHandType), topLayout.resultBannerX + 10, topLayout.resultBannerY + 2, 1, 255, 255, 255);
-            std::string scoreStr = formatScoreLine(
-                m_lastChips,
-                m_lastMult,
-                m_lastScore,
-                m_lastScore == m_lastChips * m_lastMult);
-            TextRenderer::drawText(renderer, scoreStr, topLayout.resultBannerX + 10, topLayout.resultBannerY + 11, 1, 255, 220, 80);
-#endif
+            r.fillRect(topLayout.resultBannerX, topLayout.resultBannerY,
+                       topLayout.resultBannerW, topLayout.resultBannerH,
+                       25, 25, 50, 230);
+            r.drawText(handTypeName(m_lastHandType),
+                       topLayout.resultBannerX + 10, topLayout.resultBannerY + 2,
+                       0.35f, 255, 255, 255);
+            r.drawText(formatScoreLine(m_lastChips, m_lastMult, m_lastScore,
+                                       m_lastScore == m_lastChips * m_lastMult),
+                       topLayout.resultBannerX + 10, topLayout.resultBannerY + 11,
+                       0.38f, 255, 220, 80);
         }
 
         if (m_runState->isBossBlind() && m_runState->currentBossModifier != BossBlindModifier::None) {
-            const std::string bossLabel = "Boss: " + std::string(RunState::bossModifierName(m_runState->currentBossModifier));
-#ifdef N3DS
-            TextRenderer::drawText(bossLabel, topLayout.blindX, topLayout.bossLabelY, 0.32f, 0.32f, C2D_Color32(255, 170, 120, 255));
-#else
-            TextRenderer::drawText(renderer, bossLabel, topLayout.blindX, topLayout.bossLabelY, 0, 255, 170, 120);
-#endif
+            r.drawText("Boss: " + std::string(RunState::bossModifierName(m_runState->currentBossModifier)),
+                       topLayout.blindX, topLayout.bossLabelY, 0.32f, 255, 170, 120);
         }
 
         // ── Cards ──
@@ -354,196 +318,102 @@ void GameplayState::renderTopScreen(Application* app) {
         CardRenderer::drawHand(app, m_hand, topLayout.handCenterX, topLayout.handY, m_cursorIndex, layout);
 
         // ── Jokers ──
-        int numJokers = static_cast<int>(m_runState->jokers.size());
+        const int numJokers = static_cast<int>(m_runState->jokers.size());
         if (numJokers > 0) {
             const int jokerStartX = gameplay_state_helpers::jokerStripStartX(numJokers, topLayout);
-            
-#ifdef N3DS
             for (int i = 0; i < numJokers; ++i) {
                 const int jx = jokerStartX + i * topLayout.jokerSpacing;
                 const int jy = topLayout.jokerStripY;
-                u32 color = C2D_Color32(100, 100, 100, 255);
-                if (m_runState->jokers[i].effectType == JokerEffectType::AddChips) color = C2D_Color32(80, 120, 220, 255);
-                else if (m_runState->jokers[i].effectType == JokerEffectType::AddMult) color = C2D_Color32(220, 60, 60, 255);
-                else if (m_runState->jokers[i].effectType == JokerEffectType::MulMult) color = C2D_Color32(180, 60, 220, 255);
 
-                C2D_DrawRectSolid(jx, jy, 0.5f, topLayout.jokerBoxW, topLayout.jokerBoxH, color);
-                C2D_DrawRectSolid(jx, jy, 0.5f, topLayout.jokerBoxW, 1, C2D_Color32(255, 255, 255, 255));
-                C2D_DrawRectSolid(jx, jy + topLayout.jokerBoxH - 1, 0.5f, topLayout.jokerBoxW, 1, C2D_Color32(255, 255, 255, 255));
-                C2D_DrawRectSolid(jx, jy, 0.5f, 1, topLayout.jokerBoxH, C2D_Color32(255, 255, 255, 255));
-                C2D_DrawRectSolid(jx + topLayout.jokerBoxW - 1, jy, 0.5f, 1, topLayout.jokerBoxH, C2D_Color32(255, 255, 255, 255));
-                
-                TextRenderer::drawText(gameplay_state_helpers::compactJokerLabel(m_runState->jokers[i].name),
-                                       jx + 2, jy + 12, 0.3f, 0.3f, C2D_Color32(255, 255, 255, 255));
+                uint8_t jr = 100, jg = 100, jb = 100;
+                if (m_runState->jokers[i].effectType == JokerEffectType::AddChips)  { jr =  80; jg = 120; jb = 220; }
+                else if (m_runState->jokers[i].effectType == JokerEffectType::AddMult)  { jr = 220; jg =  60; jb =  60; }
+                else if (m_runState->jokers[i].effectType == JokerEffectType::MulMult)  { jr = 180; jg =  60; jb = 220; }
+
+                r.fillRect(jx, jy, topLayout.jokerBoxW, topLayout.jokerBoxH, jr, jg, jb);
+                r.drawRectOutline(jx, jy, topLayout.jokerBoxW, topLayout.jokerBoxH, 255, 255, 255);
+                r.drawText(gameplay_state_helpers::compactJokerLabel(m_runState->jokers[i].name),
+                           jx + 2, jy + 12, 0.3f, 255, 255, 255);
             }
-#else
-            for (int i = 0; i < numJokers; ++i) {
-                const int jx = jokerStartX + i * topLayout.jokerSpacing;
-                const int jy = topLayout.jokerStripY;
-                
-                int r = 100, g = 100, b = 100;
-                if (m_runState->jokers[i].effectType == JokerEffectType::AddChips) { r = 80; g = 120; b = 220; }
-                else if (m_runState->jokers[i].effectType == JokerEffectType::AddMult) { r = 220; g = 60; b = 60; }
-                else if (m_runState->jokers[i].effectType == JokerEffectType::MulMult) { r = 180; g = 60; b = 220; }
-
-                SDL_SetRenderDrawColor(renderer, r, g, b, 255);
-                SDL_Rect jbox = { jx, jy, topLayout.jokerBoxW, topLayout.jokerBoxH };
-                SDL_RenderFillRect(renderer, &jbox);
-
-                SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-                SDL_RenderDrawRect(renderer, &jbox);
-
-                TextRenderer::drawText(renderer, gameplay_state_helpers::compactJokerLabel(m_runState->jokers[i].name), jx + 2, jy + 12, 0, 255, 255, 255);
-            }
-#endif
         }
     }
     else if (m_phase == RoundPhase::RoundWon) {
         // ── ROUND WON ──
         const BlindStage upcomingBlind = m_runState->nextBlindStage();
         const int upcomingAnte = m_runState->nextBlindAnte();
-        const std::string nextBlindLabel = std::string(RunState::blindStageName(upcomingBlind));
-        const std::string nextTargetLabel = "Next: Ante " + std::to_string(upcomingAnte) + " " + nextBlindLabel +
+        const std::string nextTargetLabel = "Next: Ante " + std::to_string(upcomingAnte) +
+            " " + std::string(RunState::blindStageName(upcomingBlind)) +
             " (" + std::to_string(RunState::targetForBlind(upcomingAnte, upcomingBlind)) + ")";
         const bool previewBoss = upcomingBlind == BlindStage::Boss &&
             m_runState->nextBossModifier != BossBlindModifier::None;
-        const std::string bossLabel = "Boss: " + std::string(RunState::bossModifierName(m_runState->nextBossModifier));
         const char* bossDescription = RunState::bossModifierDescription(
-            m_runState->nextBossModifier,
-            m_runState->nextBlockedSuit);
-#ifdef N3DS
-        TextRenderer::drawText("BLIND CLEAR!", 100, 40, 0.7f, 0.7f, C2D_Color32(80, 255, 120, 255));
-        TextRenderer::drawText(std::string(m_runState->currentBlindName()) + " cleared", 100, 80, 0.5f, 0.5f,
-                               C2D_Color32(255, 255, 255, 255));
-        TextRenderer::drawText("Score: " + std::to_string(m_runState->roundScore) + " / " + std::to_string(m_runState->roundTarget),
-                               110, 110, 0.45f, 0.45f, C2D_Color32(255, 220, 80, 255));
-        TextRenderer::drawText("Reward: $" + std::to_string(m_runState->currentBlindReward()),
-                               80, 136, 0.4f, 0.4f, C2D_Color32(255, 215, 0, 255));
-        TextRenderer::drawText(nextTargetLabel, 60, 154, 0.35f, 0.35f, C2D_Color32(180, 180, 200, 255));
+            m_runState->nextBossModifier, m_runState->nextBlockedSuit);
+
+        r.drawText("BLIND CLEAR!", 100, 40, 0.7f, 80, 255, 120);
+        r.drawText(std::string(m_runState->currentBlindName()) + " cleared", 100, 80, 0.5f, 255, 255, 255);
+        r.drawText("Score: " + std::to_string(m_runState->roundScore) + " / " + std::to_string(m_runState->roundTarget),
+                   110, 110, 0.45f, 255, 220, 80);
+        r.drawText("Reward: $" + std::to_string(m_runState->currentBlindReward()), 80, 136, 0.4f, 255, 215, 0);
+        r.drawText(nextTargetLabel, 60, 154, 0.35f, 180, 180, 200);
         if (previewBoss) {
-            TextRenderer::drawText(bossLabel, 70, 174, 0.35f, 0.35f, C2D_Color32(255, 170, 120, 255));
-            TextRenderer::drawText(bossDescription, 46, 190, 0.3f, 0.3f, C2D_Color32(220, 220, 220, 255));
+            r.drawText("Boss: " + std::string(RunState::bossModifierName(m_runState->nextBossModifier)),
+                       70, 174, 0.35f, 255, 170, 120);
+            r.drawText(bossDescription, 46, 190, 0.3f, 220, 220, 220);
         }
-        TextRenderer::drawText("Press A to enter Shop", 100, previewBoss ? 210 : 185, 0.4f, 0.4f,
-                               C2D_Color32(200, 200, 220, 255));
-#else
-        TextRenderer::drawText(renderer, "BLIND CLEAR!", 110, 40, 2, 80, 255, 120);
-        TextRenderer::drawText(renderer, std::string(m_runState->currentBlindName()) + " cleared", 120, 80, 1, 255, 255, 255);
-        TextRenderer::drawText(renderer, "Score: " + std::to_string(m_runState->roundScore) + " / " + std::to_string(m_runState->roundTarget),
-                               130, 110, 1, 255, 220, 80);
-        TextRenderer::drawText(renderer, "Reward: $" + std::to_string(m_runState->currentBlindReward()),
-                               130, 136, 0, 255, 215, 0);
-        TextRenderer::drawText(renderer, nextTargetLabel, 100, 154, 0, 180, 180, 200);
-        if (previewBoss) {
-            TextRenderer::drawText(renderer, bossLabel, 110, 174, 0, 255, 170, 120);
-            TextRenderer::drawText(renderer, bossDescription, 80, 192, 0, 220, 220, 220);
-        }
-        TextRenderer::drawText(renderer, "Press Enter to enter Shop", 105, previewBoss ? 214 : 190, 0, 200, 200, 220);
-#endif
+        r.drawText("Press A / Enter to enter Shop", 72, previewBoss ? 210 : 185, 0.38f, 200, 200, 220);
     }
     else if (m_phase == RoundPhase::GameOver) {
         // ── GAME OVER ──
-#ifdef N3DS
-        TextRenderer::drawText("GAME OVER", 110, 50, 0.7f, 0.7f, C2D_Color32(255, 80, 80, 255));
-        TextRenderer::drawText("Reached Ante " + std::to_string(m_runState->ante) + " " + m_runState->currentBlindName(), 70, 100, 0.45f, 0.45f,
-                               C2D_Color32(255, 255, 255, 255));
-        TextRenderer::drawText("Score: " + std::to_string(m_runState->roundScore) + " / " + std::to_string(m_runState->roundTarget),
-                               110, 130, 0.45f, 0.45f, C2D_Color32(255, 180, 80, 255));
-        TextRenderer::drawText("Press A to return", 110, 180, 0.4f, 0.4f,
-                               C2D_Color32(200, 200, 220, 255));
-#else
-        TextRenderer::drawText(renderer, "GAME OVER", 130, 50, 2, 255, 80, 80);
-        TextRenderer::drawText(renderer, "Reached Ante " + std::to_string(m_runState->ante) + " " + m_runState->currentBlindName(), 95, 100, 1, 255, 255, 255);
-        TextRenderer::drawText(renderer, "Score: " + std::to_string(m_runState->roundScore) + " / " + std::to_string(m_runState->roundTarget),
-                               140, 130, 1, 255, 180, 80);
-        TextRenderer::drawText(renderer, "Press Enter to return", 140, 180, 0, 200, 200, 220);
-#endif
+        r.drawText("GAME OVER", 110, 50, 0.7f, 255, 80, 80);
+        r.drawText("Reached Ante " + std::to_string(m_runState->ante) + " " + m_runState->currentBlindName(),
+                   70, 100, 0.45f, 255, 255, 255);
+        r.drawText("Score: " + std::to_string(m_runState->roundScore) + " / " + std::to_string(m_runState->roundTarget),
+                   110, 130, 0.45f, 255, 180, 80);
+        r.drawText("Press A / Enter to return", 88, 180, 0.4f, 200, 200, 220);
     }
     else if (m_phase == RoundPhase::GameWon) {
         // ── YOU WIN ──
-#ifdef N3DS
-        TextRenderer::drawText("YOU WIN!", 120, 50, 0.8f, 0.8f, C2D_Color32(255, 220, 80, 255));
-        TextRenderer::drawText("All 8 antes cleared!", 100, 100, 0.5f, 0.5f,
-                               C2D_Color32(100, 255, 140, 255));
-        TextRenderer::drawText("Press A to return", 110, 170, 0.4f, 0.4f,
-                               C2D_Color32(200, 200, 220, 255));
-#else
-        TextRenderer::drawText(renderer, "YOU WIN!", 140, 50, 2, 255, 220, 80);
-        TextRenderer::drawText(renderer, "All 8 antes cleared!", 120, 100, 1, 100, 255, 140);
-        TextRenderer::drawText(renderer, "Press Enter to return", 140, 170, 0, 200, 200, 220);
-#endif
+        r.drawText("YOU WIN!", 120, 50, 0.8f, 255, 220, 80);
+        r.drawText("All 8 antes cleared!", 100, 100, 0.5f, 100, 255, 140);
+        r.drawText("Press A / Enter to return", 88, 170, 0.4f, 200, 200, 220);
     }
 }
 
-void GameplayState::renderBottomScreen(Application* app) {
-#ifdef N3DS
-    int baseX = 0;
-#else
-    int baseX = 400;
-    SDL_Renderer* renderer = app->getRenderer();
-#endif
+void GameplayState::renderBottomScreen(Application* app, ScreenRenderer& r) {
+    (void)app;
 
     if (m_phase == RoundPhase::Playing) {
         const auto bottomLayout = gameplay_state_helpers::compactBottomScreenLayout();
 
         // ── Score section ──
-#ifdef N3DS
-        TextRenderer::drawText("SCORE", baseX + bottomLayout.scoreHeaderX, bottomLayout.scoreHeaderY, 0.45f, 0.45f, C2D_Color32(200, 200, 220, 255));
-        TextRenderer::drawText(std::to_string(m_runState->roundScore), baseX + bottomLayout.scoreValueX, bottomLayout.scoreValueY, 0.55f, 0.55f,
-                               C2D_Color32(255, 255, 255, 255));
-        TextRenderer::drawText("/ " + std::to_string(m_runState->roundTarget), baseX + bottomLayout.scoreTargetX, bottomLayout.scoreTargetY, 0.4f, 0.4f,
-                               C2D_Color32(180, 180, 200, 255));
-#else
-        TextRenderer::drawText(renderer, "SCORE", baseX + bottomLayout.scoreHeaderX, bottomLayout.scoreHeaderY, 1, 200, 200, 220);
-        TextRenderer::drawText(renderer, std::to_string(m_runState->roundScore), baseX + bottomLayout.scoreValueX, bottomLayout.scoreValueY, 2, 255, 255, 255);
-        TextRenderer::drawText(renderer, "/ " + std::to_string(m_runState->roundTarget), baseX + bottomLayout.scoreTargetX, bottomLayout.scoreTargetY, 1, 180, 180, 200);
-#endif
+        r.drawText("SCORE", bottomLayout.scoreHeaderX, bottomLayout.scoreHeaderY, 0.45f, 200, 200, 220);
+        r.drawText(std::to_string(m_runState->roundScore), bottomLayout.scoreValueX, bottomLayout.scoreValueY, 0.55f, 255, 255, 255);
+        r.drawText("/ " + std::to_string(m_runState->roundTarget), bottomLayout.scoreTargetX, bottomLayout.scoreTargetY, 0.4f, 180, 180, 200);
 
         // ── Score progress bar ──
-#ifdef N3DS
-        C2D_DrawRectSolid(baseX + bottomLayout.progressBarX, bottomLayout.progressBarY, 0.5f,
-                          bottomLayout.progressBarW, bottomLayout.progressBarH,
-                          C2D_Color32(40, 40, 60, 255));
+        r.fillRect(bottomLayout.progressBarX, bottomLayout.progressBarY,
+                   bottomLayout.progressBarW, bottomLayout.progressBarH, 40, 40, 60);
         int fillW = m_runState->roundTarget > 0 ? (m_runState->roundScore * 260) / m_runState->roundTarget : 0;
         if (fillW > 260) fillW = 260;
-        u32 fillColor = m_runState->isRoundWon()
-            ? C2D_Color32(80, 220, 80, 255)
-            : C2D_Color32(80, 140, 255, 255);
         if (fillW > 0) {
-            C2D_DrawRectSolid(baseX + bottomLayout.progressBarX + 10, bottomLayout.progressBarY + 3, 0.5f,
-                              fillW, 14, fillColor);
+            const bool won = m_runState->isRoundWon();
+            r.fillRect(bottomLayout.progressBarX + 10, bottomLayout.progressBarY + 3,
+                       fillW, 14,
+                       won ? 80 : 80, won ? 220 : 140, won ? 80 : 255);
         }
-#else
-        SDL_SetRenderDrawColor(renderer, 40, 40, 60, 255);
-        SDL_Rect bgBar = { baseX + bottomLayout.progressBarX, bottomLayout.progressBarY,
-                           bottomLayout.progressBarW, bottomLayout.progressBarH };
-        SDL_RenderFillRect(renderer, &bgBar);
 
-        int fillW = m_runState->roundTarget > 0 ? (m_runState->roundScore * 260) / m_runState->roundTarget : 0;
-        if (fillW > 260) fillW = 260;
-        if (m_runState->isRoundWon())
-            SDL_SetRenderDrawColor(renderer, 80, 220, 80, 255);
-        else
-            SDL_SetRenderDrawColor(renderer, 80, 140, 255, 255);
-        if (fillW > 0) {
-            SDL_Rect fillBar = { baseX + bottomLayout.progressBarX + 10, bottomLayout.progressBarY + 3, fillW, 14 };
-            SDL_RenderFillRect(renderer, &fillBar);
-        }
-#endif
-
-        // ── Selected cards preview ──
+        // ── Status and hand preview ──
         auto selected = m_hand.getSelected();
-        int numSelected = static_cast<int>(selected.size());
-        std::string selStr = "Selected: " + std::to_string(numSelected) + "/5";
+        const int numSelected = static_cast<int>(selected.size());
 
-#ifdef N3DS
-        TextRenderer::drawText(gameplay_state_helpers::compactStatusLine(
-                                   m_runState->handsRemaining,
-                                   m_runState->discardsRemaining,
-                                   m_runState->roundDeck().remaining()),
-                               baseX + bottomLayout.scoreHeaderX, bottomLayout.statusRowY,
-                               0.34f, 0.34f, C2D_Color32(200, 200, 220, 255));
-        TextRenderer::drawText(selStr, baseX + bottomLayout.scoreHeaderX, bottomLayout.previewLabelY, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
+        r.drawText(gameplay_state_helpers::compactStatusLine(
+                       m_runState->handsRemaining,
+                       m_runState->discardsRemaining,
+                       m_runState->roundDeck().remaining()),
+                   bottomLayout.scoreHeaderX, bottomLayout.statusRowY, 0.34f, 200, 200, 220);
+        r.drawText("Selected: " + std::to_string(numSelected) + "/5",
+                   bottomLayout.scoreHeaderX, bottomLayout.previewLabelY, 0.4f, 200, 200, 220);
+
         if (numSelected >= 1 && numSelected <= 5) {
             HandResult preview = HandEvaluator::evaluate(
                 selected,
@@ -551,112 +421,32 @@ void GameplayState::renderBottomScreen(Application* app) {
                 m_runState->currentBossModifier,
                 m_runState->currentBlockedSuit,
                 m_runState.get());
-            TextRenderer::drawText(handTypeName(preview.detectedHand), baseX + bottomLayout.scoreHeaderX, bottomLayout.previewTypeY, 0.45f, 0.45f,
-                                   C2D_Color32(255, 255, 180, 255));
-            std::string ps = formatScoreLine(
-                preview.finalChips,
-                preview.finalMult,
-                preview.finalScore,
-                preview.scoreEquationExact);
-            TextRenderer::drawText(ps, baseX + bottomLayout.scoreHeaderX, bottomLayout.previewScoreY, 0.4f, 0.4f, C2D_Color32(200, 200, 255, 255));
+            r.drawText(handTypeName(preview.detectedHand),
+                       bottomLayout.scoreHeaderX, bottomLayout.previewTypeY, 0.45f, 255, 255, 180);
+            r.drawText(formatScoreLine(preview.finalChips, preview.finalMult, preview.finalScore, preview.scoreEquationExact),
+                       bottomLayout.scoreHeaderX, bottomLayout.previewScoreY, 0.4f, 200, 200, 255);
         }
-#else
-        TextRenderer::drawText(renderer, gameplay_state_helpers::compactStatusLine(
-                                   m_runState->handsRemaining,
-                                   m_runState->discardsRemaining,
-                                   m_runState->roundDeck().remaining()),
-                               baseX + bottomLayout.scoreHeaderX, bottomLayout.statusRowY, 0, 200, 200, 220);
-        TextRenderer::drawText(renderer, selStr, baseX + bottomLayout.scoreHeaderX, bottomLayout.previewLabelY, 0, 200, 200, 220);
-        if (numSelected >= 1 && numSelected <= 5) {
-            HandResult preview = HandEvaluator::evaluate(
-                selected,
-                m_runState->jokers,
-                m_runState->currentBossModifier,
-                m_runState->currentBlockedSuit,
-                m_runState.get());
-            TextRenderer::drawText(renderer, handTypeName(preview.detectedHand), baseX + bottomLayout.scoreHeaderX, bottomLayout.previewTypeY, 1, 255, 255, 180);
-            std::string ps = formatScoreLine(
-                preview.finalChips,
-                preview.finalMult,
-                preview.finalScore,
-                preview.scoreEquationExact);
-            TextRenderer::drawText(renderer, ps, baseX + bottomLayout.scoreHeaderX, bottomLayout.previewScoreY, 0, 200, 200, 255);
-        }
-#endif
 
         if (m_runState->isBossBlind() && m_runState->currentBossModifier != BossBlindModifier::None) {
-            const std::string bossDescription = RunState::bossModifierDescription(
-                m_runState->currentBossModifier,
-                m_runState->currentBlockedSuit);
-#ifdef N3DS
-            TextRenderer::drawText(bossDescription, baseX + bottomLayout.scoreHeaderX, bottomLayout.bossDescriptionY,
-                                   0.31f, 0.31f, C2D_Color32(220, 220, 220, 255));
-#else
-            TextRenderer::drawText(renderer, bossDescription, baseX + bottomLayout.scoreHeaderX, bottomLayout.bossDescriptionY,
-                                   0, 220, 220, 220);
-#endif
+            r.drawText(RunState::bossModifierDescription(m_runState->currentBossModifier, m_runState->currentBlockedSuit),
+                       bottomLayout.scoreHeaderX, bottomLayout.bossDescriptionY, 0.31f, 220, 220, 220);
         }
 
-        // ── Controls ──
-#ifdef N3DS
-        // Play Button (Green)
-        C2D_DrawRectSolid(baseX + bottomLayout.buttonX, bottomLayout.buttonY, 0.5f, bottomLayout.buttonW, bottomLayout.buttonH, C2D_Color32(80, 200, 80, 255));
-        C2D_DrawRectSolid(baseX + bottomLayout.buttonX, bottomLayout.buttonY, 0.5f, bottomLayout.buttonW, 2, C2D_Color32(120, 240, 120, 255)); // highlight
-        TextRenderer::drawText("Play Hand", baseX + bottomLayout.buttonX + 15, bottomLayout.buttonY + 15, 0.5f, 0.5f, C2D_Color32(0, 0, 0, 255));
-        
-        // Discard Button (Orange)
-        C2D_DrawRectSolid(baseX + bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap,
-                          bottomLayout.buttonY, 0.5f, bottomLayout.buttonW, bottomLayout.buttonH,
-                          C2D_Color32(200, 100, 40, 255));
-        C2D_DrawRectSolid(baseX + bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap,
-                          bottomLayout.buttonY, 0.5f, bottomLayout.buttonW, 2,
-                          C2D_Color32(240, 140, 80, 255)); // highlight
-        TextRenderer::drawText("Discard",
-                               baseX + bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap + 25,
-                               bottomLayout.buttonY + 15, 0.5f, 0.5f, C2D_Color32(0, 0, 0, 255));
-        
-        // Hints
-        TextRenderer::drawText("[X]", baseX + 75, 215, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
-        TextRenderer::drawText("[Y]", baseX + 215, 215, 0.4f, 0.4f, C2D_Color32(200, 200, 220, 255));
-#else
-        // Play Button (Green)
-        SDL_SetRenderDrawColor(renderer, 80, 200, 80, 255);
-        SDL_Rect playRect = { baseX + bottomLayout.buttonX, bottomLayout.buttonY, bottomLayout.buttonW, bottomLayout.buttonH };
-        SDL_RenderFillRect(renderer, &playRect);
-        TextRenderer::drawText(renderer, "Play Hand", baseX + bottomLayout.buttonX + 15, bottomLayout.buttonY + 15, 1, 0, 0, 0);
+        // ── Play / Discard buttons ──
+        r.fillRect(bottomLayout.buttonX, bottomLayout.buttonY, bottomLayout.buttonW, bottomLayout.buttonH, 80, 200, 80);
+        r.fillRect(bottomLayout.buttonX, bottomLayout.buttonY, bottomLayout.buttonW, 2, 120, 240, 120);
+        r.drawText("Play Hand", bottomLayout.buttonX + 15, bottomLayout.buttonY + 15, 0.5f, 0, 0, 0);
 
-        // Discard Button (Orange)
-        SDL_SetRenderDrawColor(renderer, 200, 100, 40, 255);
-        SDL_Rect discRect = {
-            baseX + bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap,
-            bottomLayout.buttonY,
-            bottomLayout.buttonW,
-            bottomLayout.buttonH
-        };
-        SDL_RenderFillRect(renderer, &discRect);
-        TextRenderer::drawText(renderer, "Discard",
-                               baseX + bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap + 25,
-                               bottomLayout.buttonY + 15, 1, 0, 0, 0);
-        
-        // Hints
-        TextRenderer::drawText(renderer, "[Enter]", baseX + 65, 215, 0, 200, 200, 220);
-        TextRenderer::drawText(renderer, "[D]", baseX + 210, 215, 0, 200, 200, 220);
-#endif
+        const int discardX = bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap;
+        r.fillRect(discardX, bottomLayout.buttonY, bottomLayout.buttonW, bottomLayout.buttonH, 200, 100, 40);
+        r.fillRect(discardX, bottomLayout.buttonY, bottomLayout.buttonW, 2, 240, 140, 80);
+        r.drawText("Discard", discardX + 25, bottomLayout.buttonY + 15, 0.5f, 0, 0, 0);
     }
     else {
         // Non-playing phases: show ante info on bottom screen
-#ifdef N3DS
-        TextRenderer::drawText("Ante " + std::to_string(m_runState->ante) + " / " + std::to_string(RunState::kMaxAnte),
-                               baseX + 80, 70, 0.5f, 0.5f, C2D_Color32(255, 200, 80, 255));
-        TextRenderer::drawText(m_runState->currentBlindName(), baseX + 100, 95, 0.45f, 0.45f,
-                               C2D_Color32(200, 200, 220, 255));
-        TextRenderer::drawText("Target " + std::to_string(m_runState->roundTarget), baseX + 90, 110, 0.45f, 0.45f,
-                               C2D_Color32(200, 200, 220, 255));
-#else
-        TextRenderer::drawText(renderer, "Ante " + std::to_string(m_runState->ante) + " / " + std::to_string(RunState::kMaxAnte),
-                               baseX + 80, 70, 1, 255, 200, 80);
-        TextRenderer::drawText(renderer, m_runState->currentBlindName(), baseX + 105, 95, 1, 200, 200, 220);
-        TextRenderer::drawText(renderer, "Target " + std::to_string(m_runState->roundTarget), baseX + 90, 120, 1, 200, 200, 220);
-#endif
+        r.drawText("Ante " + std::to_string(m_runState->ante) + " / " + std::to_string(RunState::kMaxAnte),
+                   80, 70, 0.5f, 255, 200, 80);
+        r.drawText(m_runState->currentBlindName(), 100, 95, 0.45f, 200, 200, 220);
+        r.drawText("Target " + std::to_string(m_runState->roundTarget), 90, 110, 0.45f, 200, 200, 220);
     }
 }

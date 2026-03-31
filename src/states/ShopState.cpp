@@ -158,7 +158,6 @@ void ShopState::handleInput() {
     };
 
 #ifdef N3DS
-    hidScanInput();
     u32 kDown = hidKeysDown();
     
     if (kDown & KEY_DLEFT) {

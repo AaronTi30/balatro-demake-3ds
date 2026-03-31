@@ -72,7 +72,6 @@ void TitleState::startRun() {
 
 void TitleState::handleInput() {
 #ifdef N3DS
-    hidScanInput();
     const u32 kDown = hidKeysDown();
     if (kDown & KEY_A) {
         startRun();
