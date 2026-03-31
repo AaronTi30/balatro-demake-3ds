@@ -6,6 +6,14 @@
 #include <iostream>
 #include <string>
 
+#ifdef N3DS
+namespace {
+
+constexpr std::size_t kN3DSTextBufferCapacity = 16384;
+
+} // namespace
+#endif
+
 bool TextRenderer::s_initialized = false;
 
 #ifdef N3DS
@@ -21,7 +29,7 @@ bool TextRenderer::init() {
     if (s_initialized) return true;
 
 #ifdef N3DS
-    s_textBuf = C2D_TextBufNew(4096);
+    s_textBuf = C2D_TextBufNew(kN3DSTextBufferCapacity);
     s_initialized = (s_textBuf != nullptr);
     return s_initialized;
 #else
