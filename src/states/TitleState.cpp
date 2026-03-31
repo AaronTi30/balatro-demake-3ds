@@ -117,7 +117,7 @@ void TitleState::renderTopScreen(Application* app, ScreenRenderer& r) {
 
     r.drawText("BALATRO", 108.0f, 66.0f, 0.75f, 240, 220, 180);
     r.drawText("DEMAKE", 137.0f, 102.0f, 0.55f, 215, 215, 230);
-    r.drawText("PRESS A OR CLICK PLAY", 88.0f, 136.0f, 0.35f, 220, 196, 110);
+    r.drawText("READY TO START", 114.0f, 136.0f, 0.35f, 220, 196, 110);
     r.drawText("Start a new run", 126.0f, 168.0f, 0.33f, 200, 200, 210);
 }
 
@@ -138,5 +138,5 @@ void TitleState::renderBottomScreen(Application* app, ScreenRenderer& r) {
     r.drawRectOutline(kPlayButtonRect.x, kPlayButtonRect.y, kPlayButtonRect.w, kPlayButtonRect.h,
                       104, 208, 128);
     r.drawText("PLAY", 130.0f, 170.0f, 0.55f, 255, 255, 255);
-    r.drawText("Press A on 3DS or click here on desktop", 46.0f, 214.0f, 0.30f, 210, 210, 220);
+    r.drawText("Select PLAY to begin", 92.0f, 214.0f, 0.30f, 210, 210, 220);
 }
