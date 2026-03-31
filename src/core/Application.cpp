@@ -39,7 +39,10 @@ bool Application::init() {
 
     m_topScreen = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
     m_bottomScreen = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
-    
+
+    if (!TextRenderer::init()) {
+        return false;
+    }
     m_isRunning = true;
     return true;
 #else
