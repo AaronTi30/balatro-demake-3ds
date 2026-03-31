@@ -3,9 +3,8 @@
 #include "GameplayState.h"
 #include "../core/Application.h"
 #include "../core/AssetPath.h"
+#include "../core/ScreenRenderer.h"
 #include "../core/StateMachine.h"
-#include "../core/TextRenderer.h"
-#include "../game/CardRenderer.h"
 #include "../game/RunState.h"
 
 #include <memory>
@@ -22,14 +21,67 @@ constexpr int kBackgroundR = 0x1a;
 constexpr int kBackgroundG = 0x0a;
 constexpr int kBackgroundB = 0x14;
 
-#ifndef N3DS
-struct TitleRect {
+struct Rect {
     int x;
     int y;
     int w;
     int h;
 };
 
+struct ButtonVisual {
+    Rect rect;
+    uint8_t fillR;
+    uint8_t fillG;
+    uint8_t fillB;
+    uint8_t outlineR;
+    uint8_t outlineG;
+    uint8_t outlineB;
+    const char* label;
+    float labelX;
+    float labelY;
+    float labelScale;
+};
+
+constexpr int kBottomScreenOffsetX = 400;
+constexpr Rect kTopBackgroundRect{0, 0, 400, 240};
+constexpr Rect kLogoPanelOuterRect{62, 24, 276, 148};
+constexpr Rect kLogoPanelInnerRect{74, 36, 252, 124};
+constexpr Rect kLogoDividerRect{114, 98, 172, 2};
+constexpr Rect kBottomBackgroundRect{0, 0, 320, 240};
+
+constexpr ButtonVisual kPlayButton{
+    {70, 156, 180, 44},
+    54, 144, 74,
+    104, 208, 128,
+    "PLAY",
+    130.0f, 170.0f, 0.55f
+};
+
+constexpr ButtonVisual kCollectionButton{
+    {70, 28, 180, 32},
+    30, 107, 58,
+    62, 144, 85,
+    "COLLECTION",
+    96.0f, 39.0f, 0.38f
+};
+
+constexpr ButtonVisual kOptionsButton{
+    {70, 76, 180, 32},
+    155, 74, 26,
+    197, 111, 56,
+    "OPTIONS",
+    108.0f, 87.0f, 0.38f
+};
+
+constexpr ButtonVisual kQuitButton{
+    {70, 116, 180, 32},
+    139, 32, 32,
+    183, 76, 76,
+    "QUIT",
+    130.0f, 127.0f, 0.42f
+};
+
+#ifndef N3DS
 enum class TitleButton {
     Collection,
     Options,
@@ -37,113 +89,48 @@ enum class TitleButton {
     Play
 };
 
-struct ButtonStyle {
-    SDL_Color shadow;
-    SDL_Color body;
-    SDL_Color highlight;
-    SDL_Color text;
-    int textSize;
-};
+Rect desktopInputRect(const ButtonVisual& button) {
+    return {button.rect.x + kBottomScreenOffsetX, button.rect.y, button.rect.w, button.rect.h};
+}
 
-constexpr TitleRect kTopScreenRect{0, 0, 400, 240};
-constexpr TitleRect kBottomScreenRect{400, 0, 320, 240};
-constexpr TitleRect kLogoRect{80, 4, 240, 156};
-constexpr TitleRect kAceRect{160, 124, 80, 112};
-constexpr TitleRect kPlayRect{480, 74, 160, 44};
-constexpr TitleRect kOptionsRect{422, 134, 74, 34};
-constexpr TitleRect kQuitRect{604, 134, 74, 34};
-constexpr TitleRect kCollectionRect{480, 184, 160, 44};
-
-TitleRect buttonRect(TitleButton button) {
+Rect buttonRect(TitleButton button) {
     switch (button) {
-        case TitleButton::Collection: return kCollectionRect;
-        case TitleButton::Options: return kOptionsRect;
-        case TitleButton::Quit: return kQuitRect;
-        case TitleButton::Play: return kPlayRect;
-        default: return kPlayRect;
+        case TitleButton::Collection: return desktopInputRect(kCollectionButton);
+        case TitleButton::Options: return desktopInputRect(kOptionsButton);
+        case TitleButton::Quit: return desktopInputRect(kQuitButton);
+        case TitleButton::Play: return desktopInputRect(kPlayButton);
+        default: return desktopInputRect(kPlayButton);
     }
 }
 
-ButtonStyle buttonStyle(TitleButton button) {
-    switch (button) {
-        case TitleButton::Collection:
-            return {
-                {14, 52, 28, 255},
-                {0x1E, 0x6B, 0x3A, 255},
-                {62, 144, 85, 255},
-                {255, 255, 255, 255},
-                1
-            };
-        case TitleButton::Options:
-            return {
-                {78, 35, 12, 255},
-                {0x9B, 0x4A, 0x1A, 255},
-                {197, 111, 56, 255},
-                {255, 255, 255, 255},
-                1
-            };
-        case TitleButton::Quit:
-            return {
-                {61, 12, 12, 255},
-                {0x8B, 0x20, 0x20, 255},
-                {183, 76, 76, 255},
-                {255, 245, 245, 255},
-                1
-            };
-        case TitleButton::Play:
-            return {
-                {22, 49, 81, 255},
-                {0x2B, 0x5F, 0x9E, 255},
-                {91, 138, 196, 255},
-                {255, 255, 255, 255},
-                1
-            };
-        default:
-            return {
-                {0, 0, 0, 255},
-                {0, 0, 0, 255},
-                {0, 0, 0, 255},
-                {255, 255, 255, 255},
-                1
-            };
-    }
-}
-
-bool pointInRect(const TitleRect& rect, int px, int py) {
+bool pointInRect(const Rect& rect, int px, int py) {
     return px >= rect.x && px < rect.x + rect.w && py >= rect.y && py < rect.y + rect.h;
 }
-
-void fillRect(SDL_Renderer* renderer, const TitleRect& rect, const SDL_Color& color) {
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    SDL_Rect sdlRect = { rect.x, rect.y, rect.w, rect.h };
-    SDL_RenderFillRect(renderer, &sdlRect);
-}
-
-void drawButton(SDL_Renderer* renderer,
-                const TitleRect& rect,
-                const char* label,
-                const ButtonStyle& style) {
-    const TitleRect shadow = { rect.x + 3, rect.y + 4, rect.w, rect.h };
-    fillRect(renderer, shadow, style.shadow);
-    fillRect(renderer, rect, style.body);
-
-    const TitleRect highlight = { rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 10 };
-    fillRect(renderer, highlight, style.highlight);
-
-    const int approxCharWidth = (style.textSize == 0) ? 4 : 5;
-    const int labelLength = static_cast<int>(SDL_strlen(label));
-    const int textX = rect.x + (rect.w / 2) - (labelLength * approxCharWidth);
-    const int textY = rect.y + ((style.textSize == 0) ? 15 : 13);
-    TextRenderer::drawText(renderer,
-                           label,
-                           textX,
-                           textY,
-                           style.textSize,
-                           style.text.r,
-                           style.text.g,
-                           style.text.b);
-}
 #endif
+
+void drawButton(ScreenRenderer& r, const ButtonVisual& button) {
+    r.fillRect(button.rect.x,
+               button.rect.y,
+               button.rect.w,
+               button.rect.h,
+               button.fillR,
+               button.fillG,
+               button.fillB);
+    r.drawRectOutline(button.rect.x,
+                      button.rect.y,
+                      button.rect.w,
+                      button.rect.h,
+                      button.outlineR,
+                      button.outlineG,
+                      button.outlineB);
+    r.drawText(button.label,
+               button.labelX,
+               button.labelY,
+               button.labelScale,
+               255,
+               255,
+               255);
+}
 
 } // namespace
 
@@ -236,65 +223,48 @@ void TitleState::update(float dt) {
     (void)dt;
 }
 
-void TitleState::renderTopScreen(Application* app) {
-#ifdef N3DS
-    C2D_DrawRectSolid(0, 0, 0.5f, 400, 240, C2D_Color32(kBackgroundR, kBackgroundG, kBackgroundB, 255));
-    TextRenderer::drawText("BALATRO", 118, 70, 0.75f, 0.75f, C2D_Color32(240, 220, 180, 255));
-    TextRenderer::drawText("DEMAKE", 142, 104, 0.55f, 0.55f, C2D_Color32(215, 215, 230, 255));
-    TextRenderer::drawText("Press A to start", 120, 162, 0.42f, 0.42f, C2D_Color32(200, 200, 210, 255));
-#else
-    SDL_Renderer* renderer = app->getRenderer();
-    fillRect(renderer, kTopScreenRect, SDL_Color{ kBackgroundR, kBackgroundG, kBackgroundB, 255 });
+void TitleState::renderTopScreen(Application* app, ScreenRenderer& r) {
+    (void)app;
 
-    ensureDesktopAssets(app);
-    if (m_logoTex) {
-        SDL_Rect logoDst = { kLogoRect.x, kLogoRect.y, kLogoRect.w, kLogoRect.h };
-        SDL_RenderCopy(renderer, m_logoTex, nullptr, &logoDst);
-    }
+    r.fillRect(kTopBackgroundRect.x,
+               kTopBackgroundRect.y,
+               kTopBackgroundRect.w,
+               kTopBackgroundRect.h,
+               kBackgroundR,
+               kBackgroundG,
+               kBackgroundB);
+    r.fillRect(kLogoPanelOuterRect.x, kLogoPanelOuterRect.y, kLogoPanelOuterRect.w, kLogoPanelOuterRect.h,
+               61, 38, 24);
+    r.drawRectOutline(kLogoPanelOuterRect.x, kLogoPanelOuterRect.y, kLogoPanelOuterRect.w, kLogoPanelOuterRect.h,
+                      130, 90, 54);
+    r.fillRect(kLogoPanelInnerRect.x, kLogoPanelInnerRect.y, kLogoPanelInnerRect.w, kLogoPanelInnerRect.h,
+               30, 18, 29);
+    r.drawRectOutline(kLogoPanelInnerRect.x, kLogoPanelInnerRect.y, kLogoPanelInnerRect.w, kLogoPanelInnerRect.h,
+                      210, 164, 94);
+    r.fillRect(kLogoDividerRect.x, kLogoDividerRect.y, kLogoDividerRect.w, kLogoDividerRect.h,
+               118, 88, 48);
 
-    CardRenderer::init(app);
-    const auto renderPlan = CardRenderer::desktopRenderPlan({ Suit::Spades, Rank::Ace });
-    SDL_Texture* cardBaseTexture = CardRenderer::getCardBaseTexture();
-    SDL_Texture* cardsTexture = CardRenderer::getCardsTexture();
-    const SDL_Rect dstRect = { kAceRect.x, kAceRect.y, kAceRect.w, kAceRect.h };
-
-    if (cardBaseTexture) {
-        SDL_Rect baseSrcRect = {
-            renderPlan.baseSource.x,
-            renderPlan.baseSource.y,
-            renderPlan.baseSource.w,
-            renderPlan.baseSource.h
-        };
-        SDL_RenderCopy(renderer, cardBaseTexture, &baseSrcRect, &dstRect);
-    } else {
-        SDL_SetRenderDrawColor(renderer, 240, 240, 235, 255);
-        SDL_RenderFillRect(renderer, &dstRect);
-        SDL_SetRenderDrawColor(renderer, 160, 160, 160, 255);
-        SDL_RenderDrawRect(renderer, &dstRect);
-    }
-
-    if (cardsTexture) {
-        const auto source = renderPlan.overlaySource;
-        SDL_Rect srcRect = { source.x, source.y, source.w, source.h };
-        SDL_RenderCopy(renderer, cardsTexture, &srcRect, &dstRect);
-    }
-#endif
+    r.drawText("BALATRO", 108.0f, 66.0f, 0.75f, 240, 220, 180);
+    r.drawText("DEMAKE", 137.0f, 102.0f, 0.55f, 215, 215, 230);
+    r.drawText("PRESS START", 124.0f, 136.0f, 0.40f, 220, 196, 110);
+    r.drawText("A tiny handheld run", 110.0f, 168.0f, 0.33f, 200, 200, 210);
 }
 
-void TitleState::renderBottomScreen(Application* app) {
-#ifdef N3DS
-    C2D_DrawRectSolid(0, 0, 0.5f, 320, 240, C2D_Color32(kBackgroundR, kBackgroundG, kBackgroundB, 255));
-    C2D_DrawRectSolid(70, 156, 0.5f, 180, 44, C2D_Color32(54, 144, 74, 255));
-    C2D_DrawRectSolid(73, 159, 0.5f, 174, 34, C2D_Color32(104, 208, 128, 255));
-    TextRenderer::drawText("PLAY", 136, 170, 0.55f, 0.55f, C2D_Color32(255, 255, 255, 255));
-    TextRenderer::drawText("Press A to start a run", 78, 98, 0.38f, 0.38f, C2D_Color32(210, 210, 220, 255));
-#else
-    SDL_Renderer* renderer = app->getRenderer();
-    fillRect(renderer, kBottomScreenRect, SDL_Color{ kBackgroundR, kBackgroundG, kBackgroundB, 255 });
+void TitleState::renderBottomScreen(Application* app, ScreenRenderer& r) {
+    (void)app;
 
-    drawButton(renderer, buttonRect(TitleButton::Collection), "COLLECTION", buttonStyle(TitleButton::Collection));
-    drawButton(renderer, buttonRect(TitleButton::Options), "OPTIONS", buttonStyle(TitleButton::Options));
-    drawButton(renderer, buttonRect(TitleButton::Quit), "QUIT", buttonStyle(TitleButton::Quit));
-    drawButton(renderer, buttonRect(TitleButton::Play), "PLAY", buttonStyle(TitleButton::Play));
-#endif
+    r.fillRect(kBottomBackgroundRect.x,
+               kBottomBackgroundRect.y,
+               kBottomBackgroundRect.w,
+               kBottomBackgroundRect.h,
+               kBackgroundR,
+               kBackgroundG,
+               kBackgroundB);
+
+    r.drawText("SELECT AN OPTION", 86.0f, 12.0f, 0.35f, 210, 210, 220);
+    drawButton(r, kCollectionButton);
+    drawButton(r, kOptionsButton);
+    drawButton(r, kQuitButton);
+    drawButton(r, kPlayButton);
+    r.drawText("Press A to start a run", 78.0f, 214.0f, 0.38f, 210, 210, 220);
 }
