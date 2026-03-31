@@ -164,8 +164,9 @@ void testSharedDesktopDrawTextPreservesAlpha() {
     TextRenderer::drawText("A", 4.0f, 4.0f, 0.63f, 255, 255, 255, 64);
     const RenderStats translucent = captureRenderStats(renderer, surface);
 
-    expect(opaque.maxAlpha > translucent.maxAlpha, "alpha should affect shared desktop output");
-    expect(translucent.maxAlpha > 0, "translucent draw should still render visible pixels");
+    expect(opaque.maxAlpha >= 200, "opaque shared draw should stay opaque");
+    expect(translucent.maxAlpha >= 48, "requested alpha should be preserved instead of multiplied down");
+    expect(translucent.maxAlpha <= 80, "requested alpha should stay near the requested 64 value");
 
     TextRenderer::shutdown();
     SDL_DestroyRenderer(renderer);

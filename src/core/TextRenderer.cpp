@@ -170,7 +170,6 @@ void TextRenderer::drawText(SDL_Renderer* renderer, const std::string& text, int
     }
 
     SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-    SDL_SetTextureAlphaMod(texture, a);
 
     SDL_Rect dst = { x, y, surface->w, surface->h };
     SDL_RenderCopy(renderer, texture, nullptr, &dst);
