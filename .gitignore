@@ -13,3 +13,5 @@ artifacts/
 .codex/
 .gemini/
 docs/
+CLAUDE.md
+.claude/
