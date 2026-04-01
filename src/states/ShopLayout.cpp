@@ -9,18 +9,14 @@ bool pointInRect(const ShopRect& rect, int px, int py) {
 
 } // namespace
 
-ShopCardLayout shopCardLayout(ShopPlatform platform, int itemCount) {
+ShopCardLayout shopCardLayout(int itemCount) {
     (void)itemCount;
 
-    if (platform == ShopPlatform::ThreeDS) {
-        return {15, 125, 80, 70, 5, 50, 100};
-    }
-
-    return {35, 125, 90, 70, 5, 50, 110};
+    return {15, 125, 80, 70, 5, 50, 100};
 }
 
-ShopRect shopCardBodyRect(ShopPlatform platform, int itemCount, int index) {
-    const ShopCardLayout layout = shopCardLayout(platform, itemCount);
+ShopRect shopCardBodyRect(int itemCount, int index) {
+    const ShopCardLayout layout = shopCardLayout(itemCount);
     return {
         layout.startX + index * layout.stride,
         layout.y,
@@ -29,9 +25,9 @@ ShopRect shopCardBodyRect(ShopPlatform platform, int itemCount, int index) {
     };
 }
 
-ShopRect shopCardHighlightRect(ShopPlatform platform, int itemCount, int index) {
-    const ShopRect body = shopCardBodyRect(platform, itemCount, index);
-    const int pad = shopCardLayout(platform, itemCount).highlightPad;
+ShopRect shopCardHighlightRect(int itemCount, int index) {
+    const ShopRect body = shopCardBodyRect(itemCount, index);
+    const int pad = shopCardLayout(itemCount).highlightPad;
     return {
         body.x - pad,
         body.y - pad,
@@ -40,9 +36,9 @@ ShopRect shopCardHighlightRect(ShopPlatform platform, int itemCount, int index) 
     };
 }
 
-HeldJokerRowLayout heldJokerRowLayout(ShopPlatform platform) {
+HeldJokerRowLayout heldJokerRowLayout() {
     return {
-        (platform == ShopPlatform::ThreeDS) ? 12 : 412,
+        12,
         90,
         55,
         60,
@@ -50,8 +46,8 @@ HeldJokerRowLayout heldJokerRowLayout(ShopPlatform platform) {
     };
 }
 
-ShopRect heldJokerSlotRect(ShopPlatform platform, int index) {
-    const HeldJokerRowLayout layout = heldJokerRowLayout(platform);
+ShopRect heldJokerSlotRect(int index) {
+    const HeldJokerRowLayout layout = heldJokerRowLayout();
     return {
         layout.startX + index * layout.stride,
         layout.y,
@@ -60,43 +56,43 @@ ShopRect heldJokerSlotRect(ShopPlatform platform, int index) {
     };
 }
 
-ShopRect buyButtonRect(ShopPlatform platform) {
+ShopRect buyButtonRect() {
     return {
-        (platform == ShopPlatform::ThreeDS) ? 20 : 420,
+        20,
         160,
         100,
         50
     };
 }
 
-ShopRect nextBlindButtonRect(ShopPlatform platform) {
+ShopRect nextBlindButtonRect() {
     return {
-        (platform == ShopPlatform::ThreeDS) ? 215 : 615,
+        215,
         160,
-        (platform == ShopPlatform::ThreeDS) ? 95 : 120,
+        95,
         50
     };
 }
 
-bool hitBuyButton(ShopPlatform platform, int px, int py) {
-    return pointInRect(buyButtonRect(platform), px, py);
+bool hitBuyButton(int px, int py) {
+    return pointInRect(buyButtonRect(), px, py);
 }
 
-bool hitNextBlindButton(ShopPlatform platform, int px, int py) {
-    return pointInRect(nextBlindButtonRect(platform), px, py);
+bool hitNextBlindButton(int px, int py) {
+    return pointInRect(nextBlindButtonRect(), px, py);
 }
 
-ShopRect rerollButtonRect(ShopPlatform platform) {
+ShopRect rerollButtonRect() {
     return {
-        (platform == ShopPlatform::ThreeDS) ? 130 : 530,
+        130,
         160,
         75,
         50
     };
 }
 
-bool hitRerollButton(ShopPlatform platform, int px, int py) {
-    return pointInRect(rerollButtonRect(platform), px, py);
+bool hitRerollButton(int px, int py) {
+    return pointInRect(rerollButtonRect(), px, py);
 }
 
 ShopColor jokerEffectColor(JokerEffectType effectType) {
@@ -136,8 +132,8 @@ int nextSelectableShopSlot(int currentSlot, int direction,
     return -1;
 }
 
-int hitShopCard(ShopPlatform platform, int itemCount, int px, int py) {
-    const ShopCardLayout layout = shopCardLayout(platform, itemCount);
+int hitShopCard(int itemCount, int px, int py) {
+    const ShopCardLayout layout = shopCardLayout(itemCount);
     if (py < layout.y || py >= layout.y + layout.bodyHeight) {
         return -1;
     }
@@ -150,8 +146,8 @@ int hitShopCard(ShopPlatform platform, int itemCount, int px, int py) {
     return -1;
 }
 
-int hitHeldJoker(ShopPlatform platform, int jokerCount, int px, int py) {
-    const HeldJokerRowLayout layout = heldJokerRowLayout(platform);
+int hitHeldJoker(int jokerCount, int px, int py) {
+    const HeldJokerRowLayout layout = heldJokerRowLayout();
     if (py < layout.y || py >= layout.y + layout.cardHeight) {
         return -1;
     }

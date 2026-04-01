@@ -62,14 +62,14 @@ void StateMachine::update(float dt) {
     }
 }
 
-void StateMachine::renderTopScreen(Application* app) {
+void StateMachine::renderTopScreen(Application* app, ScreenRenderer& r) {
     if (!m_states.empty()) {
-        m_states.back()->renderTopScreen(app);
+        m_states.back()->renderTopScreen(app, r);
     }
 }
 
-void StateMachine::renderBottomScreen(Application* app) {
+void StateMachine::renderBottomScreen(Application* app, ScreenRenderer& r) {
     if (!m_states.empty()) {
-        m_states.back()->renderBottomScreen(app);
+        m_states.back()->renderBottomScreen(app, r);
     }
 }

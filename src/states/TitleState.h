@@ -2,30 +2,22 @@
 
 #include "../core/State.h"
 
-#ifndef N3DS
-struct SDL_Texture;
-#endif
-
 class TitleState : public State {
 public:
     TitleState(StateMachine* machine);
-    ~TitleState() override;
+    ~TitleState() override = default;
 
     void enter() override;
     void exit() override;
     void handleInput() override;
     void update(float dt) override;
-    void renderTopScreen(Application* app) override;
-    void renderBottomScreen(Application* app) override;
+    void renderTopScreen(Application* app, ScreenRenderer& r) override;
+    void renderBottomScreen(Application* app, ScreenRenderer& r) override;
 
 private:
     void startRun();
 
 #ifndef N3DS
-    void ensureDesktopAssets(Application* app);
-    void destroyDesktopAssets();
-
-    SDL_Texture* m_logoTex;
-    bool m_mouseWasPressed;
+    bool m_mouseWasPressed = false;
 #endif
 };

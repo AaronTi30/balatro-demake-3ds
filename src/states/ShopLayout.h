@@ -2,9 +2,7 @@
 
 #include <array>
 
-#include "../game/Joker.h"
-
-enum class ShopPlatform { SDL, ThreeDS };
+#include "../game/ShopOffer.h"
 
 struct ShopRect { int x, y, w, h; };
 struct ShopColor { int r, g, b, a; };
@@ -16,9 +14,7 @@ struct ShopCardLayout {
 };
 
 struct HeldJokerRowLayout {
-    // startX is an absolute pixel coordinate on both platforms.
-    // SDL: 412 (= bottom-screen base 400 + centered offset 12). Use directly — do NOT add baseX again.
-    // 3DS: 12 (centered in 320px bottom screen).
+    // startX is an absolute 3DS-native pixel coordinate on the bottom screen.
     int startX, y, cardWidth, cardHeight, stride;
 };
 
@@ -26,22 +22,22 @@ enum class InspectSource { Placeholder, ShopItem, HeldJoker };
 
 struct InspectSelection { InspectSource source; int index; };
 
-ShopCardLayout shopCardLayout(ShopPlatform platform, int itemCount);
-ShopRect shopCardBodyRect(ShopPlatform platform, int itemCount, int index);
-ShopRect shopCardHighlightRect(ShopPlatform platform, int itemCount, int index);
+ShopCardLayout shopCardLayout(int itemCount);
+ShopRect shopCardBodyRect(int itemCount, int index);
+ShopRect shopCardHighlightRect(int itemCount, int index);
 
-HeldJokerRowLayout heldJokerRowLayout(ShopPlatform platform);
-ShopRect heldJokerSlotRect(ShopPlatform platform, int index);
-ShopRect buyButtonRect(ShopPlatform platform);
-ShopRect nextBlindButtonRect(ShopPlatform platform);
-bool hitBuyButton(ShopPlatform platform, int px, int py);
-bool hitNextBlindButton(ShopPlatform platform, int px, int py);
-ShopRect rerollButtonRect(ShopPlatform platform);
-bool hitRerollButton(ShopPlatform platform, int px, int py);
+HeldJokerRowLayout heldJokerRowLayout();
+ShopRect heldJokerSlotRect(int index);
+ShopRect buyButtonRect();
+ShopRect nextBlindButtonRect();
+bool hitBuyButton(int px, int py);
+bool hitNextBlindButton(int px, int py);
+ShopRect rerollButtonRect();
+bool hitRerollButton(int px, int py);
 ShopColor jokerEffectColor(JokerEffectType effectType);
 
-int hitShopCard(ShopPlatform platform, int itemCount, int px, int py);
-int hitHeldJoker(ShopPlatform platform, int jokerCount, int px, int py);
+int hitShopCard(int itemCount, int px, int py);
+int hitHeldJoker(int jokerCount, int px, int py);
 
 bool isSelectableShopSlot(int slotIndex, const std::array<bool, kVisibleShopSlots>& soldSlots);
 int nextSelectableShopSlot(int currentSlot, int direction,
