@@ -3,6 +3,11 @@
 #include "Card.h"
 #include "Hand.h"
 
+#ifdef N3DS
+#include <3ds.h>
+#include <citro2d.h>
+#endif
+
 class Application;
 struct SDL_Texture;
 
@@ -76,7 +81,11 @@ public:
 #endif
 
 private:
-#ifndef N3DS
+#ifdef N3DS
+    static C3D_Tex s_cardTex;
+    static Tex3DS_Texture s_cardT3x;
+    static bool s_cardTexLoaded;
+#else
     static SDL_Texture* t_base;
     static SDL_Texture* t_cards;
 #endif

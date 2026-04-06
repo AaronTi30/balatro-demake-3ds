@@ -60,6 +60,12 @@ SDL_Texture* CardRenderer::t_base = nullptr;
 SDL_Texture* CardRenderer::t_cards = nullptr;
 #endif
 
+#ifdef N3DS
+C3D_Tex CardRenderer::s_cardTex;
+Tex3DS_Texture CardRenderer::s_cardT3x = nullptr;
+bool CardRenderer::s_cardTexLoaded = false;
+#endif
+
 CardRenderer::HandLayoutMetrics CardRenderer::defaultHandLayout() {
     return { CARD_W, CARD_H, CARD_SPACING, SELECT_OFFSET, 8, 4, 4 };
 }
