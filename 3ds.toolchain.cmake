@@ -48,13 +48,9 @@ link_directories(${DEVKITPRO}/libctru/lib ${DEVKITPRO}/portlibs/3ds/lib)
 # Let CMake know we are building for 3DS so we can branch in CMakeLists
 set(N3DS TRUE CACHE BOOL "True if building for Nintendo 3DS" FORCE)
 
-# Macro to generate a .3dsx file from an elf
+# Macro to link 3DS libraries for a target.
+# The .3dsx packaging step (3dsxtool) is handled in CMakeLists.txt so that
+# project-specific paths (romfs, smdh) are available at macro-expansion time.
 macro(add_3dsx_target target)
     target_link_libraries(${target} PRIVATE -lcitro2d -lcitro3d -lctru -lm)
-
-    add_custom_command(TARGET ${target} POST_BUILD
-        COMMAND ${DEVKITPRO}/tools/bin/3dsxtool $<TARGET_FILE:${target}> ${CMAKE_CURRENT_BINARY_DIR}/${target}.3dsx
-                --romfs=${CMAKE_CURRENT_BINARY_DIR}/romfs
-        COMMENT "Generating .3dsx file"
-    )
 endmacro()

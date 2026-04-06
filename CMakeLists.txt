@@ -33,7 +33,31 @@ add_executable(balatro_demake
 )
 
 if(N3DS)
+    # Generate SMDH metadata for the 3dsx package
+    set(SMDH_FILE ${CMAKE_CURRENT_BINARY_DIR}/balatro_demake.smdh)
+    add_custom_command(
+        OUTPUT ${SMDH_FILE}
+        COMMAND ${DEVKITPRO}/tools/bin/smdhtool --create
+                "Balatro Demake"
+                "A Balatro demake for Nintendo 3DS"
+                "balatro-demake"
+                ${CMAKE_CURRENT_SOURCE_DIR}/assets/textures/icon.png
+                ${SMDH_FILE}
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/assets/textures/icon.png
+        COMMENT "Generating SMDH metadata"
+    )
+    add_custom_target(balatro_smdh DEPENDS ${SMDH_FILE})
+
     add_3dsx_target(balatro_demake)
+    add_dependencies(balatro_demake balatro_smdh)
+
+    add_custom_command(TARGET balatro_demake POST_BUILD
+        COMMAND ${DEVKITPRO}/tools/bin/3dsxtool $<TARGET_FILE:balatro_demake>
+                ${CMAKE_CURRENT_BINARY_DIR}/balatro_demake.3dsx
+                --romfs=${CMAKE_CURRENT_BINARY_DIR}/romfs
+                --smdh=${SMDH_FILE}
+        COMMENT "Generating .3dsx file"
+    )
     target_compile_definitions(balatro_demake PRIVATE N3DS)
 
     set(ROMFS_DIR ${CMAKE_CURRENT_BINARY_DIR}/romfs)
