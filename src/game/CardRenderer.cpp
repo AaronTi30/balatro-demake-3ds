@@ -11,20 +11,7 @@
 
 #include <math.h>
 
-#ifndef N3DS
-SDL_Texture* CardRenderer::t_base = nullptr;
-SDL_Texture* CardRenderer::t_cards = nullptr;
-
 namespace {
-
-CardRenderer::CardSpriteSourceRect defaultBaseSourceRect() {
-    return {
-        CardRenderer::SPRITE_SHEET_CELL_W,
-        0,
-        CardRenderer::SPRITE_SHEET_CELL_W,
-        CardRenderer::SPRITE_SHEET_CELL_H
-    };
-}
 
 int spriteSheetRow(Suit suit) {
     switch (suit) {
@@ -55,7 +42,22 @@ int spriteSheetColumn(Rank rank) {
     }
 }
 
+#ifndef N3DS
+CardRenderer::CardSpriteSourceRect defaultBaseSourceRect() {
+    return {
+        CardRenderer::SPRITE_SHEET_CELL_W,
+        0,
+        CardRenderer::SPRITE_SHEET_CELL_W,
+        CardRenderer::SPRITE_SHEET_CELL_H
+    };
+}
+#endif
+
 } // namespace
+
+#ifndef N3DS
+SDL_Texture* CardRenderer::t_base = nullptr;
+SDL_Texture* CardRenderer::t_cards = nullptr;
 #endif
 
 CardRenderer::HandLayoutMetrics CardRenderer::defaultHandLayout() {
