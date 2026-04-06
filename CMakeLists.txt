@@ -69,8 +69,8 @@ if(N3DS)
         COMMAND ${CMAKE_COMMAND} -E make_directory ${ROMFS_TEX_DIR}
         COMMAND ${TEX3DS_TOOL} -f rgba8888 -z auto
                 -o ${ROMFS_TEX_DIR}/8bitdeck.t3x
-                ${CMAKE_CURRENT_SOURCE_DIR}/assets/textures/8bitdeck.png
-        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/assets/textures/8bitdeck.png
+                ${CMAKE_CURRENT_SOURCE_DIR}/assets/textures/8BitDeck.png
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/assets/textures/8BitDeck.png
         COMMENT "Converting 8bitdeck.png to 8bitdeck.t3x"
     )
 
