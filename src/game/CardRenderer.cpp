@@ -102,7 +102,16 @@ int CardRenderer::handIndexAtX(int mouseX, int centerX, int cardCount, const Han
 }
 
 void CardRenderer::init(Application* app) {
-#ifndef N3DS
+#ifdef N3DS
+    if (!s_cardTexLoaded) {
+        FILE* f = fopen("romfs:/textures/8bitdeck.t3x", "rb");
+        if (f) {
+            s_cardT3x = Tex3DS_TextureImportStdio(f, &s_cardTex, nullptr, false);
+            fclose(f);
+            s_cardTexLoaded = (s_cardT3x != nullptr);
+        }
+    }
+#else
     SDL_Renderer* renderer = app->getRenderer();
     if (!t_base) {
         t_base = sdlLoadTexture(renderer, "assets/textures/Enhancers.png");
