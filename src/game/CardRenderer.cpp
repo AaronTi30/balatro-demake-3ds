@@ -113,11 +113,8 @@ void CardRenderer::init(Application* app) {
     }
 #else
     SDL_Renderer* renderer = app->getRenderer();
-    if (!t_base) {
-        t_base = sdlLoadTexture(renderer, "assets/textures/Enhancers.png");
-    }
     if (!t_cards) {
-        t_cards = sdlLoadTexture(renderer, "assets/textures/8BitDeck.png");
+        t_cards = sdlLoadTexture(renderer, "assets/textures/8bitdeck.png");
     }
 #endif
 }

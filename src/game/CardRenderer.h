@@ -41,8 +41,8 @@ public:
     static constexpr int CARD_H = 56;
     static constexpr int CARD_SPACING = 36; // Overlap amount
     static constexpr int SELECT_OFFSET = 12; // Y shift when selected
-    static constexpr int SPRITE_SHEET_CELL_W = 71;
-    static constexpr int SPRITE_SHEET_CELL_H = 95;
+    static constexpr int SPRITE_SHEET_CELL_W = 40;
+    static constexpr int SPRITE_SHEET_CELL_H = 56;
 
     // Hand layout presets
     static HandLayoutMetrics defaultHandLayout();
