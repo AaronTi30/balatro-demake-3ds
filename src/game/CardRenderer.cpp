@@ -71,7 +71,7 @@ CardRenderer::HandLayoutMetrics CardRenderer::defaultHandLayout() {
 }
 
 CardRenderer::HandLayoutMetrics CardRenderer::gameplayHandLayout() {
-    return { 52, 70, 28, 14, 10, 5, 5 };
+    return { CARD_W, CARD_H, CARD_SPACING, SELECT_OFFSET, 8, 4, 4 };
 }
 
 int CardRenderer::handWidthForCount(int cardCount, const HandLayoutMetrics& layout) {
