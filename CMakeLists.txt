@@ -33,10 +33,25 @@ add_executable(balatro_demake
 )
 
 if(N3DS)
-    # 3DS has no SDL2 package, use citro2d.
-    # The toolchain will already link our required libraries if we use the add_3dsx_target macro
     add_3dsx_target(balatro_demake)
     target_compile_definitions(balatro_demake PRIVATE N3DS)
+
+    set(ROMFS_DIR ${CMAKE_CURRENT_BINARY_DIR}/romfs)
+    set(ROMFS_TEX_DIR ${ROMFS_DIR}/textures)
+    set(TEX3DS_TOOL ${DEVKITPRO}/tools/bin/tex3ds)
+
+    add_custom_command(
+        OUTPUT ${ROMFS_TEX_DIR}/8bitdeck.t3x
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${ROMFS_TEX_DIR}
+        COMMAND ${TEX3DS_TOOL} -f rgba8888 -z auto
+                -o ${ROMFS_TEX_DIR}/8bitdeck.t3x
+                ${CMAKE_CURRENT_SOURCE_DIR}/assets/textures/8bitdeck.png
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/assets/textures/8bitdeck.png
+        COMMENT "Converting 8bitdeck.png to 8bitdeck.t3x"
+    )
+
+    add_custom_target(card_textures DEPENDS ${ROMFS_TEX_DIR}/8bitdeck.t3x)
+    add_dependencies(balatro_demake card_textures)
 else()
     # Find SDL2 for PC
     find_package(SDL2 REQUIRED)
