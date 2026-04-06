@@ -131,7 +131,7 @@ CardRenderer::CardSpriteSourceRect CardRenderer::spriteSheetSourceRect(const Car
 
 CardRenderer::DesktopCardRenderPlan CardRenderer::desktopRenderPlan(const Card& card) {
     return {
-        true,
+        false,
         defaultBaseSourceRect(),
         spriteSheetSourceRect(card)
     };

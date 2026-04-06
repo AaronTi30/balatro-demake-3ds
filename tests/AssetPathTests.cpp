@@ -34,14 +34,14 @@ void testResolveAssetPathFindsAssetsFromRepoRoot() {
     const std::filesystem::path buildDir = std::filesystem::current_path();
     const std::filesystem::path repoRoot = buildDir.parent_path();
     const std::filesystem::path expected = std::filesystem::weakly_canonical(
-        repoRoot / "assets/textures/card_base.png"
+        repoRoot / "assets/textures/8bitdeck.png"
     );
 
     expect(std::filesystem::exists(expected),
-           "test fixture requires assets/textures/card_base.png in repo root");
+           "test fixture requires assets/textures/8bitdeck.png in repo root");
 
     const std::filesystem::path resolved = resolveAssetPath(
-        "assets/textures/card_base.png",
+        "assets/textures/8bitdeck.png",
         repoRoot,
         buildDir
     );
@@ -54,14 +54,14 @@ void testResolveAssetPathFindsAssetsFromBuildDirectory() {
     const std::filesystem::path buildDir = std::filesystem::current_path();
     const std::filesystem::path repoRoot = buildDir.parent_path();
     const std::filesystem::path expected = std::filesystem::weakly_canonical(
-        repoRoot / "assets/textures/card_base.png"
+        repoRoot / "assets/textures/8bitdeck.png"
     );
 
     expect(std::filesystem::exists(expected),
-           "test fixture requires assets/textures/card_base.png in repo root");
+           "test fixture requires assets/textures/8bitdeck.png in repo root");
 
     const std::filesystem::path resolved = resolveAssetPath(
-        "assets/textures/card_base.png",
+        "assets/textures/8bitdeck.png",
         buildDir,
         buildDir
     );
