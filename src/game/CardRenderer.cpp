@@ -158,23 +158,32 @@ void CardRenderer::drawCard(Application* app, const Card& card, int x, int y, bo
     }
 
 #ifdef N3DS
-    // ── Card body (white rectangle) ──
-    C2D_DrawRectSolid(x, drawY, 0.5f, layout.cardW, layout.cardH, C2D_Color32(240, 240, 235, 255));
-
-    // ── Card border ──
-    u32 borderColor = C2D_Color32(160, 160, 160, 255);
-    C2D_DrawRectSolid(x, drawY, 0.5f, layout.cardW, 1, borderColor);
-    C2D_DrawRectSolid(x, drawY + layout.cardH - 1, 0.5f, layout.cardW, 1, borderColor);
-    C2D_DrawRectSolid(x, drawY, 0.5f, 1, layout.cardH, borderColor);
-    C2D_DrawRectSolid(x + layout.cardW - 1, drawY, 0.5f, 1, layout.cardH, borderColor);
-
-    // ── Rank text (top-left) ──
-    u32 textColor = isRed ? C2D_Color32(220, 50, 50, 255) : C2D_Color32(30, 30, 30, 255);
-    TextRenderer::drawText(rankStr, x + 3, drawY + 2, 0.4f, 0.4f, textColor);
-
-    // ── Center suit indicator ──
-    const char* suitStr = suitToString(card.suit);
-    TextRenderer::drawText(suitStr, x + layout.cardW/2 - 4, drawY + layout.cardH/2 - 6, 0.5f, 0.5f, textColor);
+    if (s_cardTexLoaded) {
+        int col = spriteSheetColumn(card.rank);
+        int row = spriteSheetRow(card.suit);
+        Tex3DS_SubTexture subtex = {
+            SPRITE_SHEET_CELL_W,
+            SPRITE_SHEET_CELL_H,
+            col * SPRITE_SHEET_CELL_W / 1024.0f,
+            row * SPRITE_SHEET_CELL_H / 256.0f,
+            (col + 1) * SPRITE_SHEET_CELL_W / 1024.0f,
+            (row + 1) * SPRITE_SHEET_CELL_H / 256.0f
+        };
+        C2D_Image img = { &s_cardTex, &subtex };
+        C2D_DrawImageAt(img, (float)x, (float)drawY, 0.5f, nullptr, 1.0f, 1.0f);
+    } else {
+        // Fallback: plain rectangle if texture failed to load
+        C2D_DrawRectSolid(x, drawY, 0.5f, layout.cardW, layout.cardH, C2D_Color32(240, 240, 235, 255));
+        u32 borderColor = C2D_Color32(160, 160, 160, 255);
+        C2D_DrawRectSolid(x, drawY, 0.5f, layout.cardW, 1, borderColor);
+        C2D_DrawRectSolid(x, drawY + layout.cardH - 1, 0.5f, layout.cardW, 1, borderColor);
+        C2D_DrawRectSolid(x, drawY, 0.5f, 1, layout.cardH, borderColor);
+        C2D_DrawRectSolid(x + layout.cardW - 1, drawY, 0.5f, 1, layout.cardH, borderColor);
+        u32 textColor = isRed ? C2D_Color32(220, 50, 50, 255) : C2D_Color32(30, 30, 30, 255);
+        TextRenderer::drawText(rankStr, x + 3, drawY + 2, 0.4f, 0.4f, textColor);
+        const char* suitStr = suitToString(card.suit);
+        TextRenderer::drawText(suitStr, x + layout.cardW/2 - 4, drawY + layout.cardH/2 - 6, 0.5f, 0.5f, textColor);
+    }
 #else
     SDL_Renderer* renderer = app->getRenderer();
     SDL_Rect dstRect = { x, drawY, layout.cardW, layout.cardH };
