@@ -314,8 +314,16 @@ void GameplayState::renderTopScreen(Application* app, ScreenRenderer& r) {
         }
 
         // ── Stage area (idle) ──
-        r.drawRectOutline(60, 92, 280, 68, 60, 60, 80);
-        r.drawText("play a hand", 148, 116, 0.32f, 60, 60, 80);
+        r.drawRectOutline(topLayout.idleStagePanelRect.x, topLayout.idleStagePanelRect.y,
+                          topLayout.idleStagePanelRect.w, topLayout.idleStagePanelRect.h,
+                          gameplay_state_helpers::kIdleStagePanelColorR,
+                          gameplay_state_helpers::kIdleStagePanelColorG,
+                          gameplay_state_helpers::kIdleStagePanelColorB);
+        r.drawText("play a hand", topLayout.idleStagePromptX, topLayout.idleStagePromptY,
+                   0.32f,
+                   gameplay_state_helpers::kIdleStagePanelColorR,
+                   gameplay_state_helpers::kIdleStagePanelColorG,
+                   gameplay_state_helpers::kIdleStagePanelColorB);
 
         // ── Cards ──
         const auto layout = CardRenderer::gameplayHandLayout();

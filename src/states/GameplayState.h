@@ -11,6 +11,17 @@
 
 namespace gameplay_state_helpers {
 
+inline constexpr int kIdleStagePanelColorR = 60;
+inline constexpr int kIdleStagePanelColorG = 60;
+inline constexpr int kIdleStagePanelColorB = 80;
+
+struct ScreenRect {
+    int x;
+    int y;
+    int w;
+    int h;
+};
+
 struct CompactTopScreenLayout {
     int anteX;
     int anteY;
@@ -25,6 +36,9 @@ struct CompactTopScreenLayout {
     int handCenterX;
     int handY;
     int bossLabelY;
+    ScreenRect idleStagePanelRect;
+    int idleStagePromptX;
+    int idleStagePromptY;
     int resultBannerX;
     int resultBannerY;
     int resultBannerW;
@@ -54,13 +68,6 @@ struct CompactBottomScreenLayout {
     int buttonGap;
 };
 
-struct ScreenRect {
-    int x;
-    int y;
-    int w;
-    int h;
-};
-
 inline CompactTopScreenLayout compactTopScreenLayout() {
     return {
         10, 6,
@@ -71,6 +78,8 @@ inline CompactTopScreenLayout compactTopScreenLayout() {
         28,
         200, 170,
         74,
+        {60, 92, 280, 68},
+        148, 116,
         100, 0, 220, 20
     };
 }

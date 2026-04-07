@@ -213,8 +213,14 @@ void testGameplayTopScreenCompactLayoutContract() {
     expectEqual(layout.jokerBoxH, 36, "top layout jokerBoxH");
     expectEqual(layout.jokerSpacing, 28, "top layout jokerSpacing");
     expectEqual(layout.handCenterX, 200, "top layout handCenterX");
-    expectEqual(layout.handY, 96, "top layout handY");
+    expectEqual(layout.handY, 170, "top layout handY");
     expectEqual(layout.bossLabelY, 74, "top layout bossLabelY");
+    expectEqual(layout.idleStagePanelRect.x, 60, "top layout idleStagePanelRect.x");
+    expectEqual(layout.idleStagePanelRect.y, 92, "top layout idleStagePanelRect.y");
+    expectEqual(layout.idleStagePanelRect.w, 280, "top layout idleStagePanelRect.w");
+    expectEqual(layout.idleStagePanelRect.h, 68, "top layout idleStagePanelRect.h");
+    expectEqual(layout.idleStagePromptX, 148, "top layout idleStagePromptX");
+    expectEqual(layout.idleStagePromptY, 116, "top layout idleStagePromptY");
 
     expectEqual(gameplay_state_helpers::compactJokerLabel("Blueprint"), std::string("Bluepr"),
                 "compact joker label should truncate to 6 chars");
