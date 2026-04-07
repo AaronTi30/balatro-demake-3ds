@@ -187,4 +187,23 @@ if(NOT N3DS)
         target_link_libraries(text_renderer_tests PRIVATE ${SDL2_TTF_LIB})
     endif()
     add_test(NAME text_renderer_tests COMMAND text_renderer_tests)
+
+    add_executable(scoring_animator_tests
+        tests/ScoringAnimatorTests.cpp
+        src/game/ScoringAnimator.cpp
+        src/game/CardRenderer.cpp
+        src/game/Hand.cpp
+        src/core/AssetPath.cpp
+        src/core/TextRenderer.cpp
+        src/game/Joker.cpp
+        src/game/HandEvaluator.cpp
+        src/game/Deck.cpp
+        src/game/RunState.cpp
+    )
+    target_include_directories(scoring_animator_tests PRIVATE src ${SDL2_INCLUDE_DIR})
+    target_link_libraries(scoring_animator_tests PRIVATE ${SDL2_LIBRARY})
+    if(SDL2_TTF_LIB)
+        target_link_libraries(scoring_animator_tests PRIVATE ${SDL2_TTF_LIB})
+    endif()
+    add_test(NAME scoring_animator_tests COMMAND scoring_animator_tests)
 endif()
