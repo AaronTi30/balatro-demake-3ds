@@ -313,6 +313,10 @@ void GameplayState::renderTopScreen(Application* app, ScreenRenderer& r) {
                        topLayout.blindX, topLayout.bossLabelY, 0.32f, 255, 170, 120);
         }
 
+        // ── Stage area (idle) ──
+        r.drawRectOutline(60, 92, 280, 68, 60, 60, 80);
+        r.drawText("play a hand", 148, 116, 0.32f, 60, 60, 80);
+
         // ── Cards ──
         const auto layout = CardRenderer::gameplayHandLayout();
         CardRenderer::drawHand(app, m_hand, topLayout.handCenterX, topLayout.handY, m_cursorIndex, layout);

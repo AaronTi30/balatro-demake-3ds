@@ -69,7 +69,7 @@ inline CompactTopScreenLayout compactTopScreenLayout() {
         34,
         24, 36,
         28,
-        200, 96,
+        200, 170,
         74,
         100, 0, 220, 20
     };
