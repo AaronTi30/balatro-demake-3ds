@@ -162,9 +162,9 @@ void CardRenderer::drawCard(Application* app, const Card& card, int x, int y, bo
             SPRITE_SHEET_CELL_W,
             SPRITE_SHEET_CELL_H,
             col * SPRITE_SHEET_CELL_W / 1024.0f,
-            row * SPRITE_SHEET_CELL_H / 256.0f,
+            1.0f - row * SPRITE_SHEET_CELL_H / 256.0f,
             (col + 1) * SPRITE_SHEET_CELL_W / 1024.0f,
-            (row + 1) * SPRITE_SHEET_CELL_H / 256.0f
+            1.0f - (row + 1) * SPRITE_SHEET_CELL_H / 256.0f
         };
         C2D_Image img = { &s_cardTex, &subtex };
         C2D_DrawImageAt(img, (float)x, (float)drawY, 0.5f, nullptr, 1.0f, 1.0f);
