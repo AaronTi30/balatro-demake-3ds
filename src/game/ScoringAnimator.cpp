@@ -17,6 +17,12 @@ namespace {
 #endif
 }
 
+bool sameCardIdentity(const Card& a, const Card& b) {
+    return a.suit == b.suit &&
+        a.rank == b.rank &&
+        a.instanceId == b.instanceId;
+}
+
 } // namespace
 
 ScoringAnimator::ScoringAnimator(
@@ -60,7 +66,7 @@ ScoringAnimator::ScoringAnimator(
 
         anim.isScoring = false;
         for (const auto& sc : m_result.scoringCards) {
-            if (sc.rank == anim.card.rank && sc.suit == anim.card.suit) {
+            if (sameCardIdentity(sc, anim.card)) {
                 anim.isScoring = true;
                 break;
             }
@@ -214,9 +220,8 @@ std::vector<ScoringAnimator::RenderCardState> ScoringAnimator::cardRenderStates(
         bool highlight = false;
         if (m_stage == Stage::CardScoring && c.isScoring) {
             for (int si = 0; si < static_cast<int>(m_result.scoringCards.size()); ++si) {
-                if (m_result.scoringCards[si].rank == c.card.rank &&
-                    m_result.scoringCards[si].suit == c.card.suit &&
-                    si == m_activeCardIdx) {
+                if (si == m_activeCardIdx &&
+                    sameCardIdentity(m_result.scoringCards[si], c.card)) {
                     highlight = true;
                     break;
                 }

@@ -146,6 +146,44 @@ int main() {
         std::cout << "PASS: after FlyToStage\n";
     }
 
+    // Test: duplicate rank/suit cards use instanceId for scoring-card highlight identity
+    {
+        const Card duplicateA{Suit::Hearts, Rank::Ace, 101};
+        const Card duplicateB{Suit::Hearts, Rank::Ace, 202};
+        const Card kicker{Suit::Clubs, Rank::Four, 303};
+        HandResult result{};
+        result.detectedHand = HandType::HighCard;
+        result.containsPair = false;
+        result.scoringCards = { duplicateB };
+        result.baseHandChips = 5;
+        result.baseHandMult = 1;
+        result.scoringCardChipBonus = 11;
+        result.finalChips = 16;
+        result.finalMult = 1;
+        result.finalScore = 16;
+        result.scoreEquationExact = true;
+
+        std::vector<Card> cards = { duplicateA, duplicateB, kicker };
+        std::vector<std::pair<int, int>> positions = {
+            {134, 158},
+            {170, 158},
+            {206, 158}
+        };
+
+        ScoringAnimator anim(cards, positions, {}, result, 0, 200, 100);
+        anim.update(0.41f);
+
+        auto renderCards = anim.cardRenderStates();
+        expectEqual(static_cast<int>(renderCards.size()), 3, "duplicate identity render card count");
+        expectEqual(static_cast<int>(renderCards[0].card.instanceId), 101, "first duplicate instance id preserved");
+        expectEqual(static_cast<int>(renderCards[1].card.instanceId), 202, "second duplicate instance id preserved");
+        expect(!renderCards[0].highlight, "first duplicate should not highlight when only second duplicate scores");
+        expect(renderCards[1].highlight, "second duplicate should highlight when it is the scoring card");
+        expect(!renderCards[2].highlight, "non-scoring kicker should not highlight");
+
+        std::cout << "PASS: duplicate identity highlight uses instanceId\n";
+    }
+
     // Test: large dt carries through multiple stage windows without dropping leftover time
     {
         HandResult result = makePairResult();
