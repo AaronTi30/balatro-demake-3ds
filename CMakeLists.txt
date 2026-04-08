@@ -194,6 +194,7 @@ if(NOT N3DS)
         src/game/CardRenderer.cpp
         src/game/Hand.cpp
         src/core/AssetPath.cpp
+        src/core/ScreenRenderer.cpp
         src/core/TextRenderer.cpp
         src/game/Joker.cpp
         src/game/HandEvaluator.cpp

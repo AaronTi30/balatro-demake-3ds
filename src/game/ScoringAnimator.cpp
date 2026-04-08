@@ -2,18 +2,8 @@
 #include "../core/Application.h"
 #include "../core/ScreenRenderer.h"
 #include "CardRenderer.h"
-#include <map>
-
-namespace {
-
-bool detectContainsPair(const std::vector<Card>& cards) {
-    std::map<Rank, int> counts;
-    for (const auto& c : cards) counts[c.rank]++;
-    for (const auto& p : counts) if (p.second >= 2) return true;
-    return false;
-}
-
-} // namespace
+#include <cmath>
+#include <stdexcept>
 
 ScoringAnimator::ScoringAnimator(
     std::vector<Card> cards,
@@ -36,6 +26,10 @@ ScoringAnimator::ScoringAnimator(
     , m_currentRoundScore(currentRoundScore)
     , m_flyOffY(0.0f)
 {
+    if (cards.size() != startPositions.size()) {
+        throw std::invalid_argument("ScoringAnimator requires one start position per card");
+    }
+
     const int count = static_cast<int>(cards.size());
     const auto layout = CardRenderer::gameplayHandLayout();
     const int stageStartX = CardRenderer::handStartX(stageCenterX, count, layout);
@@ -67,7 +61,12 @@ ScoringAnimator::ScoringAnimator(
 
     int simChips = m_chipsAfterCards;
     int simMult = m_result.baseHandMult;
-    bool hasPair = detectContainsPair(cards);
+    const bool hasPair =
+        m_result.detectedHand == HandType::Pair ||
+        m_result.detectedHand == HandType::TwoPair ||
+        m_result.detectedHand == HandType::ThreeOfAKind ||
+        m_result.detectedHand == HandType::FullHouse ||
+        m_result.detectedHand == HandType::FourOfAKind;
     std::vector<Card> playedCopy = cards;
     std::vector<Card> scoringCopy = m_result.scoringCards;
 
@@ -89,9 +88,108 @@ ScoringAnimator::ScoringAnimator(
     }
 }
 
-void ScoringAnimator::update(float /*dt*/) {}
+void ScoringAnimator::update(float dt) {
+    if (m_stage == Stage::Done) return;
+    m_elapsed += dt;
 
-void ScoringAnimator::render(Application* /*app*/, ScreenRenderer& /*r*/) {}
+    switch (m_stage) {
+        case Stage::FlyToStage: {
+            float t = m_elapsed / kFlyDuration;
+            if (t > 1.0f) t = 1.0f;
+            for (auto& c : m_cards) {
+                c.currentX = c.startX + (c.targetX - c.startX) * t;
+                c.currentY = c.startY + (c.targetY - c.startY) * t;
+            }
+            if (m_elapsed >= kFlyDuration) {
+                for (auto& c : m_cards) {
+                    c.currentX = c.targetX;
+                    c.currentY = c.targetY;
+                }
+                transitionToCardScoring();
+            }
+            break;
+        }
+
+        case Stage::CardScoring: {
+            if (m_elapsed >= kCardScoringDuration) {
+                m_elapsed -= kCardScoringDuration;
+                m_activeCardIdx++;
+                const int totalScoring = static_cast<int>(m_result.scoringCards.size());
+                if (m_activeCardIdx >= totalScoring) {
+                    transitionToJokerTrigger();
+                } else {
+                    applyCardScore(m_activeCardIdx);
+                }
+            }
+            break;
+        }
+
+        case Stage::JokerTrigger: {
+            if (m_elapsed >= kJokerDuration) {
+                m_elapsed -= kJokerDuration;
+                m_activeJokerIdx++;
+                if (m_activeJokerIdx >= static_cast<int>(m_jokers.size())) {
+                    transitionToScoreTally();
+                } else {
+                    applyJokerSnapshot(m_activeJokerIdx);
+                }
+            }
+            break;
+        }
+
+        case Stage::ScoreTally: {
+            float t = m_elapsed / kTallyDuration;
+            if (t > 1.0f) t = 1.0f;
+            m_flyOffY = t * 260.0f;
+            m_displayRoundScore = m_currentRoundScore +
+                static_cast<int>(t * static_cast<float>(m_result.finalScore));
+            if (m_elapsed >= kTallyDuration) {
+                m_displayRoundScore = m_currentRoundScore + m_result.finalScore;
+                m_stage = Stage::Done;
+            }
+            break;
+        }
+
+        case Stage::Done:
+            break;
+    }
+}
+
+void ScoringAnimator::render(Application* app, ScreenRenderer& r) {
+    if (m_cards.empty()) return;
+
+    const auto layout = CardRenderer::gameplayHandLayout();
+
+    for (int i = 0; i < static_cast<int>(m_cards.size()); ++i) {
+        const auto& c = m_cards[i];
+        int drawX = static_cast<int>(std::round(c.currentX));
+        int drawY = static_cast<int>(std::round(c.currentY));
+
+        if (m_stage == Stage::ScoreTally || m_stage == Stage::Done) {
+            drawY -= static_cast<int>(std::round(m_flyOffY));
+        }
+
+        bool highlight = false;
+        if (m_stage == Stage::CardScoring && c.isScoring) {
+            for (int si = 0; si < static_cast<int>(m_result.scoringCards.size()); ++si) {
+                if (m_result.scoringCards[si].rank == c.card.rank &&
+                    m_result.scoringCards[si].suit == c.card.suit &&
+                    si == m_activeCardIdx) {
+                    highlight = true;
+                    break;
+                }
+            }
+        }
+
+        CardRenderer::drawCard(app, c.card, drawX, drawY, false, layout);
+
+        if (highlight) {
+            r.drawRectOutline(drawX - 2, drawY - 2,
+                              layout.cardW + 4, layout.cardH + 4,
+                              255, 220, 50);
+        }
+    }
+}
 
 bool ScoringAnimator::isDone() const { return m_stage == Stage::Done; }
 

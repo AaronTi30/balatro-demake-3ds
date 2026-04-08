@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -50,6 +51,27 @@ std::vector<std::pair<int,int>> makeStartPositions() {
 } // namespace
 
 int main() {
+    // Test: mismatched start positions fail safely
+    {
+        HandResult result = makePairResult();
+        std::vector<Card> cards = {
+            Card{Suit::Hearts, Rank::Ace},
+            Card{Suit::Hearts, Rank::King}
+        };
+
+        bool threw = false;
+        try {
+            ScoringAnimator anim(cards, { {170, 158} }, {}, result, 0, 200, 100);
+            (void)anim;
+        } catch (const std::invalid_argument&) {
+            threw = true;
+        }
+
+        expect(threw, "constructor should reject mismatched startPositions");
+
+        std::cout << "PASS: mismatched start positions rejected\n";
+    }
+
     // Test: initial state
     {
         HandResult result = makePairResult();
@@ -69,6 +91,97 @@ int main() {
         expect(anim.handType() == HandType::Pair, "handType() should match result");
 
         std::cout << "PASS: initial state\n";
+    }
+
+    // Test: after FlyToStage, stage transitions to CardScoring
+    {
+        HandResult result = makePairResult();
+        std::vector<Card> cards = {
+            Card{Suit::Hearts, Rank::Ace},
+            Card{Suit::Hearts, Rank::King}
+        };
+        auto positions = makeStartPositions();
+
+        ScoringAnimator anim(cards, positions, {}, result, 0, 200, 100);
+
+        anim.update(0.41f);
+
+        expect(!anim.isDone(), "isDone() should be false after FlyToStage");
+        expectEqual(anim.displayChips(), 21, "displayChips() after FlyToStage = baseHandChips(10) + Ace(11)");
+        expectEqual(anim.displayMult(), 2, "displayMult() unchanged after FlyToStage");
+        expectEqual(anim.activeJokerIndex(), -1, "activeJokerIndex() should be -1 during CardScoring");
+
+        std::cout << "PASS: after FlyToStage\n";
+    }
+
+    // Test: CardScoring advances per-card chips correctly
+    {
+        HandResult result = makePairResult();
+        std::vector<Card> cards = {
+            Card{Suit::Hearts, Rank::Ace},
+            Card{Suit::Hearts, Rank::King}
+        };
+        auto positions = makeStartPositions();
+
+        ScoringAnimator anim(cards, positions, {}, result, 0, 200, 100);
+
+        anim.update(0.41f);
+        anim.update(0.31f);
+
+        expectEqual(anim.displayChips(), 31, "displayChips() after both scoring cards = 10+11+10=31");
+        expect(!anim.isDone(), "isDone() should be false after CardScoring (no jokers, still need ScoreTally)");
+
+        std::cout << "PASS: CardScoring advances chips\n";
+    }
+
+    // Test: JokerTrigger — activeJokerIndex and chips updated per joker
+    {
+        HandResult result = makePairResult();
+        Joker testJoker;
+        testJoker.name = "TestChips";
+        testJoker.effectType = JokerEffectType::AddChips;
+        testJoker.evaluate = [](HandEvalContext& ctx) { ctx.chips += 10; };
+
+        std::vector<Card> cards = {
+            Card{Suit::Hearts, Rank::Ace},
+            Card{Suit::Hearts, Rank::King}
+        };
+        auto positions = makeStartPositions();
+
+        ScoringAnimator anim(cards, positions, { testJoker }, result, 0, 200, 100);
+
+        anim.update(0.41f);
+        anim.update(0.31f);
+        anim.update(0.31f);
+        expectEqual(anim.activeJokerIndex(), 0, "activeJokerIndex() == 0 during first joker window");
+        expectEqual(anim.displayChips(), 41, "displayChips() after joker = 31 + 10 = 41");
+
+        anim.update(0.31f);
+        expectEqual(anim.activeJokerIndex(), -1, "activeJokerIndex() == -1 after JokerTrigger");
+
+        std::cout << "PASS: JokerTrigger activates joker and updates chips\n";
+    }
+
+    // Test: full sequence without jokers -> isDone() and displayRoundScore
+    {
+        HandResult result = makePairResult();
+        std::vector<Card> cards = {
+            Card{Suit::Hearts, Rank::Ace},
+            Card{Suit::Hearts, Rank::King}
+        };
+        auto positions = makeStartPositions();
+
+        ScoringAnimator anim(cards, positions, {}, result, /*currentRoundScore=*/100, 200, 100);
+
+        anim.update(0.41f);
+        anim.update(0.31f);
+        anim.update(0.31f);
+        anim.update(0.41f);
+
+        expect(anim.isDone(), "isDone() should be true after full sequence");
+        expectEqual(anim.displayRoundScore(), 162, "displayRoundScore() = 100 + 62 = 162");
+
+        std::cout << "PASS: full sequence completes and displayRoundScore correct\n";
     }
 
     std::cout << "All ScoringAnimator tests passed.\n";
