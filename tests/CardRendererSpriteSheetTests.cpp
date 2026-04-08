@@ -48,12 +48,8 @@ void expectRect(const CardRenderer::CardSpriteSourceRect& actual,
 void testSpriteSheetMappingUsesExplicitSuitAndRankOrder() {
     const CardRenderer::DesktopCardRenderPlan heartsTwoPlan =
         CardRenderer::desktopRenderPlan({ Suit::Hearts, Rank::Two });
-    expect(heartsTwoPlan.drawBaseTexture,
-           "desktop renderer should keep drawing the opaque base texture under sprite art");
-    expectRect(heartsTwoPlan.baseSource,
-               CardRenderer::SPRITE_SHEET_CELL_W,
-               0,
-               "desktop renderer should use the Balatro default base card cell from Enhancers.png");
+    expect(!heartsTwoPlan.drawBaseTexture,
+           "desktop renderer should treat the sprite sheet as a complete card image");
     expectRect(heartsTwoPlan.overlaySource,
                0,
                0,
@@ -91,18 +87,18 @@ void testDefaultHandLayoutPreset() {
 
 void testGameplayHandLayoutPreset() {
     const CardRenderer::HandLayoutMetrics layout = CardRenderer::gameplayHandLayout();
-    expectEqual(layout.cardW, 52, "gameplay layout cardW");
-    expectEqual(layout.cardH, 70, "gameplay layout cardH");
-    expectEqual(layout.cardSpacing, 28, "gameplay layout cardSpacing");
-    expectEqual(layout.selectOffset, 14, "gameplay layout selectOffset");
-    expectEqual(layout.cursorW, 10, "gameplay layout cursorW");
-    expectEqual(layout.cursorH, 5, "gameplay layout cursorH");
-    expectEqual(layout.cursorGap, 5, "gameplay layout cursorGap");
+    expectEqual(layout.cardW, 40, "gameplay layout cardW");
+    expectEqual(layout.cardH, 56, "gameplay layout cardH");
+    expectEqual(layout.cardSpacing, 36, "gameplay layout cardSpacing");
+    expectEqual(layout.selectOffset, 12, "gameplay layout selectOffset");
+    expectEqual(layout.cursorW, 8, "gameplay layout cursorW");
+    expectEqual(layout.cursorH, 4, "gameplay layout cursorH");
+    expectEqual(layout.cursorGap, 4, "gameplay layout cursorGap");
 
     const int totalWidth = CardRenderer::handWidthForCount(8, layout);
-    expectEqual(totalWidth, 7 * 28 + 52, "gameplay layout total width for 8 cards");
+    expectEqual(totalWidth, 7 * 36 + 40, "gameplay layout total width for 8 cards");
 
-    // handStartX(200, 8) = 200 - 248/2 = 200 - 124 = 76
+    // handStartX(200, 8) = 200 - 292/2 = 54
     const int startX = CardRenderer::handStartX(200, 8, layout);
     expect(startX >= 0, "gameplay hand start X should be non-negative for centerX=200");
 
@@ -113,7 +109,7 @@ void testGameplayHandLayoutPreset() {
 
 void testHitTestOneCardHand() {
     const CardRenderer::HandLayoutMetrics layout = CardRenderer::gameplayHandLayout();
-    // One card centered at 200: startX = 200 - 52/2 = 174, right edge = 174 + 52 = 226
+    // One card centered at 200: startX = 200 - 40/2 = 180, right edge = 220
     const int centerX = 200;
     const int cardCount = 1;
     const int startX = CardRenderer::handStartX(centerX, cardCount, layout);
@@ -124,18 +120,18 @@ void testHitTestOneCardHand() {
 
 void testHitTestEightCardHandFirstBucket() {
     const CardRenderer::HandLayoutMetrics layout = CardRenderer::gameplayHandLayout();
-    // handStartX(200, 8) = 200 - (7*28+52)/2 = 200 - 124 = 76
+    // handStartX(200, 8) = 200 - (7*36+40)/2 = 54
     const int centerX = 200;
     const int cardCount = 8;
-    // x=80 → bucket (80-76)/28 = 0 → card 0
+    // x=80 → bucket (80-54)/36 = 0 → card 0
     const int hitIdx = CardRenderer::handIndexAtX(80, centerX, cardCount, layout);
     expectEqual(hitIdx, 0, "8-card hand: click at x=80 should hit first card (index 0)");
 }
 
 void testHitTestEightCardHandMiddleBucket() {
     const CardRenderer::HandLayoutMetrics layout = CardRenderer::gameplayHandLayout();
-    // handStartX(200, 8) = 76
-    // x=110 → bucket (110-76)/28 = 1 → card 1
+    // handStartX(200, 8) = 54
+    // x=110 → bucket (110-54)/36 = 1 → card 1
     const int centerX = 200;
     const int cardCount = 8;
     const int hitIdx = CardRenderer::handIndexAtX(110, centerX, cardCount, layout);
@@ -144,30 +140,30 @@ void testHitTestEightCardHandMiddleBucket() {
 
 void testHitTestEightCardHandLastCard() {
     const CardRenderer::HandLayoutMetrics layout = CardRenderer::gameplayHandLayout();
-    // handStartX(200, 8) = 76; card 7 at 76+7*28=268; right edge=268+52=320
-    // x=300 → bucket (300-76)/28 = 8, clamped to 7 → last card
+    // handStartX(200, 8) = 54; card 7 at 54+7*36=306; right edge=306+40=346
+    // x=330 → bucket (330-54)/36 = 7 → last card
     const int centerX = 200;
     const int cardCount = 8;
-    const int hitIdx = CardRenderer::handIndexAtX(300, centerX, cardCount, layout);
-    expectEqual(hitIdx, 7, "8-card hand: click at x=300 in far-right exposed region should hit last card (index 7)");
+    const int hitIdx = CardRenderer::handIndexAtX(330, centerX, cardCount, layout);
+    expectEqual(hitIdx, 7, "8-card hand: click at x=330 in far-right exposed region should hit last card (index 7)");
 }
 
 void testHitTestOutsideHandLeftReturnsMinusOne() {
     const CardRenderer::HandLayoutMetrics layout = CardRenderer::gameplayHandLayout();
-    // handStartX(200, 8) = 76; click at x=75 is left of startX
+    // handStartX(200, 8) = 54; click at x=53 is left of startX
     const int centerX = 200;
     const int cardCount = 8;
-    const int hitIdx = CardRenderer::handIndexAtX(75, centerX, cardCount, layout);
-    expectEqual(hitIdx, -1, "8-card hand: click left of hand (x=75) should return -1");
+    const int hitIdx = CardRenderer::handIndexAtX(53, centerX, cardCount, layout);
+    expectEqual(hitIdx, -1, "8-card hand: click left of hand (x=53) should return -1");
 }
 
 void testHitTestOutsideHandRightReturnsMinusOne() {
     const CardRenderer::HandLayoutMetrics layout = CardRenderer::gameplayHandLayout();
-    // The rightmost visible pixel is x=323. x=324 is already outside the card rect.
+    // The rightmost visible pixel is x=345. x=346 is already outside the card rect.
     const int centerX = 200;
     const int cardCount = 8;
-    const int hitIdx = CardRenderer::handIndexAtX(324, centerX, cardCount, layout);
-    expectEqual(hitIdx, -1, "8-card hand: click right of hand (x=324) should return -1");
+    const int hitIdx = CardRenderer::handIndexAtX(346, centerX, cardCount, layout);
+    expectEqual(hitIdx, -1, "8-card hand: click right of hand (x=346) should return -1");
 }
 
 void testGameplayHandPlacementAssumptions() {
