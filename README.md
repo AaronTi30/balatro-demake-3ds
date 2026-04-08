@@ -41,4 +41,3 @@ This will produce `balatro_demake.3dsx` in the `build-3ds` directory, which can 
 - `src/`: Source code
 - `cmake/`: Custom CMake modules
 - `3ds.toolchain.cmake`: Toolchain file for 3DS cross-compilation
-- `artifacts/`: Project planning and documentation
