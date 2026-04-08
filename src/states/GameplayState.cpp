@@ -5,6 +5,7 @@
 #include "../core/TextRenderer.h"
 #include "../game/CardRenderer.h"
 #include "../game/HandEvaluator.h"
+#include "../game/ScoringAnimator.h"
 #include "../states/TitleState.h"
 #include "../states/ShopState.h"
 
@@ -21,6 +22,7 @@
 namespace {
 
 constexpr int kBottomScreenBaseXDesktop = 400;
+constexpr int kScoringStageY = 100;
 
 std::string formatScoreLine(int chips, int mult, int score, bool scoreEquationExact) {
     if (!scoreEquationExact) {
@@ -29,6 +31,55 @@ std::string formatScoreLine(int chips, int mult, int score, bool scoreEquationEx
 
     return std::to_string(chips) + " x " + std::to_string(mult) +
         " = " + std::to_string(score);
+}
+
+void drawJokerStrip(ScreenRenderer& r,
+                    const std::vector<Joker>& jokers,
+                    const gameplay_state_helpers::CompactTopScreenLayout& topLayout,
+                    int activeJokerIndex = -1) {
+    const int numJokers = static_cast<int>(jokers.size());
+    if (numJokers <= 0) {
+        return;
+    }
+
+    const int jokerStartX = gameplay_state_helpers::jokerStripStartX(numJokers, topLayout);
+    for (int i = 0; i < numJokers; ++i) {
+        const int jx = jokerStartX + i * topLayout.jokerSpacing;
+        const int jy = topLayout.jokerStripY;
+
+        uint8_t jr = 100, jg = 100, jb = 100;
+        if (jokers[i].effectType == JokerEffectType::AddChips)  { jr =  80; jg = 120; jb = 220; }
+        else if (jokers[i].effectType == JokerEffectType::AddMult)  { jr = 220; jg =  60; jb =  60; }
+        else if (jokers[i].effectType == JokerEffectType::MulMult)  { jr = 180; jg =  60; jb = 220; }
+
+        r.fillRect(jx, jy, topLayout.jokerBoxW, topLayout.jokerBoxH, jr, jg, jb);
+        if (i == activeJokerIndex) {
+            r.drawRectOutline(jx - 1, jy - 1, topLayout.jokerBoxW + 2, topLayout.jokerBoxH + 2,
+                              255, 220, 50);
+        } else {
+            r.drawRectOutline(jx, jy, topLayout.jokerBoxW, topLayout.jokerBoxH, 255, 255, 255);
+        }
+        r.drawText(gameplay_state_helpers::compactJokerLabel(jokers[i].name),
+                   jx + 2, jy + 12, 0.3f, 255, 255, 255);
+    }
+}
+
+void drawRemainingUnselectedHand(Application* app,
+                                 ScreenRenderer& r,
+                                 const Hand& hand,
+                                 const gameplay_state_helpers::CompactTopScreenLayout& topLayout) {
+    (void)r;
+
+    const auto layout = CardRenderer::gameplayHandLayout();
+    const int handSize = hand.size();
+    for (int i = 0; i < handSize; ++i) {
+        if (hand.isSelected(i)) {
+            continue;
+        }
+
+        const int cardX = CardRenderer::handCardX(topLayout.handCenterX, handSize, i, layout);
+        CardRenderer::drawCard(app, hand.at(i), cardX, topLayout.handY, false, layout);
+    }
 }
 
 } // namespace
@@ -56,6 +107,7 @@ void GameplayState::startNewRound() {
     m_cursorIndex = 0;
     m_showResult = false;
     m_resultTimer = 0.0f;
+    m_scorer.reset();
     m_phase = RoundPhase::Playing;
     m_phaseTimer = 0.0f;
     drawToFull();
@@ -87,7 +139,7 @@ void GameplayState::checkRoundEnd() {
 
 void GameplayState::playHand() {
     if (m_phase != RoundPhase::Playing) return;
-    
+
     auto selected = m_hand.getSelected();
     if (selected.empty() || selected.size() > 5) return;
     if (m_runState->handsRemaining <= 0) return;
@@ -98,19 +150,35 @@ void GameplayState::playHand() {
         m_runState->currentBossModifier,
         m_runState->currentBlockedSuit,
         m_runState.get());
+
     m_lastHandType = result.detectedHand;
     m_lastChips = result.finalChips;
     m_lastMult = result.finalMult;
     m_lastScore = result.finalScore;
-    m_runState->addRoundScore(m_lastScore);
-    m_showResult = true;
-    m_resultTimer = 2.0f;
 
-    m_hand.removeSelected();
-    m_runState->handsRemaining--;
-    drawToFull();
+    const auto topLayout = gameplay_state_helpers::compactTopScreenLayout();
+    const auto handLayout = CardRenderer::gameplayHandLayout();
+    std::vector<std::pair<int, int>> startPositions;
+    startPositions.reserve(selected.size());
+    for (int i = 0; i < m_hand.size(); ++i) {
+        if (!m_hand.isSelected(i)) {
+            continue;
+        }
 
-    checkRoundEnd();
+        const int x = CardRenderer::handCardX(topLayout.handCenterX, m_hand.size(), i, handLayout);
+        const int y = topLayout.handY - handLayout.selectOffset;
+        startPositions.push_back({ x, y });
+    }
+
+    m_scorer = std::make_unique<ScoringAnimator>(
+        selected,
+        startPositions,
+        m_runState->jokers,
+        result,
+        m_runState->roundScore,
+        topLayout.handCenterX,
+        kScoringStageY);
+    m_phase = RoundPhase::Scoring;
 }
 
 void GameplayState::discardSelected() {
@@ -268,11 +336,27 @@ void GameplayState::update(float dt) {
     if (m_inputDelay > 0.0f) {
         m_inputDelay -= dt;
     }
-    
+
+    if (m_phase == RoundPhase::Scoring && m_scorer) {
+        m_scorer->update(dt);
+        if (m_scorer->isDone()) {
+            m_runState->addRoundScore(m_lastScore);
+            m_runState->handsRemaining--;
+            m_hand.removeSelected();
+            drawToFull();
+            m_showResult = true;
+            m_resultTimer = 2.0f;
+            m_scorer.reset();
+            m_phase = RoundPhase::Playing;
+            checkRoundEnd();
+        }
+        return;
+    }
+
     if (m_hand.size() > 0 && m_cursorIndex >= m_hand.size()) {
         m_cursorIndex = m_hand.size() - 1;
     }
-    
+
     if (m_showResult) {
         m_resultTimer -= dt;
         if (m_resultTimer <= 0.0f) {
@@ -286,7 +370,29 @@ void GameplayState::update(float dt) {
 // ═══════════════════════════════════════════════════════
 
 void GameplayState::renderTopScreen(Application* app, ScreenRenderer& r) {
-    if (m_phase == RoundPhase::Playing) {
+    if (m_phase == RoundPhase::Scoring && m_scorer) {
+        const auto topLayout = gameplay_state_helpers::compactTopScreenLayout();
+
+        r.drawText("Ante " + std::to_string(m_runState->ante), topLayout.anteX, topLayout.anteY, 0.4f, 255, 200, 80);
+        r.drawText(m_runState->currentBlindName(), topLayout.blindX, topLayout.blindY, 0.35f, 180, 180, 200);
+        r.drawText("$" + std::to_string(m_runState->money), topLayout.moneyX, topLayout.moneyY, 0.5f, 255, 215, 0);
+
+        if (m_runState->isBossBlind() && m_runState->currentBossModifier != BossBlindModifier::None) {
+            r.drawText("Boss: " + std::string(RunState::bossModifierName(m_runState->currentBossModifier)),
+                       topLayout.blindX, topLayout.bossLabelY, 0.32f, 255, 170, 120);
+        }
+
+        r.drawRectOutline(topLayout.idleStagePanelRect.x, topLayout.idleStagePanelRect.y,
+                          topLayout.idleStagePanelRect.w, topLayout.idleStagePanelRect.h,
+                          gameplay_state_helpers::kIdleStagePanelColorR,
+                          gameplay_state_helpers::kIdleStagePanelColorG,
+                          gameplay_state_helpers::kIdleStagePanelColorB);
+
+        drawJokerStrip(r, m_runState->jokers, topLayout, m_scorer->activeJokerIndex());
+        m_scorer->render(app, r);
+        drawRemainingUnselectedHand(app, r, m_hand, topLayout);
+    }
+    else if (m_phase == RoundPhase::Playing) {
         const auto topLayout = gameplay_state_helpers::compactTopScreenLayout();
 
         // ── HUD ──
@@ -330,24 +436,7 @@ void GameplayState::renderTopScreen(Application* app, ScreenRenderer& r) {
         CardRenderer::drawHand(app, m_hand, topLayout.handCenterX, topLayout.handY, m_cursorIndex, layout);
 
         // ── Jokers ──
-        const int numJokers = static_cast<int>(m_runState->jokers.size());
-        if (numJokers > 0) {
-            const int jokerStartX = gameplay_state_helpers::jokerStripStartX(numJokers, topLayout);
-            for (int i = 0; i < numJokers; ++i) {
-                const int jx = jokerStartX + i * topLayout.jokerSpacing;
-                const int jy = topLayout.jokerStripY;
-
-                uint8_t jr = 100, jg = 100, jb = 100;
-                if (m_runState->jokers[i].effectType == JokerEffectType::AddChips)  { jr =  80; jg = 120; jb = 220; }
-                else if (m_runState->jokers[i].effectType == JokerEffectType::AddMult)  { jr = 220; jg =  60; jb =  60; }
-                else if (m_runState->jokers[i].effectType == JokerEffectType::MulMult)  { jr = 180; jg =  60; jb = 220; }
-
-                r.fillRect(jx, jy, topLayout.jokerBoxW, topLayout.jokerBoxH, jr, jg, jb);
-                r.drawRectOutline(jx, jy, topLayout.jokerBoxW, topLayout.jokerBoxH, 255, 255, 255);
-                r.drawText(gameplay_state_helpers::compactJokerLabel(m_runState->jokers[i].name),
-                           jx + 2, jy + 12, 0.3f, 255, 255, 255);
-            }
-        }
+        drawJokerStrip(r, m_runState->jokers, topLayout);
     }
     else if (m_phase == RoundPhase::RoundWon) {
         // ── ROUND WON ──
@@ -394,7 +483,39 @@ void GameplayState::renderTopScreen(Application* app, ScreenRenderer& r) {
 void GameplayState::renderBottomScreen(Application* app, ScreenRenderer& r) {
     (void)app;
 
-    if (m_phase == RoundPhase::Playing) {
+    if (m_phase == RoundPhase::Scoring && m_scorer) {
+        const auto bottomLayout = gameplay_state_helpers::compactBottomScreenLayout();
+
+        r.drawText("SCORE", bottomLayout.scoreHeaderX, bottomLayout.scoreHeaderY, 0.45f, 200, 200, 220);
+        r.drawText(std::to_string(m_scorer->displayRoundScore()),
+                   bottomLayout.scoreValueX, bottomLayout.scoreValueY, 0.55f, 255, 255, 255);
+        r.drawText("/ " + std::to_string(m_runState->roundTarget),
+                   bottomLayout.scoreTargetX, bottomLayout.scoreTargetY, 0.4f, 180, 180, 200);
+
+        r.fillRect(bottomLayout.progressBarX, bottomLayout.progressBarY,
+                   bottomLayout.progressBarW, bottomLayout.progressBarH, 40, 40, 60);
+        int fillW = m_runState->roundTarget > 0
+            ? (m_scorer->displayRoundScore() * 260) / m_runState->roundTarget : 0;
+        if (fillW > 260) fillW = 260;
+        if (fillW > 0) {
+            r.fillRect(bottomLayout.progressBarX + 10, bottomLayout.progressBarY + 3,
+                       fillW, 14, 80, 140, 255);
+        }
+
+        r.drawText(handTypeName(m_scorer->handType()),
+                   bottomLayout.scoreHeaderX, bottomLayout.previewTypeY, 0.45f, 255, 255, 180);
+        r.drawText(std::to_string(m_scorer->displayChips()),
+                   bottomLayout.scoreHeaderX, 120, 0.5f, 100, 180, 255);
+        r.drawText("x", bottomLayout.scoreHeaderX + 50, 120, 0.45f, 255, 255, 255);
+        r.drawText(std::to_string(m_scorer->displayMult()),
+                   bottomLayout.scoreHeaderX + 70, 120, 0.5f, 255, 80, 80);
+
+        if (m_runState->isBossBlind() && m_runState->currentBossModifier != BossBlindModifier::None) {
+            r.drawText(RunState::bossModifierDescription(m_runState->currentBossModifier, m_runState->currentBlockedSuit),
+                       bottomLayout.scoreHeaderX, bottomLayout.bossDescriptionY, 0.31f, 220, 220, 220);
+        }
+    }
+    else if (m_phase == RoundPhase::Playing) {
         const auto bottomLayout = gameplay_state_helpers::compactBottomScreenLayout();
 
         // ── Score section ──

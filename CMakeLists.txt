@@ -26,6 +26,7 @@ add_executable(balatro_demake
     src/game/Hand.cpp
     src/game/CardRenderer.cpp
     src/game/HandEvaluator.cpp
+    src/game/ScoringAnimator.cpp
     src/game/Joker.cpp
     src/game/ShopOffer.cpp
     src/core/TextRenderer.cpp

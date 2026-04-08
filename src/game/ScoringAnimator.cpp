@@ -2,9 +2,22 @@
 #include "../core/Application.h"
 #include "../core/ScreenRenderer.h"
 #include "CardRenderer.h"
+#include <cstdlib>
 #include <cmath>
 #include <algorithm>
 #include <stdexcept>
+
+namespace {
+
+[[noreturn]] void failStartPositionInvariant() {
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+    throw std::invalid_argument("ScoringAnimator requires one start position per card");
+#else
+    std::abort();
+#endif
+}
+
+} // namespace
 
 ScoringAnimator::ScoringAnimator(
     std::vector<Card> cards,
@@ -28,7 +41,7 @@ ScoringAnimator::ScoringAnimator(
     , m_flyOffY(0.0f)
 {
     if (cards.size() != startPositions.size()) {
-        throw std::invalid_argument("ScoringAnimator requires one start position per card");
+        failStartPositionInvariant();
     }
 
     const int count = static_cast<int>(cards.size());

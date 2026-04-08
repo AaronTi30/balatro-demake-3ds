@@ -6,6 +6,7 @@
 #include "../game/HandType.h"
 #include "../game/HandEvaluator.h"
 #include "../game/RunState.h"
+#include "../game/ScoringAnimator.h"
 #include <memory>
 #include <string>
 
@@ -162,6 +163,7 @@ inline bool pointInRect(int px, int py, const ScreenRect& rect) {
 
 enum class RoundPhase {
     Playing,       // Normal card play
+    Scoring,       // Hand is animating and score is being committed
     RoundWon,      // Beat the target — show summary
     GameOver,      // Ran out of hands — show final score
     GameWon        // Beat all 8 antes
@@ -201,4 +203,5 @@ private:
     bool m_showResult;
     float m_resultTimer;
     float m_inputDelay;
+    std::unique_ptr<ScoringAnimator> m_scorer;
 };
