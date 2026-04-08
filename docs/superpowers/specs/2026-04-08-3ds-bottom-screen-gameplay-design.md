@@ -94,14 +94,16 @@ The bottom band contains the primary gameplay controls:
 Gameplay is designed for physical controls first:
 
 - card selection remains driven by buttons and directional input on the top-screen hand
-- `A` maps to `Play Hand`
+- `A` maps to card select/toggle
+- `X` maps to `Play Hand`
 - `Y` maps to `Discard`
+- `Sort` remains available on the touch HUD rather than taking a dedicated face button
 
 Touch should still support tapping the bottom-screen buttons directly, but it is not the primary control path.
 
 ### Sort behavior
 
-`Sort` should act as an in-place toggle rather than a deep submenu. The control can cycle between rank and suit ordering while staying in the same bottom-screen position.
+`Sort` should act as an in-place toggle rather than a deep submenu. It remains a touch HUD action and cycles between rank and suit ordering while staying in the same bottom-screen position.
 
 ### Peek Deck behavior
 
