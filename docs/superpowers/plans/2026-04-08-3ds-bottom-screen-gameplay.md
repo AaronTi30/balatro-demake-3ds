@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement the approved 3DS bottom-screen gameplay HUD redesign: balanced hybrid layout, no persistent `Options`/`Run Info` buttons, visible money and score state, hand info grouped with chips/mult, plus `Sort` and `Peek Deck` controls.
+**Goal:** Implement the approved 3DS bottom-screen gameplay HUD redesign: balanced hybrid layout, no persistent `Options`/`Run Info` buttons, visible money and score state, hand info grouped with chips/mult, plus a touch-only `Sort` control.
 
-**Architecture:** Keep the work inside the gameplay UI boundary, but extract bottom-screen geometry and hit-testing into a small pure helper module so the 3DS HUD can be tested without rendering. Add missing game primitives for hand sorting and deck peeking, then rewire `GameplayState` to render the four-band HUD and honor the new button/touch interactions. Because `START` currently exits the app on 3DS, pause-screen integration is explicitly deferred; `Peek Deck` is implemented as an in-game overlay, not a pause feature.
+**Architecture:** Keep the work inside the gameplay UI boundary, but extract bottom-screen geometry and hit-testing into a small pure helper module so the 3DS HUD can be tested without rendering. Add the missing hand-sorting primitive, then rewire `GameplayState` to render the four-band HUD and honor the new button/touch interactions. Because `START` currently exits the app on 3DS, pause-screen integration is explicitly deferred; this first pass does not include a `Peek Deck` feature.
 
 **Tech Stack:** C++17, SDL2 desktop path, citro2d 3DS path, CMake/ctest
 
@@ -16,15 +16,12 @@
   - `A`: toggle current card selection
   - `X`: `Play Hand`
   - `Y`: `Discard`
-  - `R`: toggle `Peek Deck`
 - `Sort` is touch-only on 3DS and remains clickable/tappable on the bottom HUD
 - Desktop parity mapping becomes:
   - `Space`: toggle current card selection
   - `Return`: `Play Hand`
   - `D`: `Discard`
   - `S`: toggle `Sort`
-  - `Tab`: toggle `Peek Deck`
-- `Peek Deck` shows a bottom-screen overlay with the next few cards from the round deck and the remaining count. It does not attempt to implement the eventual pause/details screen.
 
 ## File Map
 
@@ -33,15 +30,12 @@
 | Create | `src/states/GameplayLayout.h` | Pure geometry/types for the 3DS bottom HUD and touch hit-testing |
 | Create | `src/states/GameplayLayout.cpp` | Rect builders, HUD action hit resolution, score/progress helpers |
 | Create | `tests/GameplayLayoutTests.cpp` | Unit tests for bottom HUD layout/action mapping |
-| Modify | `CMakeLists.txt` | Add `gameplay_layout_tests` and `deck_tests` targets |
+| Modify | `CMakeLists.txt` | Add `gameplay_layout_tests` target |
 | Modify | `src/game/Hand.h` | Sorting API for the current hand |
 | Modify | `src/game/Hand.cpp` | Sorting implementation that preserves `HeldCard` selection state |
 | Modify | `tests/HandTests.cpp` | Hand sort regression tests |
-| Modify | `src/game/Deck.h` | Deck peek API for `Peek Deck` overlay |
-| Modify | `src/game/Deck.cpp` | Non-destructive top-card access |
-| Create | `tests/DeckTests.cpp` | Unit tests for deck peek behavior |
 | Modify | `src/states/GameplayState.h` | Replace old bottom-screen layout fields, add HUD/overlay state |
-| Modify | `src/states/GameplayState.cpp` | New bottom HUD rendering, new input map, sort/peek behavior |
+| Modify | `src/states/GameplayState.cpp` | New bottom HUD rendering, new input map, sort behavior |
 
 ## Task 1: Add a Testable Gameplay HUD Layout Module
 
@@ -62,15 +56,13 @@ Create `tests/GameplayLayoutTests.cpp` with coverage for:
 void testPrimaryButtonRects() {
     expectRectEqual(gameplayPlayButtonRect(), GameplayRect{12, 176, 118, 36}, "play rect");
     expectRectEqual(gameplayDiscardButtonRect(), GameplayRect{136, 176, 118, 36}, "discard rect");
-    expectRectEqual(gameplaySortButtonRect(), GameplayRect{260, 176, 24, 36}, "sort rect");
-    expectRectEqual(gameplayPeekDeckButtonRect(), GameplayRect{290, 176, 24, 36}, "peek rect");
+    expectRectEqual(gameplaySortButtonRect(), GameplayRect{260, 176, 54, 36}, "sort rect");
 }
 
 void testHudActionHitResolution() {
     expect(resolveGameplayHudAction(20, 180) == GameplayHudAction::Play, "play hit");
     expect(resolveGameplayHudAction(150, 180) == GameplayHudAction::Discard, "discard hit");
     expect(resolveGameplayHudAction(265, 180) == GameplayHudAction::Sort, "sort hit");
-    expect(resolveGameplayHudAction(295, 180) == GameplayHudAction::PeekDeck, "peek hit");
     expect(resolveGameplayHudAction(5, 5) == GameplayHudAction::None, "outside hit");
 }
 
@@ -117,14 +109,12 @@ enum class GameplayHudAction {
     None,
     Play,
     Discard,
-    Sort,
-    PeekDeck
+    Sort
 };
 
 GameplayRect gameplayPlayButtonRect();
 GameplayRect gameplayDiscardButtonRect();
 GameplayRect gameplaySortButtonRect();
-GameplayRect gameplayPeekDeckButtonRect();
 GameplayHudAction resolveGameplayHudAction(int px, int py);
 int roundProgressFillWidth(int roundScore, int roundTarget, int trackWidth);
 ```
@@ -158,15 +148,12 @@ git add CMakeLists.txt src/states/GameplayLayout.h src/states/GameplayLayout.cpp
 git commit -m "Add a testable layout module for the gameplay bottom HUD"
 ```
 
-## Task 2: Add Hand Sorting and Deck Peek Primitives
+## Task 2: Add the Hand Sorting Primitive
 
 **Files:**
 - Modify: `src/game/Hand.h`
 - Modify: `src/game/Hand.cpp`
 - Modify: `tests/HandTests.cpp`
-- Modify: `src/game/Deck.h`
-- Modify: `src/game/Deck.cpp`
-- Create: `tests/DeckTests.cpp`
 - Modify: `CMakeLists.txt`
 
 - [ ] **Step 1: Write the failing hand sort tests**
@@ -201,49 +188,13 @@ void testSortBySuitThenRankGroupsSuits() {
 }
 ```
 
-- [ ] **Step 2: Write the failing deck peek tests**
+- [ ] **Step 2: Run the hand tests and verify they fail**
 
-Create `tests/DeckTests.cpp`:
+Run: `cmake --build build --target hand_tests`
 
-```cpp
-#include "game/Deck.h"
+Expected: compile failure because `sortByRankDescending` and `sortBySuitThenRank` do not exist
 
-void testTopCardsReturnsUpcomingDrawOrderWithoutMutation() {
-    Deck deck;
-    deck.loadCards({
-        Card{Suit::Hearts, Rank::Two, 1},
-        Card{Suit::Clubs, Rank::Three, 2},
-        Card{Suit::Spades, Rank::Ace, 3}
-    });
-
-    const auto top = deck.topCards(2);
-    expectEqual(static_cast<int>(top.size()), 2, "topCards size");
-    expectEqual(static_cast<int>(top[0].instanceId), 3, "first preview card should match next draw");
-    expectEqual(static_cast<int>(top[1].instanceId), 2, "second preview card should match next draw");
-    expectEqual(deck.remaining(), 3, "topCards should not mutate deck");
-}
-```
-
-- [ ] **Step 3: Add the deck test target**
-
-Add to `CMakeLists.txt`:
-
-```cmake
-    add_executable(deck_tests
-        tests/DeckTests.cpp
-        src/game/Deck.cpp
-    )
-    target_include_directories(deck_tests PRIVATE src)
-    add_test(NAME deck_tests COMMAND deck_tests)
-```
-
-- [ ] **Step 4: Run the hand/deck tests and verify they fail**
-
-Run: `cmake --build build --target hand_tests deck_tests`
-
-Expected: compile failure because `sortByRankDescending`, `sortBySuitThenRank`, and `topCards` do not exist
-
-- [ ] **Step 5: Implement hand sorting**
+- [ ] **Step 3: Implement hand sorting**
 
 Update `src/game/Hand.h`:
 
@@ -266,31 +217,21 @@ void Hand::sortByRankDescending() {
 
 Use a second stable comparator for `sortBySuitThenRank()` so suits group consistently and ranks remain descending inside each suit.
 
-- [ ] **Step 6: Implement deck peek**
+- [ ] **Step 4: Re-run the tests**
 
-Update `src/game/Deck.h`:
-
-```cpp
-    std::vector<Card> topCards(int count) const;
-```
-
-Implement `topCards()` in `src/game/Deck.cpp` by reading from `m_cards.rbegin()` forward without popping.
-
-- [ ] **Step 7: Re-run the tests**
-
-Run: `cmake --build build --target hand_tests deck_tests`
+Run: `cmake --build build --target hand_tests`
 
 Expected: build succeeds
 
-Run: `ctest --test-dir build --output-on-failure -R "hand_tests|deck_tests"`
+Run: `ctest --test-dir build --output-on-failure -R "hand_tests"`
 
-Expected: both targets pass
+Expected: `hand_tests` passes
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add CMakeLists.txt src/game/Hand.h src/game/Hand.cpp src/game/Deck.h src/game/Deck.cpp tests/HandTests.cpp tests/DeckTests.cpp
-git commit -m "Add hand sorting and non-destructive deck peek primitives"
+git add src/game/Hand.h src/game/Hand.cpp tests/HandTests.cpp
+git commit -m "Add hand sorting for the gameplay HUD controls"
 ```
 
 ## Task 3: Rebuild the Bottom HUD Around the Four-Band Layout
@@ -312,7 +253,6 @@ enum class GameplaySortMode {
 };
 
     GameplaySortMode m_sortMode;
-    bool m_showPeekDeck;
 ```
 
 Initialize them in the constructor and reset them in `enter()` / `startNewRound()` so a new round starts in a predictable HUD state.
@@ -338,7 +278,7 @@ Replace `src/states/GameplayState.cpp:518-577` with the four-band HUD:
 - optional thin progress track under the strip
 - scoring cluster: selected count, hand type, chips, mult
 - run-state row: hands, discards, ante, round
-- action band: play, discard, sort, peek deck
+- action band: play, discard, sort
 
 Rules:
 
@@ -368,7 +308,7 @@ git add src/states/GameplayState.h src/states/GameplayState.cpp
 git commit -m "Render the gameplay bottom screen as a four-band HUD"
 ```
 
-## Task 4: Wire Button Mapping, Sort, and Peek Deck Overlay
+## Task 4: Wire Button Mapping and Sort Interaction
 
 **Files:**
 - Modify: `src/states/GameplayState.cpp:196-324`
@@ -382,8 +322,7 @@ Extend `tests/GameplayLayoutTests.cpp` with expectations for the two smaller act
 ```cpp
 void testSmallActionButtonsStillHaveExclusiveEdges() {
     expect(resolveGameplayHudAction(260, 176) == GameplayHudAction::Sort, "sort top-left");
-    expect(resolveGameplayHudAction(284, 176) == GameplayHudAction::None, "sort right edge excluded");
-    expect(resolveGameplayHudAction(290, 176) == GameplayHudAction::PeekDeck, "peek top-left");
+    expect(resolveGameplayHudAction(314, 176) == GameplayHudAction::None, "sort right edge excluded");
 }
 ```
 
@@ -402,12 +341,7 @@ Update `src/states/GameplayState.cpp:204-234`:
 - `KEY_A` toggles current card selection
 - `KEY_X` calls `playHand()`
 - `KEY_Y` calls `discardSelected()`
-- `KEY_R` toggles `m_showPeekDeck`
-
-When `m_showPeekDeck` is true:
-
-- suppress `playHand()` / `discardSelected()`
-- allow `KEY_R` or tapping the peek button to close the overlay
+- no dedicated physical button is assigned to `Sort` on 3DS
 
 - [ ] **Step 4: Rework the desktop keyboard/mouse path**
 
@@ -416,36 +350,23 @@ Update `src/states/GameplayState.cpp:262-315`:
 - keep `Space` for selection toggle
 - keep `Return` for play and `D` for discard
 - add `S` for sort toggle
-- add `Tab` for peek toggle
 - route mouse clicks through `resolveGameplayHudAction(...)` instead of hand-written play/discard rect checks
 
-- [ ] **Step 5: Implement touch/mouse handling for all four action buttons**
+- [ ] **Step 5: Implement touch/mouse handling for all three action buttons**
 
 Use `resolveGameplayHudAction(...)` in both the 3DS touch path and the desktop mouse path. Avoid duplicating play/discard-only hit logic.
 
-- [ ] **Step 6: Render the peek overlay**
+- [ ] **Step 6: Run the focused test/build pass**
 
-When `m_showPeekDeck` is true in `renderBottomScreen()`:
-
-- draw a modal panel over the bottom HUD
-- label it `Peek Deck`
-- show `m_runState->roundDeck().topCards(5)` in upcoming draw order
-- show `remaining()` count
-- show a small footer hint like `B/R to close` on 3DS and `Tab/click to close` on desktop
-
-Do not change top-screen card selection rendering while the overlay is open.
-
-- [ ] **Step 7: Run the focused test/build pass**
-
-Run: `cmake --build build --target gameplay_layout_tests hand_tests deck_tests balatro_demake`
+Run: `cmake --build build --target gameplay_layout_tests hand_tests balatro_demake`
 
 Expected: all targets build
 
-Run: `ctest --test-dir build --output-on-failure -R "gameplay_layout_tests|hand_tests|deck_tests|scoring_animator_tests|run_state_tests"`
+Run: `ctest --test-dir build --output-on-failure -R "gameplay_layout_tests|hand_tests|scoring_animator_tests|run_state_tests"`
 
 Expected: all listed tests pass
 
-- [ ] **Step 8: Manual verification**
+- [ ] **Step 7: Manual verification**
 
 Run the game on desktop and verify:
 
@@ -453,15 +374,14 @@ Run the game on desktop and verify:
 - `Return` plays the hand
 - `D` discards
 - `S` toggles the sort mode and visibly reorders cards
-- `Tab` opens/closes the peek overlay
-- mouse clicks hit all four bottom-screen buttons correctly
+- mouse clicks hit all three bottom-screen buttons correctly
 - `Scoring` keeps the same HUD structure with disabled action buttons
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add src/states/GameplayState.h src/states/GameplayState.cpp tests/GameplayLayoutTests.cpp
-git commit -m "Wire the new gameplay HUD controls and deck peek overlay"
+git commit -m "Wire the new gameplay HUD controls and sort interaction"
 ```
 
 ## Task 5: Final Verification and Cleanup

@@ -35,7 +35,8 @@ The screen should read clearly for players using physical controls, with touch i
 - Do not keep a dedicated `Run Info` button on the gameplay HUD.
 - Expanded run details move behind `Pause`.
 - Keep `money` always visible on the main gameplay HUD.
-- Keep `Sort` and `Peek Deck` on the main HUD if they fit at a readable and tappable size.
+- Keep `Sort` on the main HUD as a touch action if it fits at a readable and tappable size.
+- Cut `Peek Deck` from the first implementation pass.
 - Group `hand info` with the scoring display rather than burying it inside the compact run-state row.
 - Optimize the gameplay HUD for button controls, with touch as a bonus.
 
@@ -83,9 +84,8 @@ The bottom band contains the primary gameplay controls:
 - `Play Hand`
 - `Discard`
 - `Sort`
-- `Peek Deck`
 
-`Play Hand` and `Discard` should be the clearest actions in the row. `Sort` and `Peek Deck` should remain visible only if they can fit without becoming tiny leftover buttons. If space becomes too tight, `Peek Deck` is the first candidate to demote into a smaller secondary treatment.
+`Play Hand` and `Discard` should be the clearest actions in the row. `Sort` remains available as a touch-only convenience action and should not shrink the primary actions below a readable size.
 
 ## Interaction Model
 
@@ -104,10 +104,6 @@ Touch should still support tapping the bottom-screen buttons directly, but it is
 ### Sort behavior
 
 `Sort` should act as an in-place toggle rather than a deep submenu. It remains a touch HUD action and cycles between rank and suit ordering while staying in the same bottom-screen position.
-
-### Peek Deck behavior
-
-`Peek Deck` can temporarily take over the bottom screen or open a lightweight overlay. When dismissed, gameplay returns to the same bottom-screen HUD without rearranging the rest of the layout.
 
 ### Pause behavior
 
@@ -137,10 +133,6 @@ During scoring, the bottom screen keeps the same structure, but the scoring clus
 
 This preserves continuity between selection and scoring.
 
-### Peek Deck
-
-`Peek Deck` may temporarily replace the normal HUD on the bottom screen. Closing it should restore the exact same gameplay layout.
-
 ### Pause
 
 Pause fully replaces the gameplay HUD with the expanded info/options surface.
@@ -159,7 +151,7 @@ Expected work:
 - redefine `CompactBottomScreenLayout` around the new four-band structure
 - replace the current single-line status text with explicit mini-cells
 - promote hand preview into a clearer scoring cluster
-- add layout support for `Sort` and `Peek Deck`
+- add layout support for the touch-only `Sort` action
 - remove any expectation of persistent `Options` or `Run Info` gameplay buttons
 - keep the same bottom-screen structure during `Playing` and `Scoring`
 
@@ -167,7 +159,7 @@ Expected work:
 
 - Do not try to reproduce the desktop rail one panel at a time on the 3DS.
 - Do not hide core gameplay state behind extra taps.
-- Do not let `Sort` and `Peek Deck` shrink the primary actions below a readable size.
+- Do not let `Sort` shrink the primary actions below a readable size.
 - Do not make scoring use a completely different bottom-screen layout unless testing proves the stable-layout approach fails.
 
 ## Out of Scope
@@ -185,6 +177,6 @@ Implement the bottom screen as a balanced hybrid HUD:
 - visible round score and target relationship in the top strip
 - prominent scoring cluster for hand info, chips, and mult
 - slim run-state row for hands, discards, ante, and round
-- bottom action band for play/discard/sort/peek deck
+- bottom action band for play/discard/sort
 
 This approach best preserves Balatro's dashboard identity while fitting the realities of the 3DS bottom screen.
