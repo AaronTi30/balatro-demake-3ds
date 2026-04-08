@@ -311,6 +311,7 @@ HandResult HandEvaluator::evaluate(std::vector<Card> cards,
 
     HandResult result{};
     result.detectedHand = detectedHand;
+    result.containsPair = containsPair;
     result.scoringCards = scoringCards;
     result.baseHandChips = handBaseValues.first;
     result.baseHandMult = handBaseValues.second;

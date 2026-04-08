@@ -12,6 +12,13 @@ class ScreenRenderer;
 
 class ScoringAnimator {
 public:
+    struct RenderCardState {
+        Card card;
+        int drawX;
+        int drawY;
+        bool highlight;
+    };
+
     ScoringAnimator(std::vector<Card> cards,
                     std::vector<std::pair<int,int>> startPositions,
                     std::vector<Joker> jokers,
@@ -29,6 +36,7 @@ public:
     int displayRoundScore() const;
     HandType handType() const;
     int activeJokerIndex() const;
+    std::vector<RenderCardState> cardRenderStates() const;
 
 private:
     enum class Stage {

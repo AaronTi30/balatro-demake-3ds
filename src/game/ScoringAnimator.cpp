@@ -3,6 +3,7 @@
 #include "../core/ScreenRenderer.h"
 #include "CardRenderer.h"
 #include <cmath>
+#include <algorithm>
 #include <stdexcept>
 
 ScoringAnimator::ScoringAnimator(
@@ -61,12 +62,6 @@ ScoringAnimator::ScoringAnimator(
 
     int simChips = m_chipsAfterCards;
     int simMult = m_result.baseHandMult;
-    const bool hasPair =
-        m_result.detectedHand == HandType::Pair ||
-        m_result.detectedHand == HandType::TwoPair ||
-        m_result.detectedHand == HandType::ThreeOfAKind ||
-        m_result.detectedHand == HandType::FullHouse ||
-        m_result.detectedHand == HandType::FourOfAKind;
     std::vector<Card> playedCopy = cards;
     std::vector<Card> scoringCopy = m_result.scoringCards;
 
@@ -78,7 +73,7 @@ ScoringAnimator::ScoringAnimator(
                 static_cast<int>(playedCopy.size()),
                 scoringCopy,
                 static_cast<int>(scoringCopy.size()),
-                hasPair,
+                m_result.containsPair,
                 simChips,
                 simMult
             };
@@ -89,76 +84,110 @@ ScoringAnimator::ScoringAnimator(
 }
 
 void ScoringAnimator::update(float dt) {
-    if (m_stage == Stage::Done) return;
-    m_elapsed += dt;
+    if (m_stage == Stage::Done || dt <= 0.0f) return;
 
-    switch (m_stage) {
-        case Stage::FlyToStage: {
-            float t = m_elapsed / kFlyDuration;
-            if (t > 1.0f) t = 1.0f;
-            for (auto& c : m_cards) {
-                c.currentX = c.startX + (c.targetX - c.startX) * t;
-                c.currentY = c.startY + (c.targetY - c.startY) * t;
-            }
-            if (m_elapsed >= kFlyDuration) {
+    constexpr float kEpsilon = 0.0001f;
+    float remaining = dt;
+
+    while (remaining > 0.0f && m_stage != Stage::Done) {
+        switch (m_stage) {
+            case Stage::FlyToStage: {
+                const float timeToBoundary = std::max(0.0f, kFlyDuration - m_elapsed);
+                const float step = std::min(remaining, timeToBoundary);
+                m_elapsed += step;
+                remaining -= step;
+
+                float t = m_elapsed / kFlyDuration;
+                if (t > 1.0f) t = 1.0f;
                 for (auto& c : m_cards) {
-                    c.currentX = c.targetX;
-                    c.currentY = c.targetY;
+                    c.currentX = c.startX + (c.targetX - c.startX) * t;
+                    c.currentY = c.startY + (c.targetY - c.startY) * t;
                 }
-                transitionToCardScoring();
-            }
-            break;
-        }
 
-        case Stage::CardScoring: {
-            if (m_elapsed >= kCardScoringDuration) {
-                m_elapsed -= kCardScoringDuration;
-                m_activeCardIdx++;
-                const int totalScoring = static_cast<int>(m_result.scoringCards.size());
-                if (m_activeCardIdx >= totalScoring) {
+                if (m_elapsed + kEpsilon >= kFlyDuration) {
+                    for (auto& c : m_cards) {
+                        c.currentX = c.targetX;
+                        c.currentY = c.targetY;
+                    }
+                    transitionToCardScoring();
+                }
+                break;
+            }
+
+            case Stage::CardScoring: {
+                if (m_result.scoringCards.empty()) {
                     transitionToJokerTrigger();
-                } else {
-                    applyCardScore(m_activeCardIdx);
+                    break;
                 }
-            }
-            break;
-        }
 
-        case Stage::JokerTrigger: {
-            if (m_elapsed >= kJokerDuration) {
-                m_elapsed -= kJokerDuration;
-                m_activeJokerIdx++;
-                if (m_activeJokerIdx >= static_cast<int>(m_jokers.size())) {
+                const float timeToBoundary = std::max(0.0f, kCardScoringDuration - m_elapsed);
+                const float step = std::min(remaining, timeToBoundary);
+                m_elapsed += step;
+                remaining -= step;
+
+                if (m_elapsed + kEpsilon >= kCardScoringDuration) {
+                    m_activeCardIdx++;
+                    const int totalScoring = static_cast<int>(m_result.scoringCards.size());
+                    if (m_activeCardIdx >= totalScoring) {
+                        transitionToJokerTrigger();
+                    } else {
+                        m_elapsed = 0.0f;
+                        applyCardScore(m_activeCardIdx);
+                    }
+                }
+                break;
+            }
+
+            case Stage::JokerTrigger: {
+                if (m_jokers.empty()) {
                     transitionToScoreTally();
-                } else {
-                    applyJokerSnapshot(m_activeJokerIdx);
+                    break;
                 }
-            }
-            break;
-        }
 
-        case Stage::ScoreTally: {
-            float t = m_elapsed / kTallyDuration;
-            if (t > 1.0f) t = 1.0f;
-            m_flyOffY = t * 260.0f;
-            m_displayRoundScore = m_currentRoundScore +
-                static_cast<int>(t * static_cast<float>(m_result.finalScore));
-            if (m_elapsed >= kTallyDuration) {
-                m_displayRoundScore = m_currentRoundScore + m_result.finalScore;
-                m_stage = Stage::Done;
-            }
-            break;
-        }
+                const float timeToBoundary = std::max(0.0f, kJokerDuration - m_elapsed);
+                const float step = std::min(remaining, timeToBoundary);
+                m_elapsed += step;
+                remaining -= step;
 
-        case Stage::Done:
-            break;
+                if (m_elapsed + kEpsilon >= kJokerDuration) {
+                    m_activeJokerIdx++;
+                    if (m_activeJokerIdx >= static_cast<int>(m_jokers.size())) {
+                        transitionToScoreTally();
+                    } else {
+                        m_elapsed = 0.0f;
+                        applyJokerSnapshot(m_activeJokerIdx);
+                    }
+                }
+                break;
+            }
+
+            case Stage::ScoreTally: {
+                const float timeToBoundary = std::max(0.0f, kTallyDuration - m_elapsed);
+                const float step = std::min(remaining, timeToBoundary);
+                m_elapsed += step;
+                remaining -= step;
+
+                float t = m_elapsed / kTallyDuration;
+                if (t > 1.0f) t = 1.0f;
+                m_flyOffY = t * 260.0f;
+                m_displayRoundScore = m_currentRoundScore +
+                    static_cast<int>(t * static_cast<float>(m_result.finalScore));
+                if (m_elapsed + kEpsilon >= kTallyDuration) {
+                    m_displayRoundScore = m_currentRoundScore + m_result.finalScore;
+                    m_stage = Stage::Done;
+                }
+                break;
+            }
+
+            case Stage::Done:
+                break;
+        }
     }
 }
 
-void ScoringAnimator::render(Application* app, ScreenRenderer& r) {
-    if (m_cards.empty()) return;
-
-    const auto layout = CardRenderer::gameplayHandLayout();
+std::vector<ScoringAnimator::RenderCardState> ScoringAnimator::cardRenderStates() const {
+    std::vector<RenderCardState> states;
+    states.reserve(m_cards.size());
 
     for (int i = 0; i < static_cast<int>(m_cards.size()); ++i) {
         const auto& c = m_cards[i];
@@ -181,10 +210,21 @@ void ScoringAnimator::render(Application* app, ScreenRenderer& r) {
             }
         }
 
-        CardRenderer::drawCard(app, c.card, drawX, drawY, false, layout);
+        states.push_back({ c.card, drawX, drawY, highlight });
+    }
 
-        if (highlight) {
-            r.drawRectOutline(drawX - 2, drawY - 2,
+    return states;
+}
+
+void ScoringAnimator::render(Application* app, ScreenRenderer& r) {
+    const auto layout = CardRenderer::gameplayHandLayout();
+    const auto states = cardRenderStates();
+
+    for (int i = 0; i < static_cast<int>(states.size()); ++i) {
+        CardRenderer::drawCard(app, states[i].card, states[i].drawX, states[i].drawY, false, layout);
+
+        if (states[i].highlight) {
+            r.drawRectOutline(states[i].drawX - 2, states[i].drawY - 2,
                               layout.cardW + 4, layout.cardH + 4,
                               255, 220, 50);
         }

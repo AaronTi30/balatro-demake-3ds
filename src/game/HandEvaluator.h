@@ -11,6 +11,7 @@
 // ── Result of evaluating a hand ──
 struct HandResult {
     HandType detectedHand;
+    bool containsPair;
     std::vector<Card> scoringCards;
     int baseHandChips;
     int baseHandMult;

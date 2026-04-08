@@ -22,6 +22,16 @@ void expectEqual(int actual, int expected, const std::string& lbl) {
     }
 }
 
+void expectRenderCard(const ScoringAnimator::RenderCardState& state,
+                      int expectedX,
+                      int expectedY,
+                      bool expectedHighlight,
+                      const std::string& lbl) {
+    expectEqual(state.drawX, expectedX, lbl + " x");
+    expectEqual(state.drawY, expectedY, lbl + " y");
+    expect(state.highlight == expectedHighlight, lbl + " highlight");
+}
+
 // Build a minimal HandResult for two Hearts scoring cards (A♥ and K♥)
 // Used as a Pair: baseHandChips=10, baseHandMult=2
 // Per-card chips: A=11, K=10 => scoringCardChipBonus=21
@@ -29,6 +39,7 @@ void expectEqual(int actual, int expected, const std::string& lbl) {
 HandResult makePairResult() {
     HandResult r{};
     r.detectedHand = HandType::Pair;
+    r.containsPair = true;
     r.baseHandChips = 10;
     r.baseHandMult = 2;
     r.scoringCards = {
@@ -93,6 +104,27 @@ int main() {
         std::cout << "PASS: initial state\n";
     }
 
+    // Test: FlyToStage render state interpolates card positions
+    {
+        HandResult result = makePairResult();
+        std::vector<Card> cards = {
+            Card{Suit::Hearts, Rank::Ace},
+            Card{Suit::Hearts, Rank::King}
+        };
+        auto positions = makeStartPositions();
+
+        ScoringAnimator anim(cards, positions, {}, result, 0, 200, 100);
+
+        anim.update(0.2f);
+
+        auto renderCards = anim.cardRenderStates();
+        expectEqual(static_cast<int>(renderCards.size()), 2, "FlyToStage render card count");
+        expectRenderCard(renderCards[0], 166, 129, false, "FlyToStage card 0");
+        expectRenderCard(renderCards[1], 202, 129, false, "FlyToStage card 1");
+
+        std::cout << "PASS: FlyToStage render state interpolates positions\n";
+    }
+
     // Test: after FlyToStage, stage transitions to CardScoring
     {
         HandResult result = makePairResult();
@@ -112,6 +144,32 @@ int main() {
         expectEqual(anim.activeJokerIndex(), -1, "activeJokerIndex() should be -1 during CardScoring");
 
         std::cout << "PASS: after FlyToStage\n";
+    }
+
+    // Test: large dt carries through multiple stage windows without dropping leftover time
+    {
+        HandResult result = makePairResult();
+        std::vector<Card> cards = {
+            Card{Suit::Hearts, Rank::Ace},
+            Card{Suit::Hearts, Rank::King}
+        };
+        auto positions = makeStartPositions();
+
+        ScoringAnimator anim(cards, positions, {}, result, 0, 200, 100);
+
+        anim.update(0.85f);
+
+        expect(!anim.isDone(), "large dt should not finish the full sequence");
+        expectEqual(anim.displayChips(), 31, "large dt should preserve carry-over into the second CardScoring window");
+        expectEqual(anim.displayMult(), 2, "large dt preserves mult");
+        expectEqual(anim.displayRoundScore(), 0, "large dt should not start tally before CardScoring ends");
+
+        auto renderCards = anim.cardRenderStates();
+        expectEqual(static_cast<int>(renderCards.size()), 2, "large dt render card count");
+        expectRenderCard(renderCards[0], 162, 100, false, "large dt card 0");
+        expectRenderCard(renderCards[1], 198, 100, true, "large dt card 1");
+
+        std::cout << "PASS: large dt carries through multiple stage windows\n";
     }
 
     // Test: CardScoring advances per-card chips correctly
@@ -182,6 +240,30 @@ int main() {
         expectEqual(anim.displayRoundScore(), 162, "displayRoundScore() = 100 + 62 = 162");
 
         std::cout << "PASS: full sequence completes and displayRoundScore correct\n";
+    }
+
+    // Test: ScoreTally render state applies upward fly-off offset
+    {
+        HandResult result = makePairResult();
+        std::vector<Card> cards = {
+            Card{Suit::Hearts, Rank::Ace},
+            Card{Suit::Hearts, Rank::King}
+        };
+        auto positions = makeStartPositions();
+
+        ScoringAnimator anim(cards, positions, {}, result, 0, 200, 100);
+
+        anim.update(1.1f);
+
+        expect(!anim.isDone(), "ScoreTally should still be in progress");
+        expectEqual(anim.displayRoundScore(), 15, "ScoreTally displayRoundScore should include carry-over time");
+
+        auto renderCards = anim.cardRenderStates();
+        expectEqual(static_cast<int>(renderCards.size()), 2, "ScoreTally render card count");
+        expectRenderCard(renderCards[0], 162, 35, false, "ScoreTally card 0");
+        expectRenderCard(renderCards[1], 198, 35, false, "ScoreTally card 1");
+
+        std::cout << "PASS: ScoreTally render state applies upward fly-off offset\n";
     }
 
     std::cout << "All ScoringAnimator tests passed.\n";
