@@ -1,6 +1,14 @@
 #include "Hand.h"
 #include <algorithm>
 
+namespace {
+
+int rankSortValue(Rank rank) {
+    return rank == Rank::Ace ? 14 : static_cast<int>(rank);
+}
+
+} // namespace
+
 void Hand::addCard(Card card) {
     if (static_cast<int>(m_cards.size()) < MAX_HAND_SIZE) {
         m_cards.push_back(HeldCard{ card, false });
@@ -35,6 +43,29 @@ void Hand::clearSelection() {
     for (auto& held : m_cards) {
         held.selected = false;
     }
+}
+
+void Hand::sortByRankDescending() {
+    std::stable_sort(
+        m_cards.begin(),
+        m_cards.end(),
+        [](const HeldCard& lhs, const HeldCard& rhs) {
+            return rankSortValue(lhs.card.rank) > rankSortValue(rhs.card.rank);
+        }
+    );
+}
+
+void Hand::sortBySuitThenRank() {
+    std::stable_sort(
+        m_cards.begin(),
+        m_cards.end(),
+        [](const HeldCard& lhs, const HeldCard& rhs) {
+            if (lhs.card.suit != rhs.card.suit) {
+                return lhs.card.suit < rhs.card.suit;
+            }
+            return rankSortValue(lhs.card.rank) > rankSortValue(rhs.card.rank);
+        }
+    );
 }
 
 std::vector<Card> Hand::getSelected() const {

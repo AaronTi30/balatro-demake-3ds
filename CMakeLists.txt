@@ -18,6 +18,8 @@ add_executable(balatro_demake
     src/core/StateMachine.cpp
     src/states/TitleState.cpp
     src/states/GameplayState.cpp
+    src/states/GameplayLayout.cpp
+    src/states/GameplayHudStyle.cpp
     src/states/ShopLayout.cpp
     src/states/BlindSelectState.cpp
     src/states/ShopState.cpp
@@ -154,6 +156,20 @@ if(NOT N3DS)
     )
     target_include_directories(shop_layout_tests PRIVATE src)
     add_test(NAME shop_layout_tests COMMAND shop_layout_tests)
+
+    add_executable(gameplay_layout_tests
+        tests/GameplayLayoutTests.cpp
+        src/states/GameplayLayout.cpp
+    )
+    target_include_directories(gameplay_layout_tests PRIVATE src)
+    add_test(NAME gameplay_layout_tests COMMAND gameplay_layout_tests)
+
+    add_executable(gameplay_hud_style_tests
+        tests/GameplayHudStyleTests.cpp
+        src/states/GameplayHudStyle.cpp
+    )
+    target_include_directories(gameplay_hud_style_tests PRIVATE src)
+    add_test(NAME gameplay_hud_style_tests COMMAND gameplay_hud_style_tests)
 
     add_executable(asset_path_tests
         tests/AssetPathTests.cpp

@@ -228,36 +228,8 @@ void testGameplayTopScreenCompactLayoutContract() {
                 "joker strip centering should use the shared hand center");
 }
 
-void testGameplayBottomScreenUtilityLayoutContract() {
-    const auto layout = gameplay_state_helpers::compactBottomScreenLayout();
-
-    expectEqual(layout.scoreHeaderX, 20, "bottom layout scoreHeaderX");
-    expectEqual(layout.scoreHeaderY, 10, "bottom layout scoreHeaderY");
-    expectEqual(layout.scoreValueX, 80, "bottom layout scoreValueX");
-    expectEqual(layout.scoreValueY, 8, "bottom layout scoreValueY");
-    expectEqual(layout.scoreTargetX, 140, "bottom layout scoreTargetX");
-    expectEqual(layout.scoreTargetY, 10, "bottom layout scoreTargetY");
-    expectEqual(layout.progressBarX, 20, "bottom layout progressBarX");
-    expectEqual(layout.progressBarY, 35, "bottom layout progressBarY");
-    expectEqual(layout.progressBarW, 280, "bottom layout progressBarW");
-    expectEqual(layout.progressBarH, 20, "bottom layout progressBarH");
-    expectEqual(layout.statusRowY, 62, "bottom layout statusRowY");
-    expectEqual(layout.previewLabelY, 84, "bottom layout previewLabelY");
-    expectEqual(layout.previewTypeY, 100, "bottom layout previewTypeY");
-    expectEqual(layout.previewScoreY, 118, "bottom layout previewScoreY");
-    expectEqual(layout.bossDescriptionY, 136, "bottom layout bossDescriptionY");
-    expectEqual(layout.buttonY, 160, "bottom layout buttonY");
-    expectEqual(layout.buttonW, 120, "bottom layout buttonW");
-    expectEqual(layout.buttonH, 50, "bottom layout buttonH");
-    expectEqual(layout.buttonGap, 20, "bottom layout buttonGap");
-
-    expectEqual(gameplay_state_helpers::compactStatusLine(4, 3, 11), std::string("Hands 4   Discards 3   Deck 11"),
-                "bottom status line should reflect current round counts");
-}
-
 void testGameplayInputHelpersUseSharedLayoutContract() {
     const auto topLayout = gameplay_state_helpers::compactTopScreenLayout();
-    const auto bottomLayout = gameplay_state_helpers::compactBottomScreenLayout();
     const auto handLayout = CardRenderer::gameplayHandLayout();
 
     expectEqual(gameplay_state_helpers::gameplayHandHitTop(topLayout, handLayout),
@@ -271,19 +243,6 @@ void testGameplayInputHelpersUseSharedLayoutContract() {
         topLayout.handCenterX, topLayout.handY, 8, topLayout, handLayout);
     expectEqual(cardIndex, 4,
                 "hand point hit-test should use the shared top layout center for card selection");
-
-    const auto play3DS = gameplay_state_helpers::bottomPlayButtonRect(bottomLayout);
-    expectEqual(play3DS.x, bottomLayout.buttonX, "3DS play button rect x");
-    expectEqual(play3DS.y, bottomLayout.buttonY, "3DS play button rect y");
-    expectEqual(play3DS.w, bottomLayout.buttonW, "3DS play button rect w");
-    expectEqual(play3DS.h, bottomLayout.buttonH, "3DS play button rect h");
-
-    const auto discardDesktop = gameplay_state_helpers::bottomDiscardButtonRect(bottomLayout, 400);
-    expectEqual(discardDesktop.x, 400 + bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap,
-                "desktop discard button rect x should include desktop base offset");
-    expectEqual(discardDesktop.y, bottomLayout.buttonY, "desktop discard button rect y");
-    expectEqual(discardDesktop.w, bottomLayout.buttonW, "desktop discard button rect w");
-    expectEqual(discardDesktop.h, bottomLayout.buttonH, "desktop discard button rect h");
 }
 
 // Compile-level API stability check: verify that drawCard and drawHand accept an optional
@@ -326,7 +285,6 @@ int main() {
     testHitTestOutsideHandRightReturnsMinusOne();
     testGameplayHandPlacementAssumptions();
     testGameplayTopScreenCompactLayoutContract();
-    testGameplayBottomScreenUtilityLayoutContract();
     testGameplayInputHelpersUseSharedLayoutContract();
     testDrawSignaturesAcceptLayoutParameter();
     std::cout << "CardRenderer sprite-sheet tests passed\n";

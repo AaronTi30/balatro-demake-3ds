@@ -11,6 +11,8 @@ public:
     void removeCard(int index);
     void toggleSelect(int index);
     void clearSelection();
+    void sortByRankDescending();
+    void sortBySuitThenRank();
     
     std::vector<Card> getSelected() const;
     std::vector<int> getSelectedIndices() const;

@@ -7,6 +7,7 @@
 #include "../game/HandEvaluator.h"
 #include "../game/RunState.h"
 #include "../game/ScoringAnimator.h"
+#include "../states/GameplayLayout.h"
 #include <memory>
 #include <string>
 
@@ -46,29 +47,6 @@ struct CompactTopScreenLayout {
     int resultBannerH;
 };
 
-struct CompactBottomScreenLayout {
-    int scoreHeaderX;
-    int scoreHeaderY;
-    int scoreValueX;
-    int scoreValueY;
-    int scoreTargetX;
-    int scoreTargetY;
-    int progressBarX;
-    int progressBarY;
-    int progressBarW;
-    int progressBarH;
-    int statusRowY;
-    int previewLabelY;
-    int previewTypeY;
-    int previewScoreY;
-    int bossDescriptionY;
-    int buttonX;
-    int buttonY;
-    int buttonW;
-    int buttonH;
-    int buttonGap;
-};
-
 inline CompactTopScreenLayout compactTopScreenLayout() {
     return {
         10, 6,
@@ -85,27 +63,8 @@ inline CompactTopScreenLayout compactTopScreenLayout() {
     };
 }
 
-inline CompactBottomScreenLayout compactBottomScreenLayout() {
-    return {
-        20, 10,
-        80, 8,
-        140, 10,
-        20, 35, 280, 20,
-        62,
-        84, 100, 118,
-        136,
-        20, 160, 120, 50, 20
-    };
-}
-
 inline std::string compactJokerLabel(const std::string& name) {
     return name.substr(0, 6);
-}
-
-inline std::string compactStatusLine(int handsRemaining, int discardsRemaining, int deckRemaining) {
-    return "Hands " + std::to_string(handsRemaining) +
-        "   Discards " + std::to_string(discardsRemaining) +
-        "   Deck " + std::to_string(deckRemaining);
 }
 
 inline int jokerStripWidth(int jokerCount, const CompactTopScreenLayout& layout) {
@@ -141,24 +100,6 @@ inline int gameplayHandIndexAtPoint(int px,
     return CardRenderer::handIndexAtX(px, topLayout.handCenterX, cardCount, handLayout);
 }
 
-inline ScreenRect bottomPlayButtonRect(const CompactBottomScreenLayout& layout, int baseX = 0) {
-    return { baseX + layout.buttonX, layout.buttonY, layout.buttonW, layout.buttonH };
-}
-
-inline ScreenRect bottomDiscardButtonRect(const CompactBottomScreenLayout& layout, int baseX = 0) {
-    return {
-        baseX + layout.buttonX + layout.buttonW + layout.buttonGap,
-        layout.buttonY,
-        layout.buttonW,
-        layout.buttonH
-    };
-}
-
-inline bool pointInRect(int px, int py, const ScreenRect& rect) {
-    return px >= rect.x && px <= rect.x + rect.w &&
-        py >= rect.y && py <= rect.y + rect.h;
-}
-
 } // namespace gameplay_state_helpers
 
 enum class RoundPhase {
@@ -167,6 +108,11 @@ enum class RoundPhase {
     RoundWon,      // Beat the target — show summary
     GameOver,      // Ran out of hands — show final score
     GameWon        // Beat all 8 antes
+};
+
+enum class GameplaySortMode {
+    Rank,
+    Suit
 };
 
 class GameplayState : public State {
@@ -182,8 +128,11 @@ public:
     void renderBottomScreen(Application* app, ScreenRenderer& r) override;
 
 private:
+    void handleHudAction(GameplayHudAction action);
     void playHand();
     void discardSelected();
+    void applyCurrentSort();
+    void toggleSortMode();
     void drawToFull();
     void startNewRound();
     void checkRoundEnd();
@@ -192,6 +141,7 @@ private:
     Hand m_hand;
 
     int m_cursorIndex;
+    GameplaySortMode m_sortMode;
     RoundPhase m_phase;
     float m_phaseTimer;  // Countdown for summary/gameover screens
 

@@ -5,6 +5,8 @@
 #include "../core/TextRenderer.h"
 #include "../game/CardRenderer.h"
 #include "../game/HandEvaluator.h"
+#include "../states/GameplayLayout.h"
+#include "../states/GameplayHudStyle.h"
 #include "../game/ScoringAnimator.h"
 #include "../states/TitleState.h"
 #include "../states/ShopState.h"
@@ -16,6 +18,8 @@
 #include <SDL.h>
 #endif
 
+#include <algorithm>
+#include <cstdint>
 #include <string>
 #include <utility>
 
@@ -23,6 +27,46 @@ namespace {
 
 constexpr int kBottomScreenBaseXDesktop = 400;
 constexpr int kScoringStageY = 100;
+constexpr int kHudOuterX = 12;
+constexpr int kProgressFillInsetX = 2;
+constexpr int kProgressFillInsetY = 1;
+constexpr int kProgressFillHeight = 4;
+
+struct CompactBottomScreenLayout {
+    GameplayRect blindCell;
+    GameplayRect roundScoreCell;
+    GameplayRect targetCell;
+    GameplayRect moneyCell;
+    GameplayRect progressTrack;
+    GameplayRect selectedCell;
+    GameplayRect handTypeCell;
+    GameplayRect chipsCell;
+    GameplayRect multCell;
+    GameplayRect handsCell;
+    GameplayRect discardsCell;
+    GameplayRect anteCell;
+    GameplayRect roundCell;
+    int bossDescriptionY;
+};
+
+CompactBottomScreenLayout compactBottomScreenLayout() {
+    return {
+        {12, 8, 106, 26},
+        {124, 8, 58, 26},
+        {188, 8, 66, 26},
+        {260, 8, 48, 26},
+        {12, 38, 296, 6},
+        {12, 52, 72, 24},
+        {90, 52, 218, 24},
+        {12, 82, 144, 30},
+        {164, 82, 144, 30},
+        {12, 120, 68, 24},
+        {88, 120, 68, 24},
+        {164, 120, 68, 24},
+        {240, 120, 68, 24},
+        152
+    };
+}
 
 std::string formatScoreLine(int chips, int mult, int score, bool scoreEquationExact) {
     if (!scoreEquationExact) {
@@ -31,6 +75,167 @@ std::string formatScoreLine(int chips, int mult, int score, bool scoreEquationEx
 
     return std::to_string(chips) + " x " + std::to_string(mult) +
         " = " + std::to_string(score);
+}
+
+const char* gameplaySortModeLabel(GameplaySortMode mode) {
+    switch (mode) {
+        case GameplaySortMode::Suit:
+            return "SUIT";
+        case GameplaySortMode::Rank:
+        default:
+            return "RANK";
+    }
+}
+
+int blindStageRoundNumber(BlindStage stage) {
+    switch (stage) {
+        case BlindStage::Big:
+            return 2;
+        case BlindStage::Boss:
+            return 3;
+        case BlindStage::Small:
+        default:
+            return 1;
+    }
+}
+
+float hudValueScale(const std::string& value, int width) {
+    if (width <= 58) {
+        return value.size() > 2 ? 0.30f : 0.42f;
+    }
+    if (width <= 72) {
+        return value.size() > 5 ? 0.28f : 0.40f;
+    }
+    if (width <= 110) {
+        return value.size() > 10 ? 0.24f : 0.34f;
+    }
+    if (value.size() > 16) {
+        return 0.24f;
+    }
+    if (value.size() > 10) {
+        return 0.28f;
+    }
+    return 0.34f;
+}
+
+void drawHudCell(ScreenRenderer& r,
+                 const GameplayRect& rect,
+                 const std::string& label,
+                 const std::string& value,
+                 uint8_t valueR = 255,
+                 uint8_t valueG = 255,
+                 uint8_t valueB = 255) {
+    const GameplayHudColor shell = gameplayHudNeutralShellColor();
+    const GameplayHudColor inset = gameplayHudNeutralInsetColor();
+    const GameplayHudColor outline = gameplayHudOutlineColor();
+    // Outer dark shell
+    r.fillRect(rect.x, rect.y, rect.w, rect.h, shell.r, shell.g, shell.b);
+    if (rect.h >= 22) {
+        // Taller cells: inset value region below a label strip
+        const int insetTop = rect.y + (rect.h >= 24 ? 11 : 9);
+        const int insetH = rect.y + rect.h - insetTop - 1;
+        if (insetH > 0) {
+            r.fillRect(rect.x + 1, insetTop, rect.w - 2, insetH, inset.r, inset.g, inset.b);
+        }
+        r.drawRectOutline(rect.x, rect.y, rect.w, rect.h, outline.r, outline.g, outline.b);
+        r.drawText(label, rect.x + 4, rect.y + 2, 0.21f, outline.r, outline.g, outline.b);
+        r.drawText(value, rect.x + 4, insetTop + 1, hudValueScale(value, rect.w), valueR, valueG, valueB);
+    } else {
+        // Short cells (20px): fontSmall is 10px — two stacked lines don't fit.
+        // Use flat fill with the value centered; color carries the identification.
+        r.drawRectOutline(rect.x, rect.y, rect.w, rect.h, outline.r, outline.g, outline.b);
+        r.drawText(value, rect.x + 4, rect.y + 5, hudValueScale(value, rect.w), valueR, valueG, valueB);
+    }
+}
+
+void drawPrimaryAction(ScreenRenderer& r,
+                       const GameplayRect& rect,
+                       GameplayHudAction action,
+                       const char* label,
+                       bool enabled) {
+    const GameplayHudActionStyle style = gameplayPrimaryActionStyle(action, enabled);
+    const GameplayHudColor shell = gameplayHudNeutralShellColor();
+    // Shadow rect (offset 2px right + down for emboss feel)
+    r.fillRect(rect.x + 2, rect.y + 2, rect.w, rect.h,
+               style.shadow.r, style.shadow.g, style.shadow.b);
+    // Button body
+    r.fillRect(rect.x, rect.y, rect.w, rect.h,
+               style.fill.r, style.fill.g, style.fill.b);
+    // Dark shell outline
+    r.drawRectOutline(rect.x, rect.y, rect.w, rect.h, shell.r, shell.g, shell.b);
+    // Centered label
+    const std::string labelText(label);
+    const float scale = labelText.size() > 6 ? 0.36f : 0.42f;
+    const int textW = static_cast<int>(labelText.size() * scale * 8.0f);
+    r.drawText(labelText,
+               rect.x + (rect.w - textW) / 2,
+               rect.y + 10,
+               scale,
+               style.text.r, style.text.g, style.text.b);
+}
+
+void drawProgressTrack(ScreenRenderer& r,
+                       const GameplayRect& track,
+                       int score,
+                       int target) {
+    const GameplayHudColor shell = gameplayHudNeutralShellColor();
+    const GameplayHudColor inset = gameplayHudNeutralInsetColor();
+    const GameplayHudColor outline = gameplayHudOutlineColor();
+    const GameplayHudColor chips = gameplayHudChipsColor();
+    r.fillRect(track.x, track.y, track.w, track.h, shell.r, shell.g, shell.b);
+    r.fillRect(track.x + 1, track.y + 1, track.w - 2, track.h - 2, inset.r, inset.g, inset.b);
+    const int fillW = roundProgressFillWidth(score, target, track.w - kProgressFillInsetX * 2);
+    if (fillW > 0) {
+        r.fillRect(track.x + kProgressFillInsetX, track.y + kProgressFillInsetY,
+                   fillW, kProgressFillHeight, chips.r, chips.g, chips.b);
+    }
+    r.drawRectOutline(track.x, track.y, track.w, track.h, outline.r, outline.g, outline.b);
+}
+
+// Balatro-style scoring value block: full accent-color fill with white label and value.
+// Used for chips and mult cells so they dominate the scoring cluster visually.
+void drawScoringValueCell(ScreenRenderer& r,
+                          const GameplayRect& rect,
+                          const std::string& label,
+                          const std::string& value,
+                          const GameplayHudColor& accent) {
+    const GameplayHudColor shell = gameplayHudNeutralShellColor();
+    const GameplayHudColor shadow{
+        accent.r * 3 / 4,
+        accent.g * 3 / 4,
+        accent.b * 3 / 4
+    };
+    // Shadow for depth
+    r.fillRect(rect.x + 2, rect.y + 2, rect.w, rect.h, shadow.r, shadow.g, shadow.b);
+    // Saturated accent fill — the full block carries the color identity
+    r.fillRect(rect.x, rect.y, rect.w, rect.h, accent.r, accent.g, accent.b);
+    // Dark shell outline keeps the block from bleeding visually
+    r.drawRectOutline(rect.x, rect.y, rect.w, rect.h, shell.r, shell.g, shell.b);
+    // White label and value so they read clearly on the saturated background
+    r.drawText(label, rect.x + 4, rect.y + 2, 0.21f, 255, 255, 255);
+    r.drawText(value, rect.x + 4, rect.y + 12, hudValueScale(value, rect.w), 255, 255, 255);
+}
+
+// Balatro-style sort utility widget: dark shell + orange accent label + integrated mode text.
+// Sort is a utility control, not a primary action, so it does not get a saturated fill.
+void drawSortUtility(ScreenRenderer& r,
+                     const GameplayRect& rect,
+                     const char* modeLabel,
+                     bool enabled) {
+    const GameplayHudColor shell = gameplayHudNeutralShellColor();
+    const GameplayHudColor inset = gameplayHudNeutralInsetColor();
+    const GameplayHudColor outline = gameplayHudOutlineColor();
+    const GameplayHudColor accent = enabled ? gameplayHudSortAccentColor() : outline;
+    // Dark outer shell
+    r.fillRect(rect.x, rect.y, rect.w, rect.h, shell.r, shell.g, shell.b);
+    // Slightly lighter inset for the mode text area
+    r.fillRect(rect.x + 1, rect.y + 18, rect.w - 2, rect.h - 19, inset.r, inset.g, inset.b);
+    // Orange (or muted) outline signals utility interactivity
+    r.drawRectOutline(rect.x, rect.y, rect.w, rect.h, accent.r, accent.g, accent.b);
+    // "SORT" in accent color as the primary affordance label
+    r.drawText("SORT", rect.x + 5, rect.y + 4, 0.28f, accent.r, accent.g, accent.b);
+    // Mode text (RANK / SUIT) in lighter outline color below the divider
+    r.drawText(modeLabel, rect.x + 5, rect.y + 20, 0.24f, outline.r, outline.g, outline.b);
 }
 
 void drawJokerStrip(ScreenRenderer& r,
@@ -82,10 +287,20 @@ void drawRemainingUnselectedHand(Application* app,
     }
 }
 
+int handIndexForInstanceId(const Hand& hand, uint32_t instanceId) {
+    for (int i = 0; i < hand.size(); ++i) {
+        if (hand.at(i).instanceId == instanceId) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 } // namespace
 
 GameplayState::GameplayState(StateMachine* machine, std::shared_ptr<RunState> runState)
     : m_runState(std::move(runState)), m_cursorIndex(0),
+      m_sortMode(GameplaySortMode::Rank),
       m_phase(RoundPhase::Playing), m_phaseTimer(0.0f),
       m_lastHandType(HandType::HighCard), m_lastChips(0), m_lastMult(0),
       m_lastScore(0), m_showResult(false), m_resultTimer(0.0f), m_inputDelay(0.3f)
@@ -94,6 +309,7 @@ GameplayState::GameplayState(StateMachine* machine, std::shared_ptr<RunState> ru
 }
 
 void GameplayState::enter() {
+    m_sortMode = GameplaySortMode::Rank;
     m_phase = RoundPhase::Playing;
     m_phaseTimer = 0.0f;
     startNewRound();
@@ -105,18 +321,23 @@ void GameplayState::startNewRound() {
     m_runState->startRound();
     m_hand = Hand();
     m_cursorIndex = 0;
+    m_sortMode = GameplaySortMode::Rank;
     m_showResult = false;
     m_resultTimer = 0.0f;
     m_scorer.reset();
     m_phase = RoundPhase::Playing;
     m_phaseTimer = 0.0f;
     drawToFull();
+    if (!m_hand.empty()) {
+        m_cursorIndex = 0;
+    }
 }
 
 void GameplayState::drawToFull() {
     while (!m_hand.full() && !m_runState->roundDeck().empty()) {
         m_hand.addCard(m_runState->roundDeck().draw());
     }
+    applyCurrentSort();
 }
 
 void GameplayState::checkRoundEnd() {
@@ -134,6 +355,22 @@ void GameplayState::checkRoundEnd() {
     if (m_runState->handsRemaining <= 0) {
         m_phase = RoundPhase::GameOver;
         m_phaseTimer = 0.0f;
+    }
+}
+
+void GameplayState::handleHudAction(GameplayHudAction action) {
+    switch (action) {
+        case GameplayHudAction::Play:
+            playHand();
+            break;
+        case GameplayHudAction::Discard:
+            discardSelected();
+            break;
+        case GameplayHudAction::Sort:
+            toggleSortMode();
+            break;
+        case GameplayHudAction::None:
+            break;
     }
 }
 
@@ -193,13 +430,44 @@ void GameplayState::discardSelected() {
     drawToFull();
 }
 
+void GameplayState::applyCurrentSort() {
+    if (m_hand.empty()) {
+        m_cursorIndex = 0;
+        return;
+    }
+
+    const int previousCursor = std::clamp(m_cursorIndex, 0, m_hand.size() - 1);
+    const uint32_t cursorInstanceId = m_hand.at(previousCursor).instanceId;
+
+    if (m_sortMode == GameplaySortMode::Suit) {
+        m_hand.sortBySuitThenRank();
+    } else {
+        m_hand.sortByRankDescending();
+    }
+
+    const int sortedIndex = handIndexForInstanceId(m_hand, cursorInstanceId);
+    if (sortedIndex >= 0) {
+        m_cursorIndex = sortedIndex;
+        return;
+    }
+
+    m_cursorIndex = std::min(previousCursor, m_hand.size() - 1);
+}
+
+void GameplayState::toggleSortMode() {
+    if (m_phase != RoundPhase::Playing) return;
+
+    m_sortMode = (m_sortMode == GameplaySortMode::Rank)
+        ? GameplaySortMode::Suit
+        : GameplaySortMode::Rank;
+    applyCurrentSort();
+}
+
 void GameplayState::handleInput() {
     if (m_inputDelay > 0.0f) return;
 
 #ifdef N3DS
     u32 kDown = hidKeysDown();
-    const auto topLayout = gameplay_state_helpers::compactTopScreenLayout();
-    const auto bottomLayout = gameplay_state_helpers::compactBottomScreenLayout();
     
     if (m_phase == RoundPhase::Playing) {
         if (kDown & KEY_LEFT) {
@@ -217,20 +485,11 @@ void GameplayState::handleInput() {
         if (kDown & KEY_Y) {
             discardSelected();
         }
-        
-        // Touch Input for Bottom Screen
+
         if (kDown & KEY_TOUCH) {
             touchPosition touch;
             hidTouchRead(&touch);
-            const auto playButton = gameplay_state_helpers::bottomPlayButtonRect(bottomLayout);
-            const auto discardButton = gameplay_state_helpers::bottomDiscardButtonRect(bottomLayout);
-
-            if (gameplay_state_helpers::pointInRect(touch.px, touch.py, playButton)) {
-                playHand();
-            }
-            else if (gameplay_state_helpers::pointInRect(touch.px, touch.py, discardButton)) {
-                discardSelected();
-            }
+            handleHudAction(resolveGameplayHudAction(touch.px, touch.py));
         }
     }
     else if (m_phase == RoundPhase::RoundWon) {
@@ -249,14 +508,14 @@ void GameplayState::handleInput() {
 #else
     const Uint8* keys = SDL_GetKeyboardState(nullptr);
     const auto topLayout = gameplay_state_helpers::compactTopScreenLayout();
-    const auto bottomLayout = gameplay_state_helpers::compactBottomScreenLayout();
     
-    static int leftCD = 0, rightCD = 0, selectCD = 0, playCD = 0, discardCD = 0, confirmCD = 0;
+    static int leftCD = 0, rightCD = 0, selectCD = 0, playCD = 0, discardCD = 0, sortCD = 0, confirmCD = 0;
     if (leftCD > 0) leftCD--;
     if (rightCD > 0) rightCD--;
     if (selectCD > 0) selectCD--;
     if (playCD > 0) playCD--;
     if (discardCD > 0) discardCD--;
+    if (sortCD > 0) sortCD--;
     if (confirmCD > 0) confirmCD--;
 
     if (m_phase == RoundPhase::Playing) {
@@ -280,16 +539,18 @@ void GameplayState::handleInput() {
             discardSelected();
             discardCD = 20;
         }
-        
-        // Mouse Input for Bottom Screen
+        if (keys[SDL_SCANCODE_S] && sortCD == 0) {
+            toggleSortMode();
+            sortCD = 20;
+        }
+
         int mx, my;
         uint32_t mouseState = SDL_GetMouseState(&mx, &my);
         static bool mousePressed = false;
         if (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) {
             if (!mousePressed) {
                 mousePressed = true;
-                
-                // Top Screen offset is baseX = 0 (x < 400). Cards rendered at kGameplayHandCenterX, kGameplayHandY.
+
                 if (mx < 400) {
                     int numCards = static_cast<int>(m_hand.size());
                     const auto hitLayout = CardRenderer::gameplayHandLayout();
@@ -300,15 +561,7 @@ void GameplayState::handleInput() {
                         m_hand.toggleSelect(m_cursorIndex);
                     }
                 }
-                const auto playButton = gameplay_state_helpers::bottomPlayButtonRect(bottomLayout, kBottomScreenBaseXDesktop);
-                const auto discardButton = gameplay_state_helpers::bottomDiscardButtonRect(bottomLayout, kBottomScreenBaseXDesktop);
-
-                if (gameplay_state_helpers::pointInRect(mx, my, playButton)) {
-                    playHand();
-                }
-                else if (gameplay_state_helpers::pointInRect(mx, my, discardButton)) {
-                    discardSelected();
-                }
+                handleHudAction(resolveGameplayHudAction(mx - kBottomScreenBaseXDesktop, my));
             }
         } else {
             mousePressed = false;
@@ -484,68 +737,71 @@ void GameplayState::renderBottomScreen(Application* app, ScreenRenderer& r) {
     (void)app;
 
     if (m_phase == RoundPhase::Scoring && m_scorer) {
-        const auto bottomLayout = gameplay_state_helpers::compactBottomScreenLayout();
+        const auto bottomLayout = compactBottomScreenLayout();
+        const int selectedCount = static_cast<int>(m_hand.getSelected().size());
 
-        r.drawText("SCORE", bottomLayout.scoreHeaderX, bottomLayout.scoreHeaderY, 0.45f, 200, 200, 220);
-        r.drawText(std::to_string(m_scorer->displayRoundScore()),
-                   bottomLayout.scoreValueX, bottomLayout.scoreValueY, 0.55f, 255, 255, 255);
-        r.drawText("/ " + std::to_string(m_runState->roundTarget),
-                   bottomLayout.scoreTargetX, bottomLayout.scoreTargetY, 0.4f, 180, 180, 200);
-
-        r.fillRect(bottomLayout.progressBarX, bottomLayout.progressBarY,
-                   bottomLayout.progressBarW, bottomLayout.progressBarH, 40, 40, 60);
-        int fillW = m_runState->roundTarget > 0
-            ? (m_scorer->displayRoundScore() * 260) / m_runState->roundTarget : 0;
-        if (fillW > 260) fillW = 260;
-        if (fillW > 0) {
-            r.fillRect(bottomLayout.progressBarX + 10, bottomLayout.progressBarY + 3,
-                       fillW, 14, 80, 140, 255);
+        {
+            const auto money = gameplayHudMoneyColor();
+            const auto outline = gameplayHudOutlineColor();
+            drawHudCell(r, bottomLayout.blindCell, "BLIND", m_runState->currentBlindName(), 255, 255, 255);
+            drawHudCell(r, bottomLayout.roundScoreCell, "SCORE",
+                        std::to_string(m_scorer->displayRoundScore()), 255, 255, 255);
+            drawHudCell(r, bottomLayout.targetCell, "TARGET",
+                        std::to_string(m_runState->roundTarget), outline.r, outline.g, outline.b);
+            drawHudCell(r, bottomLayout.moneyCell, "MONEY",
+                        "$" + std::to_string(m_runState->money), money.r, money.g, money.b);
         }
 
-        r.drawText(handTypeName(m_scorer->handType()),
-                   bottomLayout.scoreHeaderX, bottomLayout.previewTypeY, 0.45f, 255, 255, 180);
-        r.drawText(std::to_string(m_scorer->displayChips()),
-                   bottomLayout.scoreHeaderX, 120, 0.5f, 100, 180, 255);
-        r.drawText("x", bottomLayout.scoreHeaderX + 50, 120, 0.45f, 255, 255, 255);
-        r.drawText(std::to_string(m_scorer->displayMult()),
-                   bottomLayout.scoreHeaderX + 70, 120, 0.5f, 255, 80, 80);
+        drawProgressTrack(r, bottomLayout.progressTrack,
+                          m_scorer->displayRoundScore(), m_runState->roundTarget);
+
+        // Scoring cluster: hand name + selected (Band 2, top row)
+        drawHudCell(r, bottomLayout.handTypeCell, "HAND",
+                    handTypeName(m_scorer->handType()), 255, 255, 255);
+        drawHudCell(r, bottomLayout.selectedCell, "SELECTED",
+                    std::to_string(selectedCount) + "/5", 191, 199, 213);
+        // Chips and mult as dominant Balatro-style accent blocks (Band 2, bottom row)
+        drawScoringValueCell(r, bottomLayout.chipsCell, "CHIPS",
+                             std::to_string(m_scorer->displayChips()),
+                             gameplayHudChipsColor());
+        drawScoringValueCell(r, bottomLayout.multCell, "MULT",
+                             "x" + std::to_string(m_scorer->displayMult()),
+                             gameplayHudMultColor());
+
+        {
+            const auto chips = gameplayHudChipsColor();
+            const auto mult = gameplayHudMultColor();
+            const auto money = gameplayHudMoneyColor();
+            drawHudCell(r, bottomLayout.handsCell, "HANDS",
+                        std::to_string(m_runState->handsRemaining), chips.r, chips.g, chips.b);
+            drawHudCell(r, bottomLayout.discardsCell, "DISCARD",
+                        std::to_string(m_runState->discardsRemaining), mult.r, mult.g, mult.b);
+            drawHudCell(r, bottomLayout.anteCell, "ANTE",
+                        std::to_string(m_runState->ante), money.r, money.g, money.b);
+            drawHudCell(r, bottomLayout.roundCell, "ROUND",
+                        std::to_string(blindStageRoundNumber(m_runState->blindStage)), 255, 255, 255);
+        }
+
+        const GameplayRect playButton = gameplayPlayButtonRect();
+        const GameplayRect discardButton = gameplayDiscardButtonRect();
+        const GameplayRect sortButton = gameplaySortButtonRect();
+
+        drawPrimaryAction(r, playButton, GameplayHudAction::Play, "Play", false);
+        drawPrimaryAction(r, discardButton, GameplayHudAction::Discard, "Discard", false);
+        drawSortUtility(r, sortButton, gameplaySortModeLabel(m_sortMode), false);
 
         if (m_runState->isBossBlind() && m_runState->currentBossModifier != BossBlindModifier::None) {
             r.drawText(RunState::bossModifierDescription(m_runState->currentBossModifier, m_runState->currentBlockedSuit),
-                       bottomLayout.scoreHeaderX, bottomLayout.bossDescriptionY, 0.31f, 220, 220, 220);
+                       kHudOuterX, bottomLayout.bossDescriptionY, 0.28f, 220, 220, 220);
         }
     }
     else if (m_phase == RoundPhase::Playing) {
-        const auto bottomLayout = gameplay_state_helpers::compactBottomScreenLayout();
-
-        // ── Score section ──
-        r.drawText("SCORE", bottomLayout.scoreHeaderX, bottomLayout.scoreHeaderY, 0.45f, 200, 200, 220);
-        r.drawText(std::to_string(m_runState->roundScore), bottomLayout.scoreValueX, bottomLayout.scoreValueY, 0.55f, 255, 255, 255);
-        r.drawText("/ " + std::to_string(m_runState->roundTarget), bottomLayout.scoreTargetX, bottomLayout.scoreTargetY, 0.4f, 180, 180, 200);
-
-        // ── Score progress bar ──
-        r.fillRect(bottomLayout.progressBarX, bottomLayout.progressBarY,
-                   bottomLayout.progressBarW, bottomLayout.progressBarH, 40, 40, 60);
-        int fillW = m_runState->roundTarget > 0 ? (m_runState->roundScore * 260) / m_runState->roundTarget : 0;
-        if (fillW > 260) fillW = 260;
-        if (fillW > 0) {
-            const bool won = m_runState->isRoundWon();
-            r.fillRect(bottomLayout.progressBarX + 10, bottomLayout.progressBarY + 3,
-                       fillW, 14,
-                       won ? 80 : 80, won ? 220 : 140, won ? 80 : 255);
-        }
-
-        // ── Status and hand preview ──
+        const auto bottomLayout = compactBottomScreenLayout();
         auto selected = m_hand.getSelected();
         const int numSelected = static_cast<int>(selected.size());
-
-        r.drawText(gameplay_state_helpers::compactStatusLine(
-                       m_runState->handsRemaining,
-                       m_runState->discardsRemaining,
-                       m_runState->roundDeck().remaining()),
-                   bottomLayout.scoreHeaderX, bottomLayout.statusRowY, 0.34f, 200, 200, 220);
-        r.drawText("Selected: " + std::to_string(numSelected) + "/5",
-                   bottomLayout.scoreHeaderX, bottomLayout.previewLabelY, 0.4f, 200, 200, 220);
+        std::string handTypeValue = "No hand";
+        std::string chipsValue = "0";
+        std::string multValue = "x0";
 
         if (numSelected >= 1 && numSelected <= 5) {
             HandResult preview = HandEvaluator::evaluate(
@@ -554,26 +810,63 @@ void GameplayState::renderBottomScreen(Application* app, ScreenRenderer& r) {
                 m_runState->currentBossModifier,
                 m_runState->currentBlockedSuit,
                 m_runState.get());
-            r.drawText(handTypeName(preview.detectedHand),
-                       bottomLayout.scoreHeaderX, bottomLayout.previewTypeY, 0.45f, 255, 255, 180);
-            r.drawText(formatScoreLine(preview.finalChips, preview.finalMult, preview.finalScore, preview.scoreEquationExact),
-                       bottomLayout.scoreHeaderX, bottomLayout.previewScoreY, 0.4f, 200, 200, 255);
+            handTypeValue = handTypeName(preview.detectedHand);
+            chipsValue = std::to_string(preview.finalChips);
+            multValue = "x" + std::to_string(preview.finalMult);
+        }
+
+        {
+            const auto money = gameplayHudMoneyColor();
+            const auto outline = gameplayHudOutlineColor();
+            drawHudCell(r, bottomLayout.blindCell, "BLIND", m_runState->currentBlindName(), 255, 255, 255);
+            drawHudCell(r, bottomLayout.roundScoreCell, "SCORE",
+                        std::to_string(m_runState->roundScore), 255, 255, 255);
+            drawHudCell(r, bottomLayout.targetCell, "TARGET",
+                        std::to_string(m_runState->roundTarget), outline.r, outline.g, outline.b);
+            drawHudCell(r, bottomLayout.moneyCell, "MONEY",
+                        "$" + std::to_string(m_runState->money), money.r, money.g, money.b);
+        }
+
+        drawProgressTrack(r, bottomLayout.progressTrack,
+                          m_runState->roundScore, m_runState->roundTarget);
+
+        // Scoring cluster: hand name + selected (Band 2, top row)
+        drawHudCell(r, bottomLayout.handTypeCell, "HAND",
+                    handTypeValue, 255, 255, 255);
+        drawHudCell(r, bottomLayout.selectedCell, "SELECTED",
+                    std::to_string(numSelected) + "/5", 191, 199, 213);
+        // Chips and mult as dominant Balatro-style accent blocks (Band 2, bottom row)
+        drawScoringValueCell(r, bottomLayout.chipsCell, "CHIPS",
+                             chipsValue, gameplayHudChipsColor());
+        drawScoringValueCell(r, bottomLayout.multCell, "MULT",
+                             multValue, gameplayHudMultColor());
+
+        {
+            const auto chips = gameplayHudChipsColor();
+            const auto mult = gameplayHudMultColor();
+            const auto money = gameplayHudMoneyColor();
+            drawHudCell(r, bottomLayout.handsCell, "HANDS",
+                        std::to_string(m_runState->handsRemaining), chips.r, chips.g, chips.b);
+            drawHudCell(r, bottomLayout.discardsCell, "DISCARD",
+                        std::to_string(m_runState->discardsRemaining), mult.r, mult.g, mult.b);
+            drawHudCell(r, bottomLayout.anteCell, "ANTE",
+                        std::to_string(m_runState->ante), money.r, money.g, money.b);
+            drawHudCell(r, bottomLayout.roundCell, "ROUND",
+                        std::to_string(blindStageRoundNumber(m_runState->blindStage)), 255, 255, 255);
         }
 
         if (m_runState->isBossBlind() && m_runState->currentBossModifier != BossBlindModifier::None) {
             r.drawText(RunState::bossModifierDescription(m_runState->currentBossModifier, m_runState->currentBlockedSuit),
-                       bottomLayout.scoreHeaderX, bottomLayout.bossDescriptionY, 0.31f, 220, 220, 220);
+                       kHudOuterX, bottomLayout.bossDescriptionY, 0.28f, 220, 220, 220);
         }
 
-        // ── Play / Discard buttons ──
-        r.fillRect(bottomLayout.buttonX, bottomLayout.buttonY, bottomLayout.buttonW, bottomLayout.buttonH, 80, 200, 80);
-        r.fillRect(bottomLayout.buttonX, bottomLayout.buttonY, bottomLayout.buttonW, 2, 120, 240, 120);
-        r.drawText("Play Hand", bottomLayout.buttonX + 15, bottomLayout.buttonY + 15, 0.5f, 0, 0, 0);
+        const GameplayRect playButton = gameplayPlayButtonRect();
+        const GameplayRect discardButton = gameplayDiscardButtonRect();
+        const GameplayRect sortButton = gameplaySortButtonRect();
 
-        const int discardX = bottomLayout.buttonX + bottomLayout.buttonW + bottomLayout.buttonGap;
-        r.fillRect(discardX, bottomLayout.buttonY, bottomLayout.buttonW, bottomLayout.buttonH, 200, 100, 40);
-        r.fillRect(discardX, bottomLayout.buttonY, bottomLayout.buttonW, 2, 240, 140, 80);
-        r.drawText("Discard", discardX + 25, bottomLayout.buttonY + 15, 0.5f, 0, 0, 0);
+        drawPrimaryAction(r, playButton, GameplayHudAction::Play, "Play", true);
+        drawPrimaryAction(r, discardButton, GameplayHudAction::Discard, "Discard", true);
+        drawSortUtility(r, sortButton, gameplaySortModeLabel(m_sortMode), true);
     }
     else {
         // Non-playing phases: show ante info on bottom screen
