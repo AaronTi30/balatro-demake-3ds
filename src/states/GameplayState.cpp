@@ -51,20 +51,20 @@ struct CompactBottomScreenLayout {
 
 CompactBottomScreenLayout compactBottomScreenLayout() {
     return {
-        {12, 8, 106, 26},
-        {124, 8, 58, 26},
-        {188, 8, 66, 26},
-        {260, 8, 48, 26},
-        {12, 38, 296, 6},
-        {12, 52, 72, 24},
-        {90, 52, 218, 24},
-        {12, 82, 144, 30},
-        {164, 82, 144, 30},
-        {12, 120, 68, 24},
-        {88, 120, 68, 24},
-        {164, 120, 68, 24},
-        {240, 120, 68, 24},
-        152
+        {12, 4, 106, 34},   // blindCell
+        {124, 4, 58, 34},   // roundScoreCell
+        {188, 4, 66, 34},   // targetCell
+        {260, 4, 48, 34},   // moneyCell
+        {12, 42, 296, 6},   // progressTrack
+        {12, 52, 72, 34},   // selectedCell
+        {90, 52, 218, 34},  // handTypeCell
+        {12, 90, 144, 36},  // chipsCell
+        {164, 90, 144, 36}, // multCell
+        {12, 130, 68, 34},  // handsCell
+        {88, 130, 68, 34},  // discardsCell
+        {164, 130, 68, 34}, // anteCell
+        {240, 130, 68, 34}, // roundCell
+        168                  // bossDescriptionY
     };
 }
 
@@ -100,22 +100,8 @@ int blindStageRoundNumber(BlindStage stage) {
 }
 
 float hudValueScale(const std::string& value, int width) {
-    if (width <= 58) {
-        return value.size() > 2 ? 0.30f : 0.42f;
-    }
-    if (width <= 72) {
-        return value.size() > 5 ? 0.28f : 0.40f;
-    }
-    if (width <= 110) {
-        return value.size() > 10 ? 0.24f : 0.34f;
-    }
-    if (value.size() > 16) {
-        return 0.24f;
-    }
-    if (value.size() > 10) {
-        return 0.28f;
-    }
-    return 0.34f;
+    (void)width;
+    return value.size() > 8 ? 0.45f : 0.50f;
 }
 
 void drawHudCell(ScreenRenderer& r,
@@ -130,19 +116,17 @@ void drawHudCell(ScreenRenderer& r,
     const GameplayHudColor outline = gameplayHudOutlineColor();
     // Outer dark shell
     r.fillRect(rect.x, rect.y, rect.w, rect.h, shell.r, shell.g, shell.b);
-    if (rect.h >= 22) {
-        // Taller cells: inset value region below a label strip
-        const int insetTop = rect.y + (rect.h >= 24 ? 11 : 9);
+    if (rect.h >= 28) {
+        // Taller cells: label strip + inset value region
+        const int insetTop = rect.y + 17;
         const int insetH = rect.y + rect.h - insetTop - 1;
         if (insetH > 0) {
             r.fillRect(rect.x + 1, insetTop, rect.w - 2, insetH, inset.r, inset.g, inset.b);
         }
         r.drawRectOutline(rect.x, rect.y, rect.w, rect.h, outline.r, outline.g, outline.b);
-        r.drawText(label, rect.x + 4, rect.y + 2, 0.21f, outline.r, outline.g, outline.b);
+        r.drawText(label, rect.x + 4, rect.y + 2, 0.45f, outline.r, outline.g, outline.b);
         r.drawText(value, rect.x + 4, insetTop + 1, hudValueScale(value, rect.w), valueR, valueG, valueB);
     } else {
-        // Short cells (20px): fontSmall is 10px — two stacked lines don't fit.
-        // Use flat fill with the value centered; color carries the identification.
         r.drawRectOutline(rect.x, rect.y, rect.w, rect.h, outline.r, outline.g, outline.b);
         r.drawText(value, rect.x + 4, rect.y + 5, hudValueScale(value, rect.w), valueR, valueG, valueB);
     }
@@ -212,8 +196,8 @@ void drawScoringValueCell(ScreenRenderer& r,
     // Dark shell outline keeps the block from bleeding visually
     r.drawRectOutline(rect.x, rect.y, rect.w, rect.h, shell.r, shell.g, shell.b);
     // White label and value so they read clearly on the saturated background
-    r.drawText(label, rect.x + 4, rect.y + 2, 0.21f, 255, 255, 255);
-    r.drawText(value, rect.x + 4, rect.y + 12, hudValueScale(value, rect.w), 255, 255, 255);
+    r.drawText(label, rect.x + 4, rect.y + 2, 0.45f, 255, 255, 255);
+    r.drawText(value, rect.x + 4, rect.y + 17, 0.55f, 255, 255, 255);
 }
 
 // Balatro-style sort utility widget: dark shell + orange accent label + integrated mode text.
